@@ -42,7 +42,7 @@ The workflow of PPTEval is shown below:
 
 ![PPTEval Workflow](resource/fig3.jpg)
 
-## Case Study📈
+## Case Study💡
 
 - #### [Iphone 16 Pro](https://www.apple.com/iphone-16-pro/)
 
