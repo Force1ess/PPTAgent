@@ -39,8 +39,9 @@ PPTEval evaluates presentations across three dimensions:
 - **Coherence**: Ensures the logical flow of ideas.
 
 The workflow of PPTEval is shown below:
-
-![PPTEval Workflow](resource/fig3.jpg)
+<p align="center">
+<img src="resource/fig3.jpg" alt="PPTEval Workflow" style="width:70%;"/>
+</p>
 
 ## Case Study💡
 
