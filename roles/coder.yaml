@@ -76,5 +76,5 @@ jinja_args:
     - api_docs
     - edit_target
     - command_list
-use_model: code
+use_model: language
 return_json: false

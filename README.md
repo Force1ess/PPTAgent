@@ -3,47 +3,23 @@
 <p align="center">
   📄 <a href="https://arxiv.org/abs/2501.03936" target="_blank">Paper</a> &nbsp; | &nbsp;
   🤗 <a href="https://huggingface.co/datasets/Forceless/Zenodo10K" target="_blank">Dataset</a> &nbsp; | &nbsp;
-   📰 <a href="#citation" target="_blank">Citation</a>
+  📝 <a href="./DOC.md" target="_blank">Documentation</a> &nbsp; | &nbsp;
+  🙏 <a href="#citation-" target="_blank">Citation</a>
 </p>
 
 We present **PPTAgent**, an innovative system that automatically generating presentations from documents. Drawing inspiration from human presentation creation methods, our system employs a two-step process to ensure excellence in content quality, visual design, and structural coherence. Additionally, we introduce **PPTEval**, a comprehensive evaluation framework that assesses presentations across multiple dimensions.
 
-## Demo Video🎥
-
-Watch the demo video to see PPTAgent in action:
+## Demo Video 🎥
 
 https://github.com/user-attachments/assets/c3935a98-4d2b-4c46-9b36-e7c598d14863
 
-## Distinctive Features✨
+## Distinctive Features ✨
 
 - **Dynamic Content Generation**: Creates slides with seamlessly integrated text and images
 - **Smart Reference Learning**: Leverages existing presentations without requiring manual annotation
 - **Comprehensive Quality Assessment**: Evaluates presentations through multiple quality metrics
 
-## PPTAgent🤖
-
-PPTAgent follows a two-phase approach:
-1. **Analysis Phase**: Extracts and learns from patterns in reference presentations
-2. **Generation Phase**: Develops structured outlines and produces visually cohesive slides
-
-Our system's workflow is illustrated below:
-
-
-![PPTAgent Workflow](resource/fig2.jpg)
-
-## PPTEval⚖️
-
-PPTEval evaluates presentations across three dimensions:
-- **Content**: Check the accuracy and relevance of the slides.
-- **Design**: Assesses the visual appeal and consistency.
-- **Coherence**: Ensures the logical flow of ideas.
-
-The workflow of PPTEval is shown below:
-<p align="center">
-<img src="resource/fig3.jpg" alt="PPTEval Workflow" style="width:70%;"/>
-</p>
-
-## Case Study💡
+## Case Study 💡
 
 - #### [Iphone 16 Pro](https://www.apple.com/iphone-16-pro/)
 
@@ -91,37 +67,34 @@ The workflow of PPTEval is shown below:
 
 </div>
 
-## Reproduce the evaluation🧪
+## PPTAgent 🤖
 
-1. Requirements
-```sh
-pip install -r requirements.txt
-sudo apt install libreoffice
-# brew install libreoffice
-sudo apt install poppler-utils
-# conda install -c conda-forge poppler
-```
+PPTAgent follows a two-phase approach:
+1. **Analysis Phase**: Extracts and learns from patterns in reference presentations
+2. **Generation Phase**: Develops structured outlines and produces visually cohesive slides
 
-2. Reproduce the pptxs according the saved history files.
-```sh
-python rebuild.py rebuild_all --out_filename "final.pptx"
-```
+Our system's workflow is illustrated below:
 
-3. Parse the pptxs to images to prepare for evaluation.
-```sh
-python evals.py pptx2images
-```
 
-4. Evaluate the pptxs.
-```sh
-python evals.py eval_experiment -s 0 -j 0
-```
+![PPTAgent Workflow](resource/fig2.jpg)
 
-## Citation🙏
+## PPTEval ⚖️
+
+PPTEval evaluates presentations across three dimensions:
+- **Content**: Check the accuracy and relevance of the slides.
+- **Design**: Assesses the visual appeal and consistency.
+- **Coherence**: Ensures the logical flow of ideas.
+
+The workflow of PPTEval is shown below:
+<p align="center">
+<img src="resource/fig3.jpg" alt="PPTEval Workflow" style="width:70%;"/>
+</p>
+
+## Citation 🙏
 
 If you find this project helpful, please use the following to cite it:
 ```bibtex
-@misc{zheng2025pptagentgeneratingevaluatingpresentations,
+@article{zheng2025pptagentgeneratingevaluatingpresentations,
       title={PPTAgent: Generating and Evaluating Presentations Beyond Text-to-Slides},
       author={Hao Zheng and Xinyan Guan and Hao Kong and Jia Zheng and Hongyu Lin and Yaojie Lu and Ben He and Xianpei Han and Le Sun},
       year={2025},
@@ -131,3 +104,5 @@ If you find this project helpful, please use the following to cite it:
       url={https://arxiv.org/abs/2501.03936},
 }
 ```
+
+[![Star History Chart](https://api.star-history.com/svg?repos=icip-cas/PPTAgent&type=Date)](https://star-history.com/#icip-cas/PPTAgent&Date)

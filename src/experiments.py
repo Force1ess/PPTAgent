@@ -24,11 +24,11 @@ from preprocess import process_filetype
 from presentation import Presentation
 from utils import Config, older_than, pbasename, pexists, pjoin, ppt_to_images
 
-# language_model code_model vision_model
+# language_model vision_model
 EVAL_MODELS = [
-    (llms.qwen2_5, llms.qwen2_5, llms.qwen_vl),
-    (llms.gpt4o, llms.gpt4o, llms.gpt4o),
-    (llms.qwen_vl, llms.qwen_vl, llms.qwen_vl),
+    (llms.qwen2_5, llms.qwen_vl),
+    (llms.gpt4o, llms.gpt4o),
+    (llms.qwen_vl, llms.qwen_vl),
 ]
 
 # ablation
@@ -57,14 +57,13 @@ def get_setting(setting_id: int, ablation_id: int):
     assert (
         ablation_id == -1 or setting_id == 0
     ), "ablation_id == -1 only when setting_id != 0"
-    language_model, code_model, vision_model = EVAL_MODELS[setting_id]
+    language_model, vision_model = EVAL_MODELS[setting_id]
     agent_class = AGENT_CLASS.get(ablation_id)
     llms.language_model = language_model
-    llms.code_model = code_model
     llms.vision_model = vision_model
     if ablation_id == -1:
         setting_name = "PPTCrew-" + llms.get_simple_modelname(
-            [language_model, code_model, vision_model]
+            [language_model, vision_model]
         )
     elif ablation_id == 6:
         setting_name = "PPTCrew_retry_5"
