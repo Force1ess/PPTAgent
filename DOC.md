@@ -61,8 +61,8 @@ sudo apt install poppler-utils  # Linux
 ```
 
 ### Usage 🖥️
-
-> **Warning**: Initialize the language and vision models in `llms.py` and set `PYTHONPATH=PPTAgent/src:$PYTHONPATH`.
+> [!IMPORTANT]  
+> You should initialize the language and vision models in `llms.py` and set `PYTHONPATH=PPTAgent/src:$PYTHONPATH`.
 
 Example initialization:
 ```python
