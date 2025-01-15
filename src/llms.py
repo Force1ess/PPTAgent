@@ -23,6 +23,15 @@ ENCODING = tiktoken.encoding_for_model("gpt-4o")
 
 
 def run_async(coroutine):
+    """
+    Run an asynchronous coroutine in a non-async environment.
+
+    Args:
+        coroutine: The coroutine to run.
+
+    Returns:
+        The result of the coroutine.
+    """
     try:
         loop = asyncio.get_event_loop()
     except RuntimeError:
@@ -33,6 +42,9 @@ def run_async(coroutine):
 
 
 def calc_image_tokens(images: list[str]):
+    """
+    Calculate the number of tokens for a list of images.
+    """
     tokens = 0
     for image in images:
         with open(image, "rb") as f:
@@ -51,6 +63,10 @@ def calc_image_tokens(images: list[str]):
 
 
 class LLM:
+    """
+    A wrapper class to interact with a language model.
+    """
+
     def __init__(
         self,
         model: str = "gpt-4o-2024-08-06",
@@ -58,6 +74,15 @@ class LLM:
         use_openai: bool = True,
         use_batch: bool = False,
     ) -> None:
+        """
+        Initialize the LLM.
+
+        Args:
+            model (str): The model name.
+            api_base (str): The base URL for the API.
+            use_openai (bool): Whether to use OpenAI.
+            use_batch (bool): Whether to use OpenAI's Batch API, which is single thread only.
+        """
         if use_openai and "OPENAI_API_KEY" in os.environ:
             self.client = OpenAI(base_url=api_base)
         if use_batch and "OPENAI_API_KEY" in os.environ:
@@ -81,6 +106,21 @@ class LLM:
         return_json: bool = False,
         return_message: bool = False,
     ) -> str | dict | list:
+        """
+        Call the language model with a prompt and optional images.
+
+        Args:
+            content (str): The prompt content.
+            images (list[str]): A list of image file paths.
+            system_message (str): The system message.
+            history (list): The conversation history.
+            delay_batch (bool): Whether to delay return of response.
+            return_json (bool): Whether to return the response as JSON.
+            return_message (bool): Whether to return the message.
+
+        Returns:
+            str | dict | list: The response from the model.
+        """
         if content.startswith("You are"):
             system_message, content = content.split("\n", 1)
         if history is None:
@@ -145,6 +185,9 @@ class LLM:
         images: list[str] = None,
         system_message: str = None,
     ):
+        """
+        Message formatter for OpenAI server call.
+        """
         if system_message is None:
             system_message = "You are a helpful assistant"
         system = [
@@ -170,6 +213,9 @@ class LLM:
         return system, message
 
     def get_batch_result(self):
+        """
+        Get responses from delayed batch calls.
+        """
         results = run_async(self.oai_batch.run())
         return [
             r["choices"][0]["message"]["content"]
@@ -182,6 +228,10 @@ class LLM:
 
 @dataclass
 class Turn:
+    """
+    A class to represent a turn in a conversation.
+    """
+
     id: int
     prompt: str
     response: str
@@ -195,6 +245,9 @@ class Turn:
         return {k: v for k, v in asdict(self).items() if k != "embedding"}
 
     def calc_token(self):
+        """
+        Calculate the number of tokens for the turn.
+        """
         if self.images is not None:
             self.input_tokens += calc_image_tokens(self.images)
         self.input_tokens += len(ENCODING.encode(self.prompt))
@@ -205,6 +258,10 @@ class Turn:
 
 
 class Role:
+    """
+    An agent, defined by its instruction template and model.
+    """
+
     def __init__(
         self,
         name: str,
@@ -214,6 +271,17 @@ class Role:
         config: dict = None,
         text_model: BGEM3FlagModel = None,
     ):
+        """
+        Initialize the Agent.
+
+        Args:
+            name (str): The name of the role.
+            env (Environment): The Jinja2 environment.
+            record_cost (bool): Whether to record the token cost.
+            llm (LLM): The language model.
+            config (dict): The configuration.
+            text_model (BGEM3FlagModel): The text model.
+        """
         self.name = name
         if config is None:
             with open(f"roles/{name}.yaml", "r") as f:
@@ -243,6 +311,9 @@ class Role:
         self.history: list[Turn] = []
 
     def calc_cost(self, turns: list[Turn]):
+        """
+        Calculate the cost of a list of turns.
+        """
         for turn in turns:
             self.input_tokens += turn.input_tokens
             self.output_tokens += turn.output_tokens
@@ -250,6 +321,9 @@ class Role:
         self.output_tokens += 3
 
     def get_history(self, similar: int, recent: int, prompt: str):
+        """
+        Get the conversation history.
+        """
         history = self.history[-recent:] if recent > 0 else []
         if similar > 0:
             embedding = get_text_embedding(prompt, self.text_model)
@@ -263,6 +337,9 @@ class Role:
         return history
 
     def save_history(self, output_dir: str):
+        """
+        Save the conversation history to a file.
+        """
         history_file = pjoin(output_dir, f"{self.name}.jsonl")
         if pexists(history_file) and len(self.history) == 0:
             return
@@ -277,6 +354,9 @@ class Role:
                 writer.write(turn.to_dict())
 
     def retry(self, feedback: str, traceback: str, error_idx: int):
+        """
+        Retry a failed turn with feedback and traceback.
+        """
         assert error_idx > 0, "error_idx must be greater than 0"
         prompt = self.retry_template.render(feedback=feedback, traceback=traceback)
         history = []
@@ -305,6 +385,18 @@ class Role:
         similar: int = 0,
         **jinja_args,
     ):
+        """
+        Call the agent with prompt arguments.
+
+        Args:
+            images (list[str]): A list of image file paths.
+            recent (int): The number of recent turns to include.
+            similar (int): The number of similar turns to include.
+            **jinja_args: Additional arguments for the Jinja2 template.
+
+        Returns:
+            The response from the role.
+        """
         if isinstance(images, str):
             images = [images]
         assert self.prompt_args == set(jinja_args.keys()), "Invalid arguments"
@@ -333,6 +425,9 @@ class Role:
     def __post_process__(
         self, response: str, history: list[Turn], turn: Turn, similar: int = 0
     ):
+        """
+        Post-process the response from the agent.
+        """
         self.history.append(turn)
         if similar > 0:
             turn.embedding = get_text_embedding(turn.prompt, self.text_model)
@@ -345,6 +440,9 @@ class Role:
 
 
 def get_simple_modelname(llms: list[LLM]):
+    """
+    Get a abbreviation from a list of LLMs.
+    """
     if isinstance(llms, LLM):
         llms = [llms]
     return "+".join(re.search(r"^(.*?)-\d{2}", llm.model).group(1) for llm in llms)

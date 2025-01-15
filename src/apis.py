@@ -6,6 +6,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from enum import Enum
 from functools import partial
+from typing import Union
 
 import PIL
 from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
@@ -13,12 +14,16 @@ from pptx.oxml import parse_xml
 from pptx.shapes.base import BaseShape
 from pptx.util import Pt
 
-from presentation import Closure, Picture, SlidePage
+from presentation import Closure, Picture, ShapeElement, SlidePage
 from utils import runs_merge
 
 
 @dataclass
 class HistoryMark:
+    """
+    Mark the execution status of the API call, comment and a line of code.
+    """
+
     API_CALL_ERROR = "api_call_error"
     API_CALL_CORRECT = "api_call_correct"
     COMMENT_CORRECT = "comment_correct"
@@ -28,8 +33,17 @@ class HistoryMark:
 
 
 class CodeExecutor:
+    """
+    Execute code actions and manage API call history, and providing error feedback.
+    """
 
     def __init__(self, retry_times: int):
+        """
+        Initialize the CodeExecutor.
+
+        Args:
+            retry_times (int): The number of times to retry failed actions.
+        """
         self.api_history = []
         self.command_history = []
         self.code_history = []
@@ -37,7 +51,17 @@ class CodeExecutor:
         self.registered_functions = API_TYPES.all_funcs()
         self.function_regex = re.compile(r"^[a-z]+_[a-z_]+\(.+\)")
 
-    def get_apis_docs(self, funcs: list[callable], show_example: bool = True):
+    def get_apis_docs(self, funcs: list[callable], show_example: bool = True) -> str:
+        """
+        Get the documentation for a list of API functions.
+
+        Args:
+            funcs (list[callable]): A list of functions to document.
+            show_example (bool): Whether to show examples in the documentation.
+
+        Returns:
+            str: The formatted API documentation.
+        """
         api_doc = []
         for func in funcs:
             sig = inspect.signature(func)
@@ -63,7 +87,19 @@ class CodeExecutor:
 
     def execute_actions(
         self, actions: str, edit_slide: SlidePage, found_code: bool = False
-    ):
+    ) -> Union[tuple[str, str], None]:
+        """
+        Execute a series of actions on a slide.
+
+        Args:
+            actions (str): The actions to execute.
+            edit_slide (SlidePage): The slide to edit.
+            found_code (bool): Whether code was found in the actions.
+
+        Returns:
+            tuple: The API lines and traceback if an error occurs.
+            None: If no error occurs.
+        """
         api_calls = actions.strip().split("\n")
         self.api_history.append(
             [HistoryMark.API_CALL_ERROR, edit_slide.slide_idx, actions]
@@ -120,7 +156,20 @@ class CodeExecutor:
 
 
 # supporting functions
-def element_index(slide: SlidePage, element_id: int):
+def element_index(slide: SlidePage, element_id: int) -> ShapeElement:
+    """
+    Find the an element in a slide.
+
+    Args:
+        slide (SlidePage): The slide
+        element_id (int): The ID of the element.
+
+    Returns:
+        ShapeElement: The shape corresponding to the element ID.
+
+    Raises:
+        IndexError: If the element is not found.
+    """
     for shape in slide:
         if shape.shape_idx == element_id:
             return shape
@@ -128,22 +177,42 @@ def element_index(slide: SlidePage, element_id: int):
 
 
 def replace_para(paragraph_id: int, new_text: str, shape: BaseShape):
+    """
+    Replace the text of a paragraph in a shape.
+    """
     para = shape.text_frame.paragraphs[paragraph_id]
     runs_merge(para).text = new_text
 
 
 def clone_para(paragraph_id: int, shape: BaseShape):
+    """
+    Clone a paragraph in a shape.
+    """
     para = shape.text_frame.paragraphs[paragraph_id]
     shape.text_frame.paragraphs[-1]._element.addnext(parse_xml(para._element.xml))
 
 
 def del_para(paragraph_id: int, shape: BaseShape):
+    """
+    Delete a paragraph from a shape.
+    """
     para = shape.text_frame.paragraphs[paragraph_id]
     para._element.getparent().remove(para._element)
 
 
 # api functions
 def del_paragraph(slide: SlidePage, div_id: int, paragraph_id: int):
+    """
+    Delete a paragraph from a slide.
+
+    Args:
+        slide (SlidePage): The slide containing the paragraph.
+        div_id (int): The ID of the division containing the paragraph.
+        paragraph_id (int): The ID of the paragraph to delete.
+
+    Raises:
+        IndexError: If the paragraph is not found.
+    """
     shape = element_index(slide, div_id)
     assert (
         shape.text_frame.is_textframe
@@ -163,12 +232,31 @@ def del_paragraph(slide: SlidePage, div_id: int, paragraph_id: int):
 
 
 def del_image(slide: SlidePage, figure_id: int):
+    """
+    Delete an image from a slide.
+
+    Args:
+        slide (SlidePage): The slide containing the image.
+        figure_id (int): The ID of the image to delete.
+    """
     shape = element_index(slide, figure_id)
     assert isinstance(shape, Picture), "The element is not a Picture."
     slide.shapes.remove(shape)
 
 
 def replace_paragraph(slide: SlidePage, div_id: int, paragraph_id: int, text: str):
+    """
+    Replace the text of a paragraph in a slide.
+
+    Args:
+        slide (SlidePage): The slide containing the paragraph.
+        div_id (int): The ID of the division containing the paragraph.
+        paragraph_id (int): The ID of the paragraph to replace.
+        text (str): The new text to replace with.
+
+    Raises:
+        IndexError: If the paragraph is not found.
+    """
     shape = element_index(slide, div_id)
     assert (
         shape.text_frame.is_textframe
@@ -193,6 +281,17 @@ def replace_paragraph(slide: SlidePage, div_id: int, paragraph_id: int, text: st
 
 
 def replace_image(slide: SlidePage, img_id: int, image_path: str):
+    """
+    Replace an image in a slide.
+
+    Args:
+        slide (SlidePage): The slide containing the image.
+        img_id (int): The ID of the image to replace.
+        image_path (str): The path to the new image.
+
+    Raises:
+        ValueError: If the image path does not exist.
+    """
     if not os.path.exists(image_path):
         raise ValueError(
             f"The image {image_path} does not exist, consider use del_image if image_path in the given command is faked"
@@ -209,7 +308,19 @@ def replace_image(slide: SlidePage, img_id: int, image_path: str):
 
 
 def clone_paragraph(slide: SlidePage, div_id: int, paragraph_id: int):
-    # The cloned paragraph will have a paragraph_id one greater than the current maximum in the parent element.
+    """
+    Clone a paragraph in a slide.
+
+    Args:
+        slide (SlidePage): The slide containing the paragraph.
+        div_id (int): The ID of the division containing the paragraph.
+        paragraph_id (int): The ID of the paragraph to clone.
+
+    Raises:
+        IndexError: If the paragraph is not found.
+
+    Mention: the cloned paragraph will have a paragraph_id one greater than the current maximum in the parent element.
+    """
     shape = element_index(slide, div_id)
     assert (
         shape.text_frame.is_textframe

@@ -13,15 +13,30 @@ from PIL import Image
 from torchvision.transforms.functional import InterpolationMode
 from transformers import AutoFeatureExtractor, AutoModel
 
-from presentation import Presentation
+from presentation import Presentation, SlidePage
 from utils import is_image_path, pjoin
 
 device_count = torch.cuda.device_count()
 
 
 def prs_dedup(
-    presentation: Presentation, model, batchsize: int = 32, limit: float = 0.8
-):
+    presentation: Presentation,
+    model: BGEM3FlagModel,
+    batchsize: int = 32,
+    threshold: float = 0.8,
+) -> list[SlidePage]:
+    """
+    Deduplicate slides in a presentation based on text similarity.
+
+    Args:
+        presentation (Presentation): The presentation object containing slides.
+        model: The model used for generating text embeddings.
+        batchsize (int): The batch size for processing slides.
+        threshold (float): The similarity threshold for deduplication.
+
+    Returns:
+        list: A list of removed duplicate slides.
+    """
     text_embeddings = get_text_embedding(
         [i.to_text() for i in presentation.slides], model, batchsize
     )
@@ -30,14 +45,23 @@ def prs_dedup(
     duplicates = []
     while slide_idx < len(presentation):
         cur_embedding = text_embeddings[slide_idx]
-        if torch.cosine_similarity(pre_embedding, cur_embedding, -1) > limit:
+        if torch.cosine_similarity(pre_embedding, cur_embedding, -1) > threshold:
             duplicates.append(slide_idx - 1)
         slide_idx += 1
         pre_embedding = cur_embedding
     return [presentation.slides.pop(i) for i in reversed(duplicates)]
 
 
-def get_text_model(device: str = None):
+def get_text_model(device: str = None) -> BGEM3FlagModel:
+    """
+    Initialize and return a text model.
+
+    Args:
+        device (str): The device to run the model on.
+
+    Returns:
+        BGEM3FlagModel: The initialized text model.
+    """
     return BGEM3FlagModel(
         "BAAI/bge-m3",
         use_fp16=True,
@@ -46,6 +70,15 @@ def get_text_model(device: str = None):
 
 
 def get_image_model(device: str = None):
+    """
+    Initialize and return an image model and its feature extractor.
+
+    Args:
+        device (str): The device to run the model on.
+
+    Returns:
+        tuple: A tuple containing the feature extractor and the image model.
+    """
     model_base = "google/vit-base-patch16-224-in21k"
     return (
         AutoFeatureExtractor.from_pretrained(
@@ -65,7 +98,18 @@ def parse_pdf(
     pdf_path: str,
     output_path: str,
     model_lst: list,
-):
+) -> str:
+    """
+    Parse a PDF file and extract text and images.
+
+    Args:
+        pdf_path (str): The path to the PDF file.
+        output_path (str): The directory to save the extracted content.
+        model_lst (list): A list of models for processing the PDF.
+
+    Returns:
+        str: The full text extracted from the PDF.
+    """
     os.makedirs(output_path, exist_ok=True)
     config_parser = ConfigParser(
         {
@@ -91,7 +135,20 @@ def parse_pdf(
     return full_text
 
 
-def get_text_embedding(text: list[str], model, batchsize: int = 32):
+def get_text_embedding(
+    text: list[str], model: BGEM3FlagModel, batchsize: int = 32
+) -> list[torch.Tensor]:
+    """
+    Generate text embeddings for a list of text strings.
+
+    Args:
+        text (list[str]): A list of text strings.
+        model: The model used for generating embeddings.
+        batchsize (int): The batch size for processing text.
+
+    Returns:
+        list: A list of text embeddings.
+    """
     if isinstance(text, str):
         return torch.tensor(model.encode(text)["dense_vecs"]).to(model.device)
     result = []
@@ -104,7 +161,21 @@ def get_text_embedding(text: list[str], model, batchsize: int = 32):
     return result
 
 
-def get_image_embedding(image_dir: str, extractor, model, batchsize: int = 16):
+def get_image_embedding(
+    image_dir: str, extractor, model, batchsize: int = 16
+) -> dict[str, torch.Tensor]:
+    """
+    Generate image embeddings for images in a directory.
+
+    Args:
+        image_dir (str): The directory containing images.
+        extractor: The feature extractor for images.
+        model: The model used for generating embeddings.
+        batchsize (int): The batch size for processing images.
+
+    Returns:
+        dict: A dictionary mapping image filenames to their embeddings.
+    """
     transform = T.Compose(
         [
             T.Resize(int((256 / 224) * extractor.size["height"])),
@@ -127,7 +198,15 @@ def get_image_embedding(image_dir: str, extractor, model, batchsize: int = 16):
     return {image: embedding.flatten() for image, embedding in zip(images, embeddings)}
 
 
-def images_cosine_similarity(embeddings: list[torch.Tensor]):
+def images_cosine_similarity(embeddings: list[torch.Tensor]) -> torch.Tensor:
+    """
+    Calculate the cosine similarity matrix for a list of embeddings.
+    Args:
+        embeddings (list[torch.Tensor]): A list of image embeddings.
+
+    Returns:
+        torch.Tensor: A NxN similarity matrix.
+    """
     embeddings = [embedding for embedding in embeddings]
     sim_matrix = torch.zeros((len(embeddings), len(embeddings)))
     for i in range(len(embeddings)):
@@ -142,9 +221,19 @@ IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
 
 
-def average_distance(similarity, idx, cluster_idx):
+def average_distance(
+    similarity: torch.Tensor, idx: int, cluster_idx: list[int]
+) -> float:
     """
     Calculate the average distance between a point (idx) and a cluster (cluster_idx).
+
+    Args:
+        similarity (np.ndarray): The similarity matrix.
+        idx (int): The index of the point.
+        cluster_idx (list): The indices of the cluster.
+
+    Returns:
+        float: The average distance.
     """
     if idx in cluster_idx:
         return 0
@@ -155,6 +244,16 @@ def average_distance(similarity, idx, cluster_idx):
 
 
 def get_cluster(similarity: np.ndarray, sim_bound: float = 0.65):
+    """
+    Cluster points based on similarity.
+
+    Args:
+        similarity (np.ndarray): The similarity matrix.
+        sim_bound (float): The similarity threshold for clustering.
+
+    Returns:
+        list: A list of clusters.
+    """
     num_points = similarity.shape[0]
     clusters = []
     sim_copy = deepcopy(similarity)
@@ -191,89 +290,3 @@ def get_cluster(similarity: np.ndarray, sim_bound: float = 0.65):
             similarity[j, :] = 0
             similarity[:, j] = 0
     return clusters
-
-
-def internvl_build_transform(input_size):
-    MEAN, STD = IMAGENET_MEAN, IMAGENET_STD
-    transform = T.Compose(
-        [
-            T.Lambda(lambda img: img.convert("RGB") if img.mode != "RGB" else img),
-            T.Resize(
-                (input_size, input_size),
-                interpolation=InterpolationMode.BICUBIC,
-            ),
-            T.ToTensor(),
-            T.Normalize(mean=MEAN, std=STD),
-        ]
-    )
-    return transform
-
-
-def internvl_find_closest_aspect_ratio(
-    aspect_ratio, target_ratios, width, height, image_size
-):
-    best_ratio_diff = float("inf")
-    best_ratio = (1, 1)
-    area = width * height
-    for ratio in target_ratios:
-        target_aspect_ratio = ratio[0] / ratio[1]
-        ratio_diff = abs(aspect_ratio - target_aspect_ratio)
-        if ratio_diff < best_ratio_diff:
-            best_ratio_diff = ratio_diff
-            best_ratio = ratio
-        elif ratio_diff == best_ratio_diff:
-            if area > 0.5 * image_size * image_size * ratio[0] * ratio[1]:
-                best_ratio = ratio
-    return best_ratio
-
-
-def internvl_dynamic_preprocess(
-    image, min_num=1, max_num=6, image_size=448, use_thumbnail=False
-):
-    orig_width, orig_height = image.size
-    aspect_ratio = orig_width / orig_height
-
-    target_ratios = set(
-        (i, j)
-        for n in range(min_num, max_num + 1)
-        for i in range(1, n + 1)
-        for j in range(1, n + 1)
-        if i * j <= max_num and i * j >= min_num
-    )
-    target_ratios = sorted(target_ratios, key=lambda x: x[0] * x[1])
-
-    target_aspect_ratio = internvl_find_closest_aspect_ratio(
-        aspect_ratio, target_ratios, orig_width, orig_height, image_size
-    )
-
-    target_width = image_size * target_aspect_ratio[0]
-    target_height = image_size * target_aspect_ratio[1]
-    blocks = target_aspect_ratio[0] * target_aspect_ratio[1]
-
-    resized_img = image.resize((target_width, target_height))
-    processed_images = []
-    for i in range(blocks):
-        box = (
-            (i % (target_width // image_size)) * image_size,
-            (i // (target_width // image_size)) * image_size,
-            ((i % (target_width // image_size)) + 1) * image_size,
-            ((i // (target_width // image_size)) + 1) * image_size,
-        )
-        split_img = resized_img.crop(box)
-        processed_images.append(split_img)
-    assert len(processed_images) == blocks
-    if use_thumbnail and len(processed_images) != 1:
-        thumbnail_img = image.resize((image_size, image_size))
-        processed_images.append(thumbnail_img)
-    return target_aspect_ratio, processed_images
-
-
-def internvl_load_image(image_file, input_size=448, max_num=16):
-    image = Image.open(image_file).convert("RGB")
-    transform = internvl_build_transform(input_size=input_size)
-    target_aspect_ratio, images = internvl_dynamic_preprocess(
-        image, image_size=input_size, use_thumbnail=True, max_num=max_num
-    )
-    pixel_values = [transform(image) for image in images]
-    pixel_values = torch.stack(pixel_values)
-    return target_aspect_ratio, pixel_values

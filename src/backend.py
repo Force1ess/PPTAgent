@@ -417,7 +417,7 @@ def ppt_gen(task_id: str, rerun=False):
         # PPT Generation
         progress.run_stage(
             pptgen.PPTCrew(text_model, error_exit=False, retry_times=5)
-            .set_examplar(presentation, slide_induction)
+            .set_reference(presentation, slide_induction)
             .generate_pres,
             generation_config,
             images,
@@ -436,8 +436,6 @@ if __name__ == "__main__":
 
     import uvicorn
 
-    if len(sys.argv) == 1:
-        ppt_gen("2024-12-27|5215990c-9d9e-4f50-b7bc-d8633f072e6b", True)
     ip = (
         subprocess.check_output(
             "hostname -I | tr ' ' '\n' | grep '^124\\.'", shell=True

@@ -41,6 +41,10 @@ INDENT = "\t"
 # run: font, hyperlink, text
 @dataclass
 class StyleArg:
+    """
+    A class to represent style arguments for HTML conversion.
+    """
+
     paragraph_id: bool = True
     element_id: bool = True
     font_style: bool = True
@@ -56,6 +60,12 @@ class Closure:
     paragraph_id: int = -1
 
     def apply(self, shape: BaseShape):
+        """
+        Apply the closure to a shape.
+
+        Args:
+            shape (BaseShape): The shape to apply the closure to.
+        """
         self.closure(shape)
 
     def __gt__(self, other):
@@ -121,6 +131,15 @@ class TextFrame:
         )
 
     def to_html(self, style_args: StyleArg):
+        """
+        Convert the text frame to HTML.
+
+        Args:
+            style_args (StyleArg): The style arguments for HTML conversion.
+
+        Returns:
+            str: The HTML representation of the text frame.
+        """
         if not self.is_textframe:
             return ""
         repr_list = [
@@ -139,6 +158,15 @@ class TextFrame:
         return len(self.text)
 
     def to_pptc(self, father_idx: int) -> str:
+        """
+        Convert the text frame to PPTC format.
+
+        Args:
+            father_idx (int): The index of the parent shape.
+
+        Returns:
+            str: The PPTC representation of the text frame.
+        """
         if not self.is_textframe:
             return ""
         s = f"[Text id={father_idx}]"
@@ -185,6 +213,20 @@ class ShapeElement:
         slide_area: float,
         level: int = 0,
     ):
+        """
+        Create a ShapeElement from a BaseShape.
+
+        Args:
+            slide_idx (int): The index of the slide.
+            shape_idx (int): The index of the shape.
+            shape (BaseShape): The shape object.
+            config (Config): The configuration object.
+            slide_area (float): The area of the slide.
+            level (int): The indentation level.
+
+        Returns:
+            ShapeElement: The created ShapeElement.
+        """
         if shape_idx > 100 and isinstance(shape, PPTXGroupShape):
             raise ValueError(f"nested group shapes are not allowed")
         line = None
@@ -224,6 +266,15 @@ class ShapeElement:
         return obj
 
     def build(self, slide: PPTXSlide):
+        """
+        Build the shape element in a slide.
+
+        Args:
+            slide (PPTXSlide): The slide to build the shape in.
+
+        Returns:
+            The built shape.
+        """
         return slide.shapes._shape_factory(
             slide.shapes._spTree.insert_element_before(parse_xml(self.xml), "p:extLst")
         )
@@ -232,10 +283,25 @@ class ShapeElement:
         return f"{self.__class__.__name__}: shape {self.shape_idx} of slide {self.slide_idx}"
 
     def to_html(self, style_args: StyleArg) -> str:
+        """
+        Convert the shape element to HTML.
+
+        Args:
+            style_args (StyleArg): The style arguments for HTML conversion.
+
+        Returns:
+            str: The HTML representation of the shape element.
+        """
         return ""
 
     @property
     def closures(self):
+        """
+        Get the closures associated with the shape element.
+
+        Returns:
+            list: A list of closures.
+        """
         closures = []
         closures.extend(sorted(self._closures["clone"]))
         closures.extend(self._closures["replace"] + self._closures["style"])
@@ -280,27 +346,63 @@ class ShapeElement:
 
     @property
     def area(self):
+        """
+        Get the area of the shape element.
+
+        Returns:
+            float: The area in square points.
+        """
         return self.width * self.height
 
     @property
     def pptc_text_info(self):
+        """
+        Get the PPTC text information of the shape element.
+
+        Returns:
+            str: The PPTC text information.
+        """
         if isinstance(self, Picture):
             return self.caption
         return self.text_frame.to_pptc(self.shape_idx)
 
     @property
     def pptc_space_info(self):
+        """
+        Get the PPTC space information of the shape element.
+
+        Returns:
+            str: The PPTC space information.
+        """
         return f"Visual Positions: left={self.left}pt, top={self.top}pt\n"
 
     @property
     def pptc_size_info(self):
+        """
+        Get the PPTC size information of the shape element.
+
+        Returns:
+            str: The PPTC size information.
+        """
         return f"Size: height={self.height}pt, width={self.width}pt\n"
 
     @property
     def pptc_description(self):
+        """
+        Get the PPTC description of the shape element.
+
+        Returns:
+            str: The PPTC description.
+        """
         return f"[{self.__class__.__name__} id={self.shape_idx}]\n"
 
     def to_pptc(self):
+        """
+        Convert the shape element to PPTC format.
+
+        Returns:
+            str: The PPTC representation of the shape element.
+        """
         s = ""
         s += self.pptc_description
         s += self.pptc_size_info
@@ -309,6 +411,15 @@ class ShapeElement:
         return s
 
     def get_inline_style(self, style_args: StyleArg):
+        """
+        Get the inline style for the shape element.
+
+        Args:
+            style_args (StyleArg): The style arguments for HTML conversion.
+
+        Returns:
+            str: The inline style string.
+        """
         id_str = f" id='{self.shape_idx}'" if style_args.element_id else ""
         styles = []
         if style_args.area:
@@ -615,6 +726,9 @@ class Connector(ShapeElement):
         slide_area: float,
         level: int,
     ):
+        """
+        Convert a connector to a freeform shape.
+        """
         return FreeShape(
             slide_idx,
             shape_idx,
@@ -627,6 +741,10 @@ class Connector(ShapeElement):
 
 
 class SlidePage:
+    """
+    A class to represent a slide page in a presentation.
+    """
+
     def __init__(
         self,
         shapes: list[ShapeElement],
@@ -667,6 +785,20 @@ class SlidePage:
         slide_height: int,
         config: Config,
     ):
+        """
+        Create a SlidePage from a PPTXSlide.
+
+        Args:
+            slide (PPTXSlide): The slide object.
+            slide_idx (int): The index of the slide.
+            real_idx (int): The real index of the slide.
+            slide_width (int): The width of the slide.
+            slide_height (int): The height of the slide.
+            config (Config): The configuration object.
+
+        Returns:
+            SlidePage: The created SlidePage.
+        """
         shapes = [
             ShapeElement.from_shape(
                 slide_idx, i, shape, config, slide_width * slide_height
@@ -710,6 +842,16 @@ class SlidePage:
         return slide
 
     def shape_filter(self, shape_type: type, shapes: list[ShapeElement] = None):
+        """
+        Filter shapes in the slide by type.
+
+        Args:
+            shape_type (type): The type of shapes to filter.
+            shapes (list[ShapeElement]): The shapes to filter.
+
+        Yields:
+            ShapeElement: The filtered shapes.
+        """
         if shapes is None:
             shapes = self.shapes
         for shape in shapes:
@@ -719,11 +861,24 @@ class SlidePage:
                 yield from self.shape_filter(shape_type, shape.data)
 
     def get_content_type(self):
+        """
+        Get the content type of the slide.
+        """
         if len(list(self.shape_filter(Picture))) > 0:
             return "picture"
         return "text"
 
     def to_html(self, style_args: StyleArg = None, **kwargs) -> str:
+        """
+        Represent the slide page in HTML.
+
+        Args:
+            style_args (StyleArg): The style arguments for HTML conversion.
+            **kwargs: Additional arguments.
+
+        Returns:
+            str: The HTML representation of the slide page.
+        """
         if style_args is None:
             style_args = StyleArg(**kwargs)
         return "".join(
@@ -737,9 +892,15 @@ class SlidePage:
         )
 
     def to_pptc(self):
+        """
+        Represent the slide page in PPTC format.
+        """
         return "\n".join([shape.to_pptc() for shape in self.shapes])
 
     def to_text(self, show_image: bool = False) -> str:
+        """
+        Represent the slide page in text.
+        """
         text_content = "\n".join(
             [
                 shape.text_frame.text.strip()
@@ -758,6 +919,9 @@ class SlidePage:
 
     @property
     def text_length(self):
+        """
+        Get the length of the text in the slide page.
+        """
         return sum([len(shape.text_frame) for shape in self.shapes])
 
     def __iter__(self):
@@ -772,6 +936,11 @@ class SlidePage:
 
 
 class Presentation:
+    """
+    PPTAgent's representation of a presentation.
+    Aiming at a more readable and editable interface.
+    """
+
     def __init__(
         self,
         slides: list[SlidePage],
@@ -781,6 +950,9 @@ class Presentation:
         file_path: str,
         num_pages: int,
     ) -> None:
+        """
+        Initialize the Presentation.
+        """
         self.slides = slides
         self.error_history = error_history
         self.slide_width = slide_width
@@ -793,6 +965,9 @@ class Presentation:
 
     @classmethod
     def from_file(cls, file_path: str, config: Config):
+        """
+        Parse a Presentation from a file.
+        """
         prs = PPTXPre(file_path)
         slide_width = prs.slide_width
         slide_height = prs.slide_height
@@ -833,6 +1008,13 @@ class Presentation:
         )
 
     def save(self, file_path, layout_only=False):
+        """
+        Save the presentation to a file.
+
+        Args:
+            file_path (str): The file path to save the presentation.
+            layout_only (bool): Whether to save only the layout for slide clustering.
+        """
         self.clear_slides()
         for slide in self.slides:
             if layout_only:
@@ -843,11 +1025,17 @@ class Presentation:
         self.prs.save(file_path)
 
     def build_slide(self, slide: SlidePage) -> PPTXSlide:
+        """
+        Build a slide in the presentation.
+        """
         return slide.build(
             self.prs.slides.add_slide(self.layout_mapping[slide.slide_layout_name])
         )
 
     def clear_slides(self):
+        """
+        Delete all slides from the presentation.
+        """
         while len(self.prs.slides) != 0:
             rId = self.prs.slides._sldIdLst[0].rId
             self.prs.part.drop_rel(rId)
@@ -870,6 +1058,9 @@ class Presentation:
                         run.text = "a" * len(run.text)
 
     def to_text(self, show_image: bool = False) -> str:
+        """
+        Represent the presentation in text.
+        """
         return "\n----\n".join(
             [
                 (

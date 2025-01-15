@@ -9,7 +9,18 @@ from utils import Config, pbasename, pexists, pjoin
 
 
 class ImageLabler:
+    """
+    A class to extract images information, including caption, size, and appearance times in a presentation.
+    """
+
     def __init__(self, presentation: Presentation, config: Config):
+        """
+        Initialize the ImageLabler.
+
+        Args:
+            presentation (Presentation): The presentation object.
+            config (Config): The configuration object.
+        """
         self.presentation = presentation
         self.slide_area = presentation.slide_width.pt * presentation.slide_height.pt
         self.image_stats = {}
@@ -23,12 +34,18 @@ class ImageLabler:
                     self.image_stats[pbasename(name)] = stat
 
     def apply_stats(self):
+        """
+        Apply image captions to the presentation.
+        """
         for slide in self.presentation.slides:
             for shape in slide.shape_filter(Picture):
                 stats = self.image_stats[pbasename(shape.img_path)]
                 shape.caption = stats["caption"]
 
     def caption_images(self):
+        """
+        Generate captions for images in the presentation.
+        """
         caption_prompt = open("prompts/caption.txt").read()
         for image, stats in self.image_stats.items():
             if "caption" not in stats:
@@ -46,6 +63,9 @@ class ImageLabler:
         return self.image_stats
 
     def collect_images(self):
+        """
+        Collect images from the presentation and gather other information.
+        """
         for slide_index, slide in enumerate(self.presentation.slides):
             for shape in slide.shape_filter(Picture):
                 image_path = pbasename(shape.data[0])
@@ -69,6 +89,9 @@ class ImageLabler:
             stats["top_ranges_str"] = top_ranges_str
 
     def _find_ranges(self, numbers):
+        """
+        Find consecutive ranges in a list of numbers.
+        """
         ranges = []
         start = numbers[0]
         end = numbers[0]

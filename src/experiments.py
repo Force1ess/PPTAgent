@@ -101,7 +101,7 @@ def do_generate(
         print(f"induct_cache not found: {induct_cache}")
         return
     slide_induction = json.load(open(induct_cache))
-    pptgen: PPTCrew = genclass(text_model).set_examplar(presentation, slide_induction)
+    pptgen: PPTCrew = genclass(text_model).set_reference(presentation, slide_induction)
     topic = ppt_folder.split("/")[1]
     for pdf_folder in glob(f"data/{topic}/pdf/*"):
         app_config.set_rundir(pjoin(ppt_folder, setting, pbasename(pdf_folder)))

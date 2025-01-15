@@ -12,6 +12,11 @@ from utils import Config, pexists, pjoin, tenacity
 
 
 class SlideInducter:
+    """
+    Stage I: Presentation Analysis.
+    This stage is to analyze the presentation: cluster slides into different layouts, and extract content schema for each layout.
+    """
+
     def __init__(
         self,
         prs: Presentation,
@@ -20,6 +25,16 @@ class SlideInducter:
         config: Config,
         image_models: list,
     ):
+        """
+        Initialize the SlideInducter.
+
+        Args:
+            prs (Presentation): The presentation object.
+            ppt_image_folder (str): The folder containing PPT images.
+            template_image_folder (str): The folder containing normalized slide images.
+            config (Config): The configuration object.
+            image_models (list): A list of image models.
+        """
         self.prs = prs
         self.config = config
         self.ppt_image_folder = ppt_image_folder
@@ -40,6 +55,9 @@ class SlideInducter:
         os.makedirs(self.output_dir, exist_ok=True)
 
     def layout_induct(self):
+        """
+        Perform layout induction for the presentation.
+        """
         if pexists(self.induct_cache):
             return json.load(open(self.induct_cache))
         content_slides_index, functional_cluster = self.category_split()
@@ -80,6 +98,9 @@ class SlideInducter:
         return self.slide_induction
 
     def category_split(self):
+        """
+        Split slides into categories based on their functional purpose.
+        """
         if pexists(self.split_cache):
             split = json.load(open(self.split_cache))
             return set(split["content_slides_index"]), split["functional_cluster"]
@@ -103,6 +124,9 @@ class SlideInducter:
         return content_slides_index, functional_cluster
 
     def layout_split(self, content_slides_index: set[int]):
+        """
+        Cluster slides into different layouts.
+        """
         embeddings = get_image_embedding(self.template_image_folder, *self.image_models)
         assert len(embeddings) == len(self.prs)
         template = Template(open("prompts/ask_category.txt").read())
@@ -139,6 +163,9 @@ class SlideInducter:
 
     @tenacity
     def content_induct(self):
+        """
+        Perform content schema extraction for the presentation.
+        """
         self.slide_induction = self.layout_induct()
         content_induct_prompt = Template(open("prompts/content_induct.txt").read())
         for layout_name, cluster in self.slide_induction.items():

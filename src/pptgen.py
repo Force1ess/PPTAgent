@@ -22,6 +22,12 @@ from utils import Config, get_slide_content, pexists, pjoin, tenacity
 
 @dataclass
 class PPTGen(ABC):
+    """
+    Stage II: Presentation Generation
+    An abstract base class for generating PowerPoint presentations.
+    It accepts a reference presentation as input, then generates a presentation outline and slides.
+    """
+
     roles: list[str] = field(default_factory=list)
 
     def __init__(
@@ -33,17 +39,38 @@ class PPTGen(ABC):
         record_cost: bool = True,
         **kwargs,
     ):
+        """
+        Initialize the PPTGen.
+
+        Args:
+            text_model (BGEM3FlagModel): The text model for generating content.
+            retry_times (int): The number of times to retry failed actions.
+            force_pages (bool): Whether to force a specific number of pages.
+            error_exit (bool): Whether to exit on error.
+            record_cost (bool): Whether to record the cost of generation.
+            **kwargs: Additional arguments.
+        """
         self.text_model = text_model
         self.retry_times = retry_times
         self.force_pages = force_pages
         self.error_exit = error_exit
         self._hire_staffs(record_cost, **kwargs)
 
-    def set_examplar(
+    def set_reference(
         self,
         presentation: Presentation,
         slide_induction: dict,
     ):
+        """
+        Set the reference presentation and extracted presentation information.
+
+        Args:
+            presentation (Presentation): The presentation object.
+            slide_induction (dict): The slide induction data.
+
+        Returns:
+            PPTGen: The updated PPTGen object.
+        """
         self.presentation = presentation
         self.slide_induction = slide_induction
         self.functional_keys = slide_induction.pop("functional_keys")
@@ -61,6 +88,21 @@ class PPTGen(ABC):
         num_slides: int,
         doc_json: dict[str, str],
     ):
+        """
+        Generate a PowerPoint presentation.
+
+        Args:
+            config (Config): The configuration object.
+            images (dict[str, str]): A dictionary of image paths and captions.
+            num_slides (int): The number of slides to generate.
+            doc_json (dict[str, str]): The document JSON data.
+
+        Save:
+            final.pptx: The final PowerPoint presentation to the config.RUN_DIR directory.
+
+        Raise:
+            ValueError: if failed to generate presentation outline.
+        """
         self.config = config
         self.doc_json = doc_json
         meta_data = "\n".join(
@@ -102,6 +144,9 @@ class PPTGen(ABC):
             self.empty_prs.save(pjoin(self.config.RUN_DIR, "final.pptx"))
 
     def _save_history(self, code_executor: CodeExecutor):
+        """
+        Save the history of code execution, API calls and agent steps.
+        """
         os.makedirs(pjoin(self.config.RUN_DIR, "history"), exist_ok=True)
         for role in self.staffs.values():
             role.save_history(pjoin(self.config.RUN_DIR, "history"))
@@ -119,6 +164,15 @@ class PPTGen(ABC):
 
     @tenacity
     def _generate_outline(self, num_slides: int):
+        """
+        Generate an outline for the presentation.
+
+        Args:
+            num_slides (int): The number of slides to generate.
+
+        Returns:
+            dict: The generated outline.
+        """
         outline_file = pjoin(self.config.RUN_DIR, "presentation_outline.json")
         doc_overview = deepcopy(self.doc_json)
         for section in doc_overview["sections"]:
@@ -145,6 +199,12 @@ class PPTGen(ABC):
         return outline
 
     def _valid_outline(self, outline: dict, retry: int = 0) -> dict:
+        """
+        Validate the generated outline.
+
+        Raises:
+            ValueError: If the outline is invalid.
+        """
         try:
             for slide in outline.values():
                 layout_sim = torch.cosine_similarity(
@@ -175,6 +235,9 @@ class PPTGen(ABC):
         return outline
 
     def _hire_staffs(self, record_cost: bool, **kwargs) -> dict[str, Role]:
+        """
+        Initialize agent roles and their models
+        """
         jinja_env = Environment(undefined=StrictUndefined)
         self.staffs = {
             role: Role(
@@ -195,9 +258,18 @@ class PPTGen(ABC):
         code_executor: CodeExecutor,
         image_info: str,
     ) -> SlidePage:
+        """
+        Synergize Agents to generate a slide.
+
+        Returns:
+            SlidePage: The generated slide.
+        """
         pass
 
     def _generate_slide(self, slide_data, code_executor: CodeExecutor) -> SlidePage:
+        """
+        Generate a slide from the slide data.
+        """
         slide_idx, (slide_title, slide) = slide_data
         images_info = "No Images"
         if any(
@@ -226,6 +298,10 @@ class PPTGen(ABC):
 
 # 价格scale factor
 class PPTCrew(PPTGen):
+    """
+    A class to generate PowerPoint presentations with a crew of agents.
+    """
+
     roles: list[str] = ["editor", "coder"]
 
     def synergize(
@@ -235,6 +311,18 @@ class PPTCrew(PPTGen):
         code_executor: CodeExecutor,
         images_info: str,
     ) -> SlidePage:
+        """
+        Synergize Agents to generate a slide.
+
+        Args:
+            template (dict): The template data.
+            slide_content (str): The slide content.
+            code_executor (CodeExecutor): The code executor object.
+            images_info (str): The image information.
+
+        Returns:
+            SlidePage: The generated slide.
+        """
         content_schema = template["content_schema"]
         old_data = self._prepare_schema(content_schema)
         editor_output = self.staffs["editor"](
@@ -267,6 +355,15 @@ class PPTCrew(PPTGen):
         return edited_slide
 
     def _prepare_schema(self, content_schema: dict):
+        """
+        Prepare the content schema for editing.
+
+        Args:
+            content_schema (dict): The content schema.
+
+        Returns:
+            dict: The old data extracted from the schema.
+        """
         old_data = {}
         for el_name, el_info in content_schema.items():
             if el_info["type"] == "text":
@@ -291,6 +388,21 @@ class PPTCrew(PPTGen):
     def _generate_commands(
         self, editor_output: dict, content_schema: dict, old_data: dict, retry: int = 0
     ):
+        """
+        Generate commands for editing the slide content.
+
+        Args:
+            editor_output (dict): The editor output.
+            content_schema (dict): The content schema.
+            old_data (dict): The old data.
+            retry (int): The number of retries.
+
+        Returns:
+            list: A list of commands.
+
+        Raises:
+            Exception: If command generation fails.
+        """
         command_list = []
         try:
             for el_name, el_data in editor_output.items():
