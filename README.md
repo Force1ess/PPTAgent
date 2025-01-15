@@ -94,14 +94,11 @@ The workflow of PPTEval is shown below:
 
 If you find this project helpful, please use the following to cite it:
 ```bibtex
-@article{zheng2025pptagentgeneratingevaluatingpresentations,
-      title={PPTAgent: Generating and Evaluating Presentations Beyond Text-to-Slides},
-      author={Hao Zheng and Xinyan Guan and Hao Kong and Jia Zheng and Hongyu Lin and Yaojie Lu and Ben He and Xianpei Han and Le Sun},
-      year={2025},
-      eprint={2501.03936},
-      archivePrefix={arXiv},
-      primaryClass={cs.AI},
-      url={https://arxiv.org/abs/2501.03936},
+@article{zheng2025pptagent,
+  title={PPTAgent: Generating and Evaluating Presentations Beyond Text-to-Slides},
+  author={Zheng, Hao and Guan, Xinyan and Kong, Hao and Zheng, Jia and Lin, Hongyu and Lu, Yaojie and He, Ben and Han, Xianpei and Sun, Le},
+  journal={arXiv preprint arXiv:2501.03936},
+  year={2025}
 }
 ```
 
