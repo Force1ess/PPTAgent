@@ -10,17 +10,17 @@ import func_argparse
 import torch
 
 import llms
-from ablation import (
+from experiment.ablation import (
     PPTCrew_wo_Decoupling,
     PPTCrew_wo_HTML,
     PPTCrew_wo_LayoutInduction,
     PPTCrew_wo_SchemaInduction,
     PPTCrew_wo_Structure,
 )
+from experiment.preprocess import process_filetype
 from model_utils import get_text_model
 from multimodal import ImageLabler
 from pptgen import PPTCrew
-from preprocess import process_filetype
 from presentation import Presentation
 from utils import Config, older_than, pbasename, pexists, pjoin, ppt_to_images
 

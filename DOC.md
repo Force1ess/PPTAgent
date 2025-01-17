@@ -18,10 +18,7 @@ Table of Contents
 PPTAgent/
 |-- data/                       # Data for the project, saved like data/topic/filetype/filename/original.filetype
 ├── src/
-│   ├── apis.py                 # API and CodeExecutor of PPTAgent
-│   ├── backend.py              # Backend server
-│   ├── crawler.py              # Data crawler
-│   ├── preprocess.py           # Data preprocessing
+│   ├── apis.py                 # API and CodeExecutor
 │   ├── llms.py                 # LLM services initialization
 │   ├── presentation.py         # PPTX parsing and manipulation
 │   ├── multimodal.py           # Image information extraction
@@ -29,7 +26,10 @@ PPTAgent/
 │   ├── pptgen.py               # Presentation generation (Stage Ⅱ)
 │   ├── model_utils.py          # Machine Learning utilities
 │   ├── utils.py                # General utilities
-├── pptagent_ui/                # Frontend code
+│   ├── experiment/             # Experiment scripts
+├── pptagent_ui/                # UI for PPTAgent
+|   ├── src/                    # Frontend source code
+│   ├── backend.py              # Backend server
 ├── roles/                      # Role definitions in PPTAgent
 ├── prompts/                    # Project prompts
 ```
@@ -38,12 +38,19 @@ PPTAgent/
 
 ### Setup 🛠
 
-- **Install prerequisites:**
+1. Install Python dependencies
 
 ```sh
 # Python dependencies
 pip install -r requirements.txt
+```
 
+2. Install system dependencies
+
+> [!NOTE]
+> You can skip this step to get started quickly as we've pre-uploaded a parsed presentation template to `runs/pptx/default_template`.
+
+```sh
 # LibreOffice for PPT processing
 sudo apt install libreoffice  # Linux
 # brew install libreoffice    # macOS
@@ -51,9 +58,10 @@ sudo apt install libreoffice  # Linux
 # Poppler utils for PDF processing
 sudo apt install poppler-utils  # Linux
 # brew install poppler         # macOS
+# conda install -c conda-forge poppler  # conda
 ```
 
-- Optional: Install LaTeX for baseline comparison
+3. Optional: Install LaTeX for baseline comparison
 
 ```sh
 # sudo apt install texlive     # Linux
@@ -61,7 +69,7 @@ sudo apt install poppler-utils  # Linux
 ```
 
 ### Usage 🖥️
-> [!IMPORTANT]  
+> [!IMPORTANT]
 > You should initialize the language and vision models in `llms.py` and set `PYTHONPATH=PPTAgent/src:$PYTHONPATH`.
 
 Example initialization:

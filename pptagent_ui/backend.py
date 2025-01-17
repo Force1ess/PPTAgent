@@ -148,7 +148,7 @@ async def create_task(
     task = {
         "numberOfPages": numberOfPages,
         "model_idx": next(counter),
-        "pptx": "cip_default_template",
+        "pptx": "default_template",
         "model": selectedModel,
     }
     if pptxFile is not None:
