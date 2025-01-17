@@ -5,13 +5,11 @@
       <!-- Row 1: Upload Buttons -->
       <div class="upload-buttons">
         <div class="upload-section">
-          <label for="pptx-upload" class="upload-label" :style="{ backgroundColor: isPptxEnabled ? '#42b983' : 'grey' }"
-            @click="handlePptxClick">
-            {{ isPptxEnabled ? 'Upload PPTX' : '目前不允许自定义模板' }}
+          <label for="pptx-upload" class="upload-label">
+            Upload PPTX
             <span v-if="pptxFile" class="uploaded-symbol">✔️</span>
           </label>
-          <input type="file" id="pptx-upload" @change="handleFileUpload($event, 'pptx')" accept=".pptx"
-            :disabled="!isPptxEnabled" />
+          <input type="file" id="pptx-upload" @change="handleFileUpload($event, 'pptx')" accept=".pptx" />
         </div>
         <div class="upload-section">
           <label for="pdf-upload" class="upload-label">
@@ -71,21 +69,6 @@ export default {
         this.pdfFile = file  // {{ edit: Assign single pdfFile }}
       }
     },
-    // handlePptxClick(event) {
-    //   if (!this.isPptxEnabled) {
-    //     event.preventDefault();
-    //     const password = prompt('请输入密码以启用PPTX上传');
-    //     if (password === 'zhongwenxinxi') {
-    //       this.isPptxEnabled = true;
-    //       // 延迟触发文件选择框，等待状态更新
-    //       setTimeout(() => {
-    //         document.getElementById('pptx-upload').click();
-    //       }, 0);
-    //     } else {
-    //       alert('密码错误, 使用中文信息默认模板');
-    //     }
-    //   }
-    // },
     async goToGenerate() { // Renamed method from goToDoc to goToGenerate
       this.$axios.get('/')
         .then(response => {
