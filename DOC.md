@@ -6,6 +6,7 @@ Table of Contents
 =================
 - [File Structure 📂](#file-structure-)
 - [Quick Start 🚀](#quick-start-)
+  - [Docker 🐳](#docker-)
   - [Setup 🛠](#setup-)
   - [Usage 🖥️](#usage-️)
 - [Experiments Reproduction 🔍 (WIP)](#experiments-reproduction--wip)
@@ -36,6 +37,10 @@ PPTAgent/
 
 ## Quick Start 🚀
 
+### Docker 🐳
+
+> Comming soon ...
+
 ### Setup 🛠
 
 1. Install Python dependencies
@@ -54,6 +59,11 @@ pip install -r requirements.txt
 # LibreOffice for PPT processing
 sudo apt install libreoffice  # Linux
 # brew install libreoffice    # macOS
+
+# Node.js v22.x for frontend, other versions may work but not tested
+sudo apt install -y nodejs  # Linux
+# brew install node         # macOS
+# conda install -c conda-forge nodejs  # conda
 
 # Poppler utils for PDF processing
 sudo apt install poppler-utils  # Linux
@@ -98,7 +108,8 @@ API Endpoints:
   - Update `axios.defaults.baseURL` in `src/main.js` as printed by `backend.py`.
   ```sh
   cd pptagent_ui
-  yarn serve
+  npm install
+  npm run serve
   ```
 
 - **With Code:**

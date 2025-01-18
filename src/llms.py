@@ -169,6 +169,16 @@ class LLM:
     def __repr__(self) -> str:
         return f"LLM(model={self.model}, api_base={self.api_base})"
 
+    def test_connection(self) -> bool:
+        """
+        Test the connection to the LLMs.
+        """
+        try:
+            self.client.models.list()
+            return True
+        except Exception as e:
+            return False
+
     async def _run_batch(self, messages: list, delay_batch: bool = False):
         await self.oai_batch.add(
             "chat.completions.create",
@@ -448,16 +458,11 @@ def get_simple_modelname(llms: list[LLM]):
     return "+".join(re.search(r"^(.*?)-\d{2}", llm.model).group(1) for llm in llms)
 
 
-gpt4o = LLM(model="gpt-4o-2024-08-06", use_batch=True)
-gpt4omini = LLM(model="gpt-4o-mini-2024-07-18", use_batch=True)
+gpt4o = LLM(model="gpt-4o-2024-08-06")
 qwen2_5 = LLM(
     model="Qwen2.5-72B-Instruct-GPTQ-Int4", api_base="http://124.16.138.143:7812/v1"
 )
-
 qwen_vl = LLM(model="Qwen2-VL-72B-Instruct", api_base="http://124.16.138.144:7999/v1")
-qwen_coder = LLM(
-    model="Qwen2.5-Coder-32B-Instruct", api_base="http://127.0.0.1:8008/v1"
-)
 intern_vl = LLM(model="InternVL2_5-78B", api_base="http://124.16.138.144:8009/v1")
 
 language_model = qwen2_5

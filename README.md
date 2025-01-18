@@ -9,6 +9,9 @@
 
 We present PPTAgent, an innovative system that automatically generates presentations from documents. Drawing inspiration from human presentation creation methods, our system employs a two-step process to ensure excellence in overall quality. Additionally, we introduce **PPTEval**, a comprehensive evaluation framework that assesses presentations across multiple dimensions.
 
+> [!TIP]
+> 🧨 Quick start with the pre-build docker image [here](DOC.md/#docker-).
+
 ## Demo Video 🎥
 
 https://github.com/user-attachments/assets/c3935a98-4d2b-4c46-9b36-e7c598d14863
