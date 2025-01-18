@@ -433,11 +433,11 @@ def ppt_gen(task_id: str, rerun=False):
 
 def setup_models():
     if llms.language_model.test_connection() and llms.vision_model.test_connection():
-        logger.info("Primary models connected successfully")
+        print("Primary models connected successfully")
         return
 
     if llms.gpt4o.test_connection():
-        logger.info("Switching to OpenAI GPT-4o models as fallback")
+        print("Switching to OpenAI GPT-4o models as fallback")
         llms.language_model = llms.gpt4o
         llms.vision_model = llms.gpt4o
         return
@@ -451,6 +451,6 @@ if __name__ == "__main__":
 
     setup_models()
 
-    ip = "127.0.0.1"
+    ip = "0.0.0.0"
     print(f"backend running on {ip}:9297")
     uvicorn.run(app, host=ip, port=9297)

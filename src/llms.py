@@ -71,7 +71,6 @@ class LLM:
         self,
         model: str = "gpt-4o-2024-08-06",
         api_base: str = None,
-        use_openai: bool = True,
         use_batch: bool = False,
     ) -> None:
         """
@@ -80,19 +79,16 @@ class LLM:
         Args:
             model (str): The model name.
             api_base (str): The base URL for the API.
-            use_openai (bool): Whether to use OpenAI.
             use_batch (bool): Whether to use OpenAI's Batch API, which is single thread only.
         """
-        if use_openai and "OPENAI_API_KEY" in os.environ:
-            self.client = OpenAI(base_url=api_base)
-        if use_batch and "OPENAI_API_KEY" in os.environ:
-            assert use_openai, "use_batch must be used with use_openai"
+        self.client = OpenAI(base_url=api_base)
+        if use_batch:
             self.oai_batch = Auto(loglevel=0)
-        if "OPENAI_API_KEY" not in os.environ:
-            print("Warning: no API key found")
+        assert (
+            "OPENAI_API_KEY" in os.environ
+        ), "You should provide an OpenAI API key environment variable, even it's mocked"
         self.model = model
         self.api_base = api_base
-        self._use_openai = use_openai
         self._use_batch = use_batch
 
     @tenacity
@@ -139,26 +135,12 @@ class LLM:
             except Exception as e:
                 print("Failed to get response from batch")
                 raise e
-        elif self._use_openai:
+        else:
             completion = self.client.chat.completions.create(
                 model=self.model, messages=system + history + message
             )
             response = completion.choices[0].message.content
-        else:
-            response = requests.post(
-                self.api_base,
-                json={
-                    "system": system_message,
-                    "prompt": content,
-                    "image": [
-                        i["image_url"]["url"]
-                        for i in message[-1]["content"]
-                        if i["type"] == "image_url"
-                    ],
-                },
-            )
-            response.raise_for_status()
-            response = response.text
+
         message.append({"role": "assistant", "content": response})
         if return_json:
             response = get_json_from_response(response)
@@ -177,6 +159,7 @@ class LLM:
             self.client.models.list()
             return True
         except Exception as e:
+            print(e)
             return False
 
     async def _run_batch(self, messages: list, delay_batch: bool = False):
@@ -455,13 +438,11 @@ def get_simple_modelname(llms: list[LLM]):
     """
     if isinstance(llms, LLM):
         llms = [llms]
-    return "+".join(re.search(r"^(.*?)-\d{2}", llm.model).group(1) for llm in llms)
+    return "+".join([llm.model for llm in llms])
 
 
 gpt4o = LLM(model="gpt-4o-2024-08-06")
-qwen2_5 = LLM(
-    model="Qwen2.5-72B-Instruct-GPTQ-Int4", api_base="http://124.16.138.143:7812/v1"
-)
+qwen2_5 = LLM(model="Qwen2.5-72B-Instruct", api_base="http://124.16.138.143:7812/v1")
 qwen_vl = LLM(model="Qwen2-VL-72B-Instruct", api_base="http://124.16.138.144:7999/v1")
 intern_vl = LLM(model="InternVL2_5-78B", api_base="http://124.16.138.144:8009/v1")
 

@@ -36,10 +36,25 @@ PPTAgent/
 ```
 
 ## Quick Start 🚀
+> [!TIP]
+> For a quick test, use the example in `resource/` to save preprocessing time.
 
 ### Docker 🐳
 
-> Comming soon ...
+> [!NOTE]
+> The first run will take several minutes to download models. Monitor progress with `docker logs -f pptagent`.
+
+```bash
+docker pull forceless/pptagent
+docker run -dt --gpus all --ipc=host --name pptagent \
+  -e http_proxy=http://124.16.138.148:7890 \
+  -e https_proxy=http://124.16.138.148:7890 \
+  -e OPENAI_API_KEY='your_key' \
+  -p 9297:9297 \
+  -p 8088:8088 \
+  -v /your_home_dir:/root \
+  docker.io/forceless/pptagent
+```
 
 ### Setup 🛠
 
@@ -53,7 +68,7 @@ pip install -r requirements.txt
 2. Install system dependencies
 
 > [!NOTE]
-> You can skip this step to get started quickly as we've pre-uploaded a parsed presentation template to `runs/pptx/default_template`.
+> You can skip this step to start quickly if you only want a quick test.
 
 ```sh
 # LibreOffice for PPT processing
@@ -79,6 +94,7 @@ sudo apt install poppler-utils  # Linux
 ```
 
 ### Usage 🖥️
+
 > [!IMPORTANT]
 > You should initialize the language and vision models in `llms.py` and set `PYTHONPATH=PPTAgent/src:$PYTHONPATH`.
 
@@ -90,6 +106,8 @@ llms.language_model = LLM(
     model="Qwen2.5-72B-Instruct-GPTQ-Int4", api_base="http://124.16.138.143:7812/v1"
 )
 ```
+
+
 
 1. **Launch Backend:**
 
