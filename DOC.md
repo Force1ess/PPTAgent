@@ -47,13 +47,11 @@ PPTAgent/
 ```bash
 docker pull forceless/pptagent
 docker run -dt --gpus all --ipc=host --name pptagent \
-  -e http_proxy=http://124.16.138.148:7890 \
-  -e https_proxy=http://124.16.138.148:7890 \
   -e OPENAI_API_KEY='your_key' \
   -p 9297:9297 \
   -p 8088:8088 \
-  -v /your_home_dir:/root \
-  docker.io/forceless/pptagent
+  -v $HOME:/root \
+  forceless/pptagent
 ```
 
 ### Setup 🛠
@@ -110,6 +108,8 @@ llms.language_model = LLM(
 
 
 1. **Launch Backend:**
+> [!NOTE]
+> Complex shapes like tables are not fully supported, but our program is tolerant of such cases.
 
 ```sh
 python backend.py

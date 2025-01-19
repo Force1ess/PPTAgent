@@ -3,7 +3,7 @@ olddata
 data
 *ipynb
 .vscode
-*_cn.txt
+*.txt
 *DS_Store*
 *test*
 *egg-info
