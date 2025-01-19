@@ -9,6 +9,7 @@ Table of Contents
   - [Docker 🐳](#docker-)
   - [Setup 🛠](#setup-)
   - [Usage 🖥️](#usage-️)
+- [FAQ ❓](#faq-)
 - [Experiments Reproduction 🔍 (WIP)](#experiments-reproduction--wip)
   - [Generation 🧪](#generation-)
   - [Evaluation 📊](#evaluation-)
@@ -41,9 +42,6 @@ PPTAgent/
 
 ### Docker 🐳
 
-> [!NOTE]
-> The first run will take several minutes to download models. Monitor progress with `docker logs -f pptagent`.
-
 ```bash
 docker pull forceless/pptagent
 docker run -dt --gpus all --ipc=host --name pptagent \
@@ -53,6 +51,11 @@ docker run -dt --gpus all --ipc=host --name pptagent \
   -v $HOME:/root \
   forceless/pptagent
 ```
+
+> [!NOTE]
+> You can monitor progress with `docker logs -f pptagent`.
+>
+> When using a remote server, ensure both ports `8088` and `9297` are forwarded.
 
 ### Setup 🛠
 
@@ -108,8 +111,6 @@ llms.language_model = LLM(
 
 
 1. **Launch Backend:**
-> [!NOTE]
-> Complex shapes like tables are not fully supported, but our program is tolerant of such cases.
 
 ```sh
 python backend.py
@@ -136,6 +137,21 @@ API Endpoints:
   ```
 
 - Refer to `experiments.py` for large-scale generation.
+
+## FAQ ❓
+
+1. **Presentation Parsing Error:**
+
+    While complex shapes (e.g., tables) aren't fully supported, our program is designed to handle such cases gracefully.
+
+2. **AttributeError: 'TextFrame' object has no attribute 'font':**
+
+    Solution: Install the patched version of `python-pptx` specified in `requirements.txt`
+
+
+For more technical issues, please first verify your Python and system environment, and check existing issues for similar reports.
+
+If the problem persists, we will promptly respond to such issues when detailed program logs are provided.
 
 ## Experiments Reproduction 🔍 (WIP)
 
