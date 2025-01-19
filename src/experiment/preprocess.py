@@ -214,7 +214,12 @@ def prepare_induction(induct_id: int, wait: bool = False):
         presentation = Presentation.from_file(pjoin(ppt_folder, "source.pptx"), config)
         ImageLabler(presentation, config).caption_images()
         slide_inducter = SlideInducter(
-            presentation, ppt_image_folder, template_image_folder, config, image_model
+            presentation,
+            ppt_image_folder,
+            template_image_folder,
+            config,
+            image_model,
+            llms.get_simple_modelname([llms.language_model, llms.vision_model]),
         )
         slide_inducter.content_induct()
 

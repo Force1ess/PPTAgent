@@ -411,6 +411,7 @@ def ppt_gen(task_id: str, rerun=False):
             pjoin(pptx_config.RUN_DIR, "template_images"),
             pptx_config,
             image_model,
+            "backend",
         )
         slide_induction = slide_inducter.content_induct()
 

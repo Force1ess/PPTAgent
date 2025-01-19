@@ -432,13 +432,17 @@ class Role:
         return response
 
 
-def get_simple_modelname(llms: list[LLM]):
-    """
-    Get a abbreviation from a list of LLMs.
-    """
+def get_model_names(llms):
+    # Convert single LLM to list for consistent handling
     if isinstance(llms, LLM):
         llms = [llms]
-    return "+".join([llm.model for llm in llms])
+
+    try:
+        # Attempt to extract model names before version numbers
+        return "+".join(re.search(r"^(.*?)-\d{2}", llm.model).group(1) for llm in llms)
+    except:
+        # Fallback: return full model names if pattern matching fails
+        return "+".join(llm.model for llm in llms)
 
 
 gpt4o = LLM(model="gpt-4o-2024-08-06")

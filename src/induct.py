@@ -24,6 +24,7 @@ class SlideInducter:
         template_image_folder: str,
         config: Config,
         image_models: list,
+        model_identifier: str,
     ):
         """
         Initialize the SlideInducter.
@@ -46,9 +47,6 @@ class SlideInducter:
         )
         self.image_models = image_models
         self.slide_induction = defaultdict(lambda: defaultdict(list))
-        model_identifier = llms.get_simple_modelname(
-            [llms.language_model, llms.vision_model]
-        )
         self.output_dir = pjoin(config.RUN_DIR, "template_induct", model_identifier)
         self.split_cache = pjoin(self.output_dir, f"split_cache.json")
         self.induct_cache = pjoin(self.output_dir, f"induct_cache.json")
