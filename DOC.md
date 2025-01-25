@@ -37,10 +37,12 @@ PPTAgent/
 ```
 
 ## Quick Start 🚀
-> [!TIP]
-> For a quick test, use the example in `resource/` to save preprocessing time.
+For a quick test, use the example in `resource/` to save preprocessing time.
 
 ### Docker 🐳
+
+> [!NOTE]
+> When using a remote server, ensure both ports `8088` and `9297` are forwarded.
 
 ```bash
 docker pull forceless/pptagent
@@ -52,10 +54,8 @@ docker run -dt --gpus all --ipc=host --name pptagent \
   forceless/pptagent
 ```
 
-> [!NOTE]
-> You can monitor progress with `docker logs -f pptagent`.
->
-> When using a remote server, ensure both ports `8088` and `9297` are forwarded.
+You can monitor progress with `docker logs -f pptagent`.
+
 
 ### Setup 🛠
 
@@ -74,16 +74,13 @@ pip install -r requirements.txt
 ```sh
 # LibreOffice for PPT processing
 sudo apt install libreoffice  # Linux
-# brew install libreoffice    # macOS
 
 # Node.js v22.x for frontend, other versions may work but not tested
 sudo apt install -y nodejs  # Linux
-# brew install node         # macOS
 # conda install -c conda-forge nodejs  # conda
 
 # Poppler utils for PDF processing
 sudo apt install poppler-utils  # Linux
-# brew install poppler         # macOS
 # conda install -c conda-forge poppler  # conda
 ```
 
@@ -91,7 +88,6 @@ sudo apt install poppler-utils  # Linux
 
 ```sh
 # sudo apt install texlive     # Linux
-# brew install texlive         # macOS
 ```
 
 ### Usage 🖥️
@@ -142,12 +138,17 @@ API Endpoints:
 
 1. **Presentation Parsing Error:**
 
-    While complex shapes (e.g., tables) aren't fully supported, our program is designed to handle such cases gracefully.
+    While complex shapes (e.g., freeforms) aren't fully supported, our program is designed to handle such cases gracefully.
 
-2. **AttributeError: 'TextFrame' object has no attribute 'font':**
+2. **Generated Presentation Quality Issues:**
 
-    Solution: Install the patched version of `python-pptx` specified in `requirements.txt`
+    This project focuses on transferring human expertise embedded in well-designed presentations to the generated output. To achieve this, it is crucial to ensure that the uploaded presentation is of high quality.
 
+3. **Generation Failure:**
+    Models with <30B parameters may not perform adequately. Refer to our paper for performance analysis.
+
+4. **Platform Support**:
+    Currently, only Linux is officially supported. Community contributions for other platforms are welcome.
 
 For more technical issues, please first verify your Python and system environment, and check existing issues for similar reports.
 

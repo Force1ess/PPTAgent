@@ -3,7 +3,6 @@
   📄 <a href="https://arxiv.org/abs/2501.03936" target="_blank">Paper</a> &nbsp; | &nbsp;
   🤗 <a href="https://huggingface.co/datasets/Forceless/Zenodo10K" target="_blank">Dataset</a> &nbsp; | &nbsp;
   📝 <a href="./DOC.md" target="_blank">Documentation</a> &nbsp; | &nbsp;
-  🕊️ <a href="https://x.com/LessForce" target="_blank">Twitter</a> &nbsp; | &nbsp;
   🙏 <a href="#citation-" target="_blank">Citation</a>
 </p>
 
