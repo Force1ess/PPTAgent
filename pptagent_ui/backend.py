@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import importlib
 import itertools
 import json
 import os
@@ -267,6 +268,9 @@ def hello():
 
 
 def ppt_gen(task_id: str, rerun=False):
+    if DEBUG:
+        importlib.reload(induct)
+        importlib.reload(pptgen)
     if rerun:
         task_id = task_id.replace("|", "/")
         active_connections[task_id] = None

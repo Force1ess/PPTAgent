@@ -156,6 +156,12 @@ If the problem persists, we will promptly respond to such issues when detailed p
 
 ## Experiments Reproduction 🔍 (WIP)
 
+### Download Dataset 📥
+
+```python
+python src/experiment/download_dataset.py
+```
+
 ### Generation 🧪
 
 - **Generate from scratch:**
