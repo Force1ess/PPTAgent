@@ -37,6 +37,7 @@ class PPTGen(ABC):
         force_pages: bool = False,
         error_exit: bool = True,
         record_cost: bool = True,
+        length_factor: float = None,
         **kwargs,
     ):
         """
@@ -54,6 +55,7 @@ class PPTGen(ABC):
         self.retry_times = retry_times
         self.force_pages = force_pages
         self.error_exit = error_exit
+        self.length_factor = length_factor
         self._hire_staffs(record_cost, **kwargs)
 
     def set_reference(
@@ -87,6 +89,7 @@ class PPTGen(ABC):
         images: dict[str, str],
         num_slides: int,
         doc_json: dict[str, str],
+        file_prefix: str = "final",
     ):
         """
         Generate a PowerPoint presentation.
@@ -141,7 +144,7 @@ class PPTGen(ABC):
         self._save_history(code_executor)
         if succ_flag:
             self.empty_prs.slides = generated_slides
-            self.empty_prs.save(pjoin(self.config.RUN_DIR, "final.pptx"))
+            self.empty_prs.save(pjoin(self.config.RUN_DIR, f"{file_prefix}.pptx"))
 
     def _save_history(self, code_executor: CodeExecutor):
         """
@@ -296,7 +299,6 @@ class PPTGen(ABC):
             print(self.config.RUN_DIR)
 
 
-# 价格scale factor
 class PPTCrew(PPTGen):
     """
     A class to generate PowerPoint presentations with a crew of agents.
@@ -416,14 +418,15 @@ class PPTCrew(PPTGen):
                                 or ["/path/to/image", "..."] for image elements
                             },
                         }"""
-                charater_counts = [len(i) for i in el_data["data"]]
-                max_charater_count = max([len(i) for i in old_data[el_name]])
-                if max(charater_counts) > max_charater_count * 1.5:
-                    raise ValueError(
-                        f"Content for '{el_name}' exceeds character limit ({max(charater_counts)} > {max_charater_count}). "
-                        f"Please reduce the content length to maintain slide readability and visual balance. "
-                        f"Current text: '{el_data['data']}'"
-                    )
+                if self.length_factor is not None:
+                    charater_counts = [len(i) for i in el_data["data"]]
+                    max_charater_count = max([len(i) for i in old_data[el_name]])
+                    if max(charater_counts) > max_charater_count * self.length_factor:
+                        raise ValueError(
+                            f"Content for '{el_name}' exceeds character limit ({max(charater_counts)} > {max_charater_count}). "
+                            f"Please reduce the content length to maintain slide readability and visual balance. "
+                            f"Current text: '{el_data['data']}'"
+                        )
         except Exception as e:
             if retry < self.retry_times:
                 new_output = self.staffs["editor"].retry(

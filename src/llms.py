@@ -446,9 +446,8 @@ def get_model_names(llms):
 
 
 gpt4o = LLM(model="gpt-4o-2024-08-06")
-qwen2_5 = LLM(model="Qwen2.5-72B-Instruct", api_base="http://124.16.138.143:7812/v1")
-qwen_vl = LLM(model="Qwen2-VL-72B-Instruct", api_base="http://124.16.138.144:7999/v1")
-intern_vl = LLM(model="InternVL2_5-78B", api_base="http://124.16.138.144:8009/v1")
+qwen2_5 = LLM(model="Qwen2.5-72B-Instruct", api_base="http://localhost:8000/v1")
+qwen_vl = LLM(model="Qwen2-VL-72B-Instruct", api_base="http://localhost:7999/v1")
 
 language_model = qwen2_5
 vision_model = qwen_vl

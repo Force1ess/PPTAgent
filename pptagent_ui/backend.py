@@ -1,6 +1,5 @@
 import asyncio
 import hashlib
-import importlib
 import itertools
 import json
 import os
@@ -46,12 +45,11 @@ RUNS_DIR = "runs"
 STAGES = [
     "PPT Parsing",
     "PDF Parsing",
-    "Slide Induction",
+    "PPT Analysis",
     "PPT Generation",
     "Success!",
 ]
 NUM_MODELS = 1 if len(sys.argv) == 1 else int(sys.argv[1])
-NUM_INSTANCES_PER_MODEL = 4
 DEVICE_COUNT = torch.cuda.device_count()
 REFINE_TEMPLATE = Template(open("prompts/document_refine.txt").read())
 
@@ -78,7 +76,7 @@ app.add_middleware(
 progress_store: Dict[str, Dict] = {}
 active_connections: Dict[str, WebSocket] = {}
 counter = itertools.cycle(range(NUM_MODELS))
-executor = ThreadPoolExecutor(max_workers=NUM_MODELS * NUM_INSTANCES_PER_MODEL)
+executor = ThreadPoolExecutor(max_workers=NUM_MODELS)
 
 
 class ProgressManager:
@@ -138,10 +136,6 @@ async def create_task(
     numberOfPages: int = Form(...),
     selectedModel: str = Form(...),
 ):
-    if DEBUG:
-        importlib.reload(induct)
-        importlib.reload(llms)
-        importlib.reload(pptgen)
     task_id = datetime.now().strftime("20%y-%m-%d") + "/" + str(uuid.uuid4())
     logger.info(f"task created: {task_id}")
     os.makedirs(pjoin(RUNS_DIR, task_id))
@@ -178,7 +172,7 @@ async def create_task(
 
 async def send_progress(websocket: WebSocket, status: str, progress: int):
     if websocket is None:
-        print(f"websocket is None, status: {status}, progress: {progress}")
+        logger.info(f"websocket is None, status: {status}, progress: {progress}")
         return
     await websocket.send_json({"progress": progress, "status": status})
 
@@ -269,13 +263,7 @@ async def feedback(request: Request):
 
 @app.get("/")
 def hello():
-    if len(active_connections) < NUM_MODELS * NUM_INSTANCES_PER_MODEL:
-        return {"message": "Hello, World!"}
-    else:
-        raise HTTPException(
-            status_code=429,
-            detail=f"Too many running connections, limit is {NUM_MODELS}",
-        )
+    return {"message": "Hello, World!"}
 
 
 def ppt_gen(task_id: str, rerun=False):
@@ -425,7 +413,7 @@ def ppt_gen(task_id: str, rerun=False):
             task["numberOfPages"],
             doc_json,
         )
-        print(task_id, "generation finished")
+        logger.info(task_id, "generation finished")
         progress.report_progress()
     except Exception as e:
         progress.fail_stage(str(e))
@@ -433,12 +421,20 @@ def ppt_gen(task_id: str, rerun=False):
 
 
 def setup_models():
+    if os.path.exists("serve.json"):
+        serve_config = json.load(open("serve.json"))
+        llms.language_model = llms.LLM(
+            serve_config["language"]["model"], serve_config["language"]["url"]
+        )
+        llms.vision_model = llms.LLM(
+            serve_config["vision"]["model"], serve_config["vision"]["url"]
+        )
     if llms.language_model.test_connection() and llms.vision_model.test_connection():
-        print("Primary models connected successfully")
+        logger.info("Primary models connected successfully")
         return
 
     if llms.gpt4o.test_connection():
-        print("Switching to OpenAI GPT-4o models as fallback")
+        logger.warn("Switching to OpenAI GPT-4o models as fallback")
         llms.language_model = llms.gpt4o
         llms.vision_model = llms.gpt4o
         return
@@ -453,5 +449,4 @@ if __name__ == "__main__":
     setup_models()
 
     ip = "0.0.0.0"
-    print(f"backend running on {ip}:9297")
     uvicorn.run(app, host=ip, port=9297)
