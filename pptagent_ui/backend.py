@@ -350,7 +350,7 @@ def ppt_gen(task_id: str, rerun=False):
             progress.report_progress()
 
         # doc refine and caption
-        if not os.path.exists(pjoin(parsedpdf_dir, "caption.json")):
+        if not os.path.exists(pjoin(parsedpdf_dir, "image_caption.json")):
             caption_prompt = open("prompts/caption.txt").read()
             images = {}
             for k in os.listdir(parsedpdf_dir):
@@ -366,12 +366,12 @@ def ppt_gen(task_id: str, rerun=False):
                         logger.error(f"Error captioning image {k}: {e}")
             json.dump(
                 images,
-                open(pjoin(parsedpdf_dir, "caption.json"), "w"),
+                open(pjoin(parsedpdf_dir, "image_caption.json"), "w"),
                 ensure_ascii=False,
                 indent=4,
             )
         else:
-            images = json.load(open(pjoin(parsedpdf_dir, "caption.json")))
+            images = json.load(open(pjoin(parsedpdf_dir, "image_caption.json")))
         if not os.path.exists(pjoin(parsedpdf_dir, "refined_doc.json")):
             doc_json = llms.language_model(
                 REFINE_TEMPLATE.render(markdown_document=text_content), return_json=True

@@ -3,7 +3,7 @@
     <p class="task-id">Task ID: {{ taskId }}</p>
     <progress :value="progress" max="100" class="progress-bar"></progress>
     <p class="status-message">{{ statusMessage }}</p>
-    <a v-if="downloadLink" :href="downloadLink" download="pptagent.pptx" class="download-link">Download PPTX</a>
+    <a v-if="downloadLink" :href="downloadLink" :download="filename" class="download-link">Download PPTX</a>
     <input v-model="feedback" placeholder="Enter your feedback with contact information" class="feedback-input" />
     <button @click="submitFeedback" class="feedback-button">Submit Feedback</button>
   </div>
@@ -19,7 +19,8 @@ export default {
       downloadLink: '',
       taskId: history.state.taskId,
       socketUrl: `ws://${this.$axios.defaults.baseURL.replace('http://', '')}/ws/${history.state.taskId}`,
-      feedback: ''
+      feedback: '',
+      filename: 'final.pptx'
     }
   },
   created() {
@@ -49,6 +50,7 @@ export default {
       try {
         const downloadResponse = await this.$axios.get('/api/download', { params: { task_id: this.taskId }, responseType: 'blob' })
         this.downloadLink = URL.createObjectURL(downloadResponse.data)
+        this.filename = "ppagent_" + this.taskId.replace('/', '_') + '.pptx'
       } catch (error) {
         console.error("Download error:", error)
         this.statusMessage += '\nFailed to continue the task.'

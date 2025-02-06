@@ -772,8 +772,8 @@ class SlidePage:
                 if group_shape == shape:
                     shape.group_label = group_shape.group_label
                     continue
-                groups_shapes_labels.append(shape)
-                shape.group_label = f"group_{len(groups_shapes_labels)}"
+            groups_shapes_labels.append(shape)
+            shape.group_label = f"group_{len(groups_shapes_labels)}"
 
     @classmethod
     def from_slide(

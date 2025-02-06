@@ -82,9 +82,8 @@ def replace_mentions_of_figures(latex, figure_dir):
 
 def kctv_gen_ppt(doc_dir):
     # Take input doc
-    pdf = doc_dir.split("/")[-1]
     input_json = json.load(open(doc_dir + "/refined_doc.json"))
-    model_name = llms.get_simple_modelname(llms.language_model)
+    model_name = llms.language_model.model
     output_base = os.path.join(doc_dir, "kctv", model_name)
     os.makedirs(output_base, exist_ok=True)
 
