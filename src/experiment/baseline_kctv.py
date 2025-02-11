@@ -5,7 +5,6 @@ import re
 import subprocess
 
 import PyPDF2
-from tqdm import tqdm
 
 import llms
 from utils import pexists, ppt_to_images
@@ -82,12 +81,12 @@ def replace_mentions_of_figures(latex, figure_dir):
 
 def kctv_gen_ppt(doc_dir):
     # Take input doc
+    model_name = llms.get_model_abbr(llms.language_model)
     input_json = json.load(open(doc_dir + "/refined_doc.json"))
-    model_name = llms.language_model.model
     output_base = os.path.join(doc_dir, "kctv", model_name)
     os.makedirs(output_base, exist_ok=True)
 
-    if os.path.exists(os.path.join(output_base, "slide_images")):
+    if os.path.exists(os.path.join(output_base, "final.tex")):
         return
 
     prompt = sure_prompt.format(internal_representation, input_json)

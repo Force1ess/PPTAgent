@@ -326,6 +326,7 @@ class Config:
 pjoin = os.path.join
 pexists = os.path.exists
 pbasename = os.path.basename
+pdirname = os.path.dirname
 
 if __name__ == "__main__":
     config = Config()

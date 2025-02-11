@@ -166,6 +166,7 @@ def generate(model: Literal["Qwen2.5", "gpt"]):
     elif model == "gpt":
         llms.language_model = llms.gpt4o
 
+    llm_name = llms.get_model_abbr(llms.language_model)
     print("Generating slides on baseline with ", model)
     model = CLIPModel.from_pretrained("openai/clip-vit-large-patch14").to("cuda").eval()
     processor = CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14")
@@ -176,7 +177,7 @@ def generate(model: Literal["Qwen2.5", "gpt"]):
         source_text = open(f"{pdf_folder}/source.md").read()
         bird_eye = json.load(open(f"{pdf_folder}/refined_doc.json"))
         images = json.load(open(f"{pdf_folder}/image_caption.json")).keys()
-        output_dir = f"{pdf_folder}/docpres/{model}"
+        output_dir = f"{pdf_folder}/docpres/{llm_name}"
         if os.path.exists(output_dir + "/final.jsonl"):
             progress.write(f"Skipping {pdf_folder}")
             progress.update(1)

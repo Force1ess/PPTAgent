@@ -73,21 +73,21 @@ pip install -r requirements.txt
 
 ```sh
 # LibreOffice for PPT processing
-sudo apt install libreoffice  # Linux
+sudo apt install libreoffice
 
 # Node.js v22.x for frontend, other versions may work but not tested
-sudo apt install -y nodejs  # Linux
-# conda install -c conda-forge nodejs  # conda
+sudo apt install -y nodejs
+# conda install -c conda-forge nodejs
 
 # Poppler utils for PDF processing
-sudo apt install poppler-utils  # Linux
-# conda install -c conda-forge poppler  # conda
+sudo apt install poppler-utils
+# conda install -c conda-forge poppler
 ```
 
 3. Optional: Install LaTeX for baseline comparison
 
 ```sh
-# sudo apt install texlive     # Linux
+sudo apt install texlive
 ```
 
 ### Usage 🖥️

@@ -219,7 +219,7 @@ def prepare_induction(induct_id: int, wait: bool = False):
             template_image_folder,
             config,
             image_model,
-            llms.get_simple_modelname([llms.language_model, llms.vision_model]),
+            llms.get_model_abbr([llms.language_model, llms.vision_model]),
         )
         slide_inducter.content_induct()
 

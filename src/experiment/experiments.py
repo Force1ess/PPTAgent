@@ -61,18 +61,14 @@ def get_setting(setting_id: int, ablation_id: int):
     agent_class = AGENT_CLASS.get(ablation_id)
     llms.language_model = language_model
     llms.vision_model = vision_model
+    model_identifier = llms.get_model_abbr([llms.language_model, llms.vision_model])
     if ablation_id == -1:
-        setting_name = "PPTCrew-" + llms.get_simple_modelname(
-            [language_model, vision_model]
-        )
+        setting_name = "PPTCrew-" + model_identifier
     elif ablation_id == 6:
         setting_name = "PPTCrew_retry_5"
         agent_class = partial(agent_class, retry_times=5)
     else:
         setting_name = agent_class.__name__
-    model_identifier = llms.get_simple_modelname(
-        [llms.language_model, llms.vision_model]
-    )
     if ablation_id == 4:
         setting_name = "PPTCrew_with_gpt4o"
         model_identifier = "gpt-4o+gpt-4o"

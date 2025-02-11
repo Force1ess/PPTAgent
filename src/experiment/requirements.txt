@@ -3,3 +3,4 @@ aiohttp
 googlesearch-python
 pytorch_fid
 seaborn
+openpyxl

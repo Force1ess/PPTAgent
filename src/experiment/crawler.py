@@ -19,7 +19,7 @@ import requests
 from tqdm import tqdm
 
 from presentation import Presentation
-from utils import Config, tenacity
+from utils import Config, pdirname, tenacity
 
 topics = [
     "culture",
@@ -123,10 +123,8 @@ def pdf_validate(filename: str):
 async def download_file(
     session: aiohttp.ClientSession, filepath: str, url: str, pbar: tqdm = None
 ) -> None:
-    os.makedirs(os.path.dirname(filepath), exist_ok=True)
-    async with session.get(
-        url, params={"access_token": os.environ["ZENODO_TOKEN"]}
-    ) as response:
+    os.makedirs(pdirname(filepath), exist_ok=True)
+    async with session.get(url) as response:
         if response.status == 200:
             with open(filepath, "wb") as f:
                 f.write(await response.read())
@@ -246,7 +244,7 @@ async def gather_files(topics: list[str], num_results: int) -> None:
                 dst = f"data/{topic}/{filetype}/{file['key'].rsplit('.')[0]}/original.{filetype}"
                 if os.path.exists(dst):
                     continue
-                os.makedirs(os.path.dirname(dst))
+                os.makedirs(pdirname(dst))
                 if os.path.exists(filepath):
                     shutil.copy(filepath, dst)
                 else:
@@ -257,7 +255,7 @@ async def gather_files(topics: list[str], num_results: int) -> None:
                 if (filetype == "pptx" and not ppt_validate(dst)) or (
                     filetype == "pdf" and not pdf_validate(dst)
                 ):
-                    shutil.rmtree(os.path.dirname(dst))
+                    shutil.rmtree(pdirname(dst))
                     continue
                 selected.append(
                     {

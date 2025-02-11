@@ -432,7 +432,7 @@ class Role:
         return response
 
 
-def get_model_names(llms):
+def get_model_abbr(llms):
     # Convert single LLM to list for consistent handling
     if isinstance(llms, LLM):
         llms = [llms]
