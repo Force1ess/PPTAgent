@@ -1,0 +1,3 @@
+[submodule "src/experiment/faster-pytorch-fid"]
+	path = src/experiment/faster-pytorch-fid
+	url = https://github.com/jaywu109/faster-pytorch-fid.git
