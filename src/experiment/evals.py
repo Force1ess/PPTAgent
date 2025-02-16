@@ -9,14 +9,20 @@ from glob import glob
 from typing import List
 
 import func_argparse
+import jieba
 import torch
 from jinja2 import Template
+from rouge_chinese import Rouge
 
-if os.path.exists("src/experiment/faster-pytorch-fid"):
-    sys.path.append("src/experiment/faster-pytorch-fid")
+rouge = Rouge()
+
+FASTER_FID = "src/experiment/faster-pytorch-fid"
+if os.path.exists(FASTER_FID):
+    sys.path.append(FASTER_FID)
     import fid_score_gpu as fid
 else:
     import pytorch_fid.fid_score as fid
+    from pytorch_fid.fid_score import calculate_frechet_distance
 
 from rich import print
 from tqdm import tqdm
@@ -27,6 +33,7 @@ from presentation import Picture, Presentation
 from utils import Config, pdirname, pexists, pjoin
 
 fid.tqdm = lambda x: x
+fid.print = lambda x: x
 judges = [
     (llms.gpt4o, llms.gpt4o, "gpt4o"),
     (llms.qwen2_5, llms.qwen_vl, "Qwen"),
@@ -38,11 +45,23 @@ DEVICES = torch.cuda.device_count()
 
 
 def get_eval(prs_source: str):
+    evals = defaultdict(dict)
     eval_file = pjoin(pdirname(prs_source), "evals.json")
     if pexists(eval_file):
         with open(eval_file, "r") as f:
-            return json.load(f), eval_file
-    return {}, eval_file
+            evals |= json.load(f)
+    return evals, eval_file
+
+
+def get_rouge(prs_text: str, prs_source: str) -> float:
+    md_file = pjoin(pdirname(pdirname(pdirname(prs_source))), "source.md")
+    if not pexists(md_file):
+        source, _, _, pdf, _ = prs_source.rsplit("/", 4)
+        md_file = pjoin(source.replace("pptx", "pdf"), pdf, "source.md")
+    reference = open(md_file).read()
+    reference = " ".join(jieba.cut(str(reference)))
+    hypothesis = " ".join(jieba.cut(str(prs_text)))
+    return rouge.get_scores(hypothesis, reference)[0]["rouge-l"]["f"]
 
 
 def get_ppl(inputs: List[str], model: AutoModelForCausalLM, tokenizer: AutoTokenizer):
@@ -54,7 +73,7 @@ def get_ppl(inputs: List[str], model: AutoModelForCausalLM, tokenizer: AutoToken
             loss = outputs.loss
             perplexity = torch.exp(loss)
             ppl.append(perplexity.item())
-    return ppl
+    return sum(ppl) / len(ppl)
 
 
 def parse_beamer(tex_file: str):
@@ -101,30 +120,33 @@ def parse_beamer(tex_file: str):
 
 def eval_general(prs_files: list[str]):
     tmp_config = Config("/tmp")
-    for prs in tqdm(prs_files, desc="General Scoring"):
-        evals, eval_file = get_eval(prs)
-        if prs.endswith(".pptx"):
-            prs = Presentation.from_file(prs, tmp_config)
+    for prs_source in tqdm(prs_files, desc="General Scoring"):
+        evals, eval_file = get_eval(prs_source)
+        if prs_source.endswith(".pptx"):
+            prs = Presentation.from_file(prs_source, tmp_config)
             evals["pages"] = len(prs)
             evals["characters"] = sum([len(slide.to_text()) for slide in prs.slides])
             evals["figures"] = sum(
                 [len(list(slide.shape_filter(Picture))) for slide in prs.slides]
             )
+            evals["rouge-l"] = get_rouge(prs.to_text(), prs_source)
         else:
-            slide_texts = parse_beamer(prs.replace(".pdf", ".tex"))
+            slide_texts = parse_beamer(prs_source.replace(".pdf", ".tex"))
             evals["characters"] = sum([len(s) for s in slide_texts])
             evals["figures"] = len(
                 re.findall(
-                    r"\!\[.*?\]\(.*?\)", open(prs.replace(".pdf", ".tex")).read()
+                    r"\!\[.*?\]\(.*?\)", open(prs_source.replace(".pdf", ".tex")).read()
                 )
             )
-        json.dump(evals, open(eval_file, "w"))
+            evals["rouge-l"] = get_rouge(slide_texts, prs_source)
+        with open(eval_file, "w") as f:
+            json.dump(evals, f, indent=4)
 
 
 def eval_fid(setting: str):
     device = f"cuda:{random.randint(0, DEVICES - 1)}"
-    if "faster-pytorch-fid" in sys.path:
-        fid.calculate_frechet_distance = partial(
+    if FASTER_FID in sys.path:
+        calculate_frechet_distance = partial(
             fid.calculate_frechet_distance, device=device
         )
     model = fid.InceptionV3([fid.InceptionV3.BLOCK_INDEX_BY_DIM[64]]).to(device)
@@ -132,16 +154,18 @@ def eval_fid(setting: str):
         source_folder = pjoin(ppt_folder, "source_slides")
         m1, s1 = fid.compute_statistics_of_path(source_folder, model, 128, 64, device)
         for result_folder in glob(pjoin(ppt_folder, f"final_images/{setting}/*")):
-            if len(os.listdir(result_folder)) < 10:
+            if len(os.listdir(result_folder)) < 3:
                 continue
             try:
                 m2, s2 = fid.compute_statistics_of_path(
                     result_folder, model, 32, 64, device
                 )
-                fid_value = fid.calculate_frechet_distance(m1, s1, m2, s2)
-                evals, eval_file = get_eval(result_folder + "/x")
+                fid_value = calculate_frechet_distance(m1, s1, m2, s2)
+                source, _, _, pdf = result_folder.rsplit("/", 3)
+                evals, eval_file = get_eval(pjoin(source, setting, pdf, "final.pptx"))
                 evals["fid"] = fid_value
-                json.dump(evals, open(eval_file, "w"))
+                with open(eval_file, "w") as f:
+                    json.dump(evals, f, indent=4)
             except Exception as e:
                 print(e, "\n", "happended in ", ppt_folder, "on:", setting)
 
@@ -149,7 +173,7 @@ def eval_fid(setting: str):
 def eval_ppl(
     prs_files: list[str],
 ):
-    temp_config = Config("/tmp")
+    tmp_config = Config("/tmp")
     device = f"cuda:{random.randint(0, DEVICES - 1)}"
     model = AutoModelForCausalLM.from_pretrained(PPL_MODEL, device_map=device)
     tokenizer = AutoTokenizer.from_pretrained(PPL_MODEL)
@@ -158,14 +182,14 @@ def eval_ppl(
         if evals.get("ppl", None):
             continue
         if prs_source.endswith(".pptx"):
-            prs = Presentation.from_file(prs_source, temp_config)
+            prs = Presentation.from_file(prs_source, tmp_config)
             slide_texts = [slide.to_text() for slide in prs.slides]
         elif prs_source.endswith(".pdf"):
             slide_texts = parse_beamer(prs_source.replace(".pdf", ".tex"))
         try:
-            ppl = get_ppl(slide_texts, model, tokenizer)
-            evals["ppl"] = sum(ppl) / len(ppl)
-            json.dump(evals, open(eval_file, "w"))
+            evals["ppl"] = get_ppl(slide_texts, model, tokenizer)
+            with open(eval_file, "w") as f:
+                json.dump(evals, f, indent=4)
         except Exception as e:
             print(e, "\n", "happended in ", prs_source)
 
@@ -181,11 +205,12 @@ def slide_score(prs_source: str, slide_folder: str):
         if not os.path.exists(slide_descr):
             style_descr = llms.vision_model(style_descriptor, slide_image)
             content_descr = llms.vision_model(content_descriptor, slide_image)
-            json.dump(
-                {"content": content_descr, "style": style_descr},
-                open(slide_descr, "w"),
-                indent=4,
-            )
+            with open(slide_descr, "w") as f:
+                json.dump(
+                    {"content": content_descr, "style": style_descr},
+                    f,
+                    indent=4,
+                )
         else:
             descr = json.load(open(slide_descr))
             style_descr = descr["style"]
@@ -203,49 +228,47 @@ def slide_score(prs_source: str, slide_folder: str):
 
 
 def pres_score(prs_source: str):
-    if "/pptx/" in prs_source:  # ours
-        source, setting, pdf, _ = prs_source.rsplit("/", 3)
-        slide_folder = os.path.join(source, "final_images", setting, pdf)
-    else:  # baseline
-        slide_folder = pdirname(prs_source)
-    eval_file = pjoin(slide_folder, "evals.json")
-    evals = defaultdict(dict)
-    if pexists(eval_file):
-        try:
-            evals |= json.load(open(eval_file))
-        except:
-            pass
-    evals.pop("logic", None)  # ? debug
-
+    tmp_config = Config("/tmp")
+    slide_folder = pdirname(prs_source)
+    evals, eval_file = get_eval(prs_source)
+    if "logic" in evals:
+        return
     slide_descr = pjoin(slide_folder, "extracted.json")
     if not pexists(slide_descr):
-        config = Config("/tmp")
-        presentation = Presentation.from_file(prs_source, config)
+        if prs_source.endswith(".pptx"):
+            presentation = Presentation.from_file(prs_source, tmp_config).to_text()
+        elif prs_source.endswith(".pdf"):
+            presentation = ""
+            for idx, sl in enumerate(parse_beamer(prs_source.replace(".pdf", ".tex"))):
+                presentation += f"slide {idx+1}\n{sl}\n"
+
         ppt_extractor = Template(open("prompts/ppteval_extract.txt", "r").read())
         extracted = llms.language_model(
-            ppt_extractor.render(presentation=presentation.to_text()),
+            ppt_extractor.render(presentation=presentation),
             return_json=True,
         )
-        json.dump(extracted, open(slide_descr, "w"), indent=4)
+        with open(slide_descr, "w") as f:
+            json.dump(extracted, f, indent=4)
     else:
         extracted = json.load(open(slide_descr))
-    if presentation.source_file not in evals["logic"]:
-        logic_scorer = Template(open("ppteval_coherence.txt", "r").read())
-        evals["logic"][presentation.source_file] = llms.language_model(
-            logic_scorer.render(
-                background_information=extracted.pop("metadata"),
-                logical_structure=extracted,
-            ),
-            return_json=True,
-        )
-    json.dump(evals, open(eval_file, "w"), indent=4)
+    logic_scorer = Template(open("prompts/ppteval_coherence.txt", "r").read())
+    evals["logic"] = llms.language_model(
+        logic_scorer.render(
+            presentation=extracted,
+        ),
+        return_json=True,
+    )
+    with open(eval_file, "w") as f:
+        json.dump(evals, f, indent=4)
 
 
-def ppteval(prs_files: list[str], slide_folders: list[str]):
+def eval_ppt(prs_files: list[str], slide_folders: list[str]):
     for prs_file in tqdm(prs_files, desc="PPT Scoring"):
         pres_score(prs_file)
-    for slide_folder in tqdm(slide_folders, desc="Slide Scoring"):
-        slide_score(slide_folder)
+    for prs_file, slide_folder in tqdm(
+        list(zip(prs_files, slide_folders)), desc="Slide Scoring"
+    ):
+        slide_score(prs_file, slide_folder)
 
 
 # ppt eval
@@ -269,7 +292,7 @@ def eval_experiment(
         eval_fid(setting)
 
     if ppt_eval:
-        ppteval(prs_files, slide_folders)
+        eval_ppt(prs_files, slide_folders)
 
 
 def eval_docpres(
@@ -278,14 +301,14 @@ def eval_docpres(
     ppt_eval: bool = False,
 ):
     prs_files = glob(f"data/*/pdf/*/docpres/*/final.pptx")
-    slide_folders = [pdirname(i) for i in prs_files]
+    slide_folders = [pdirname(i) + "/slide_images" for i in prs_files]
 
     if general_eval:
         eval_general(prs_files)
     if ppl_eval:
         eval_ppl(prs_files)
     if ppt_eval:
-        ppteval(prs_files, slide_folders)
+        eval_ppt(prs_files, slide_folders)
 
 
 def eval_kctv(
@@ -294,7 +317,7 @@ def eval_kctv(
     ppt_eval: bool = False,
 ):
     prs_files = glob(f"data/*/pdf/*/kctv/*/final.pdf")
-    slide_folders = [pdirname(i) for i in prs_files]
+    slide_folders = [pdirname(i) + "/slide_images" for i in prs_files]
 
     if general_eval:
         eval_general(prs_files)
@@ -303,10 +326,11 @@ def eval_kctv(
         eval_ppl(prs_files)
 
     if ppt_eval:
-        ppteval(prs_files, slide_folders)
+        eval_ppt(prs_files, slide_folders)
 
 
 if __name__ == "__main__":
+    llms.language_model, llms.vision_model, _ = judges[0]
     func_argparse.main(
         eval_experiment,
         eval_docpres,

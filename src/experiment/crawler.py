@@ -355,9 +355,8 @@ def dataset_stat():
             f"{topic}: {avg_pdf_text_len:.2f}, {avg_pdf_images:.2f}, {avg_ppt_pages:.2f}, {avg_ppt_images:.2f}, {avg_ppt_text_len:.2f}"
         )
 
-    json.dump(
-        {"pdf": pdf_stat, "ppt": ppt_stat}, open("data/eval/stat.json", "w"), indent=4
-    )
+    with open("data/eval/stat.json", "w") as f:
+        json.dump({"pdf": pdf_stat, "ppt": ppt_stat}, f, indent=4)
 
 
 if __name__ == "__main__":

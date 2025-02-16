@@ -1,4 +1,4 @@
-You are an unbiased presentation analysis judge responsible for evaluating the quality of slide content. Please carefully review the provided slide image, assessing its content, and provide your judgement in a JSON object containing the reason and score. Each score level requires that all evaluation criteria meet the standards of that level.
+You are an unbiased presentation analysis judge responsible for evaluating the quality of slide content. Please carefully review the provided description of the slide, assessing its content, and provide your judgement in a JSON object containing the reason and score. Each score level requires that all evaluation criteria meet the standards of that level.
 
 Scoring Criteria (Five-Point Scale):
 
@@ -22,5 +22,6 @@ Example Output:
   "reason": "xx",
   "score": int
 }
-Input: {{descr}}
+Input:
+{{descr}}
 Please evaluate the slide step by step, ensuring your judgment strictly adheres to the scoring criteria.

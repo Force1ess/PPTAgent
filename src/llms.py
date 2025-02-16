@@ -6,7 +6,6 @@ from dataclasses import asdict, dataclass
 from math import ceil
 
 import jsonlines
-import requests
 import tiktoken
 import yaml
 from FlagEmbedding import BGEM3FlagModel
@@ -149,7 +148,12 @@ class LLM:
         return response
 
     def __repr__(self) -> str:
-        return f"LLM(model={self.model}, api_base={self.api_base})"
+        repr_str = f"LLM(model={self.model}"
+        if self.api_base is not None:
+            repr_str += f", api_base={self.api_base}"
+        if self._use_batch:
+            repr_str += ", use_batch=True"
+        return repr_str + ")"
 
     def test_connection(self) -> bool:
         """
@@ -445,9 +449,9 @@ def get_model_abbr(llms):
         return "+".join(llm.model for llm in llms)
 
 
-gpt4o = LLM(model="gpt-4o-2024-08-06")
+gpt4o = LLM(model="gpt-4o-2024-08-06", use_batch=True)
 qwen2_5 = LLM(model="Qwen2.5-72B-Instruct", api_base="http://localhost:8000/v1")
-qwen_vl = LLM(model="Qwen2-VL-72B-Instruct", api_base="http://localhost:7999/v1")
+qwen_vl = LLM(model="Qwen2-VL-72B-Instruct", api_base="http://124.16.138.144:7999/v1")
 
 language_model = qwen2_5
 vision_model = qwen_vl

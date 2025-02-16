@@ -3,6 +3,7 @@ import shutil
 import subprocess
 import tempfile
 import traceback
+from itertools import product
 from time import sleep, time
 from types import SimpleNamespace
 
@@ -118,17 +119,34 @@ def tenacity_log(retry_state: RetryCallState):
     traceback.print_tb(retry_state.outcome.exception().__traceback__)
 
 
-def get_json_from_response(raw_response: str):
-    response = raw_response.strip()
+def get_json_from_response(response: str):
+    response = response.strip()
     l, r = response.rfind("```json"), response.rfind("```")
-    try:
-        if l == -1 or r == -1:
-            response = json_repair.loads(response)
-        else:
-            response = json_repair.loads(response[l + 7 : r].strip())
-        return response
-    except Exception as e:
-        raise RuntimeError("Failed to parse JSON from response", e)
+    if l != -1 and r != -1:
+        json_obj = json_repair.loads(response[l + 7 : r].strip())
+        if len(json_obj) > 0:
+            return json_obj
+
+    open_braces = []
+    close_braces = []
+
+    for i, char in enumerate(response):
+        if char == "{":
+            open_braces.append(i)
+        elif char == "}":
+            close_braces.append(i)
+
+    for i, j in product(open_braces, close_braces):
+        if i > j:
+            continue
+        try:
+            json_obj = json_repair.loads(response[i : j + 1])
+            assert len(json_obj) != 0
+            return json_obj
+        except:
+            pass
+
+    raise Exception("JSON not found in the given output", response)
 
 
 tenacity = retry(
