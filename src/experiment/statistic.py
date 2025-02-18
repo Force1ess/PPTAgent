@@ -160,7 +160,6 @@ def plot_correlation(eval_files: list[str], required_dimensions: list[str]):
                 evals[MAPPING.get(dimension, dimension)].append(sub_eval[dimension])
             elif "score" in sub_eval[dimension]:
                 evals[DIMENSION_MAPPING[dimension]].append(sub_eval[dimension]["score"])
-            # 这里得确保文件名存下来，或者所有都评估了
             elif isinstance(sub_eval[dimension], dict):
                 sorted_scores = [
                     v["score"] for _, v in sorted(sub_eval[dimension].items())
@@ -252,14 +251,13 @@ def error_analysis(settings: dict[str, str], colors: list[str]):
     iters = sorted({it for model in setting_counts.values() for it in model.keys()})
 
     fig, ax = plt.subplots(figsize=(7.5, 4.4))
-    width = 0.3  # 柱状图宽度
+    width = 0.3
     x = np.arange(len(iters))
 
     for i, (model, counts) in enumerate(setting_counts.items()):
         heights = [counts.get(it, 0) for it in iters]
         bars = ax.bar(x + i * width, heights, width, label=model, color=colors[i])
 
-        # 在每个 bar 中间添加数值标签
         for bar, height in zip(bars, heights):
             ax.text(
                 bar.get_x() + bar.get_width() / 2,
@@ -282,7 +280,6 @@ def error_analysis(settings: dict[str, str], colors: list[str]):
     plt.savefig("./self-correction.pdf", bbox_inches="tight")
 
 
-# 这里先sort一下
 if __name__ == "__main__":
     # Merge eval result and print_mean
     kctv_qwen_files = sorted(glob("data/*/pdf/*/kctv/Qwen2.5/evals.json"))

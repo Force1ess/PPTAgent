@@ -1091,8 +1091,8 @@ if __name__ == "__main__":
 
     config = Config("/tmp")
     presentation = deepcopy(
-        Presentation.from_file("runs/pptx/cip_default_template/source.pptx", config)
-    ).save("./test.pptx")
+        Presentation.from_file("runs/pptx/default_template/source.pptx", config)
+    )
     for pptx in glob("data/*/pptx/*/source.pptx"):
         presentation = deepcopy(Presentation.from_file(pptx, config))
         for slide in presentation.slides:
