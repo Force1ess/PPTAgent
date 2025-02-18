@@ -16,8 +16,8 @@ from rouge_chinese import Rouge
 
 rouge = Rouge()
 
-FASTER_FID = "src/experiment/faster-pytorch-fid"
-if os.path.exists(FASTER_FID):
+FASTER_FID = "evaluation/faster-pytorch-fid"
+if os.path.exists(FASTER_FID + "/fid_score_gpu.py"):
     sys.path.append(FASTER_FID)
     import fid_score_gpu as fid
 else:
