@@ -18,4 +18,6 @@ python3 pptagent_ui/backend.py &
 
 # Launch Frontend Server
 cd pptagent_ui
+
+npm install
 npm run serve
