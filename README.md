@@ -100,18 +100,13 @@ This project is actively maintained! We welcome:
 - Pull Requests: Code improvements, documentation updates, and fixes
 - Discussions: Share your ideas and experiences
 
-## Roadmap 🗺️
-1. Improve test cases for each module to ensure the system won't break
-2. Enhance documentation, including project documentation and code comments
-3. Refactor code, including replacing print statements with logger
-
 ## Citation 🙏
 
 If you find this project helpful, please use the following to cite it:
 ```bibtex
 @article{zheng2025pptagent,
   title={PPTAgent: Generating and Evaluating Presentations Beyond Text-to-Slides},
-  author={Zheng, Hao and Guan, Xinyan and Kong, Hao and Zheng, Jia and Lin, Hongyu and Lu, Yaojie and He, Ben and Han, Xianpei and Sun, Le},
+  author={Zheng, Hao and Guan, Xinyan and Kong, Hao and Zheng, Jia and Zhou, Weixiang and Lin, Hongyu and Lu, Yaojie and He, Ben and Han, Xianpei and Sun, Le},
   journal={arXiv preprint arXiv:2501.03936},
   year={2025}
 }
