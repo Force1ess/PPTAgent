@@ -14,7 +14,6 @@ json_repair
 timm
 einops
 evaluate
-vllm
 pillow
 socksio
 numpy
