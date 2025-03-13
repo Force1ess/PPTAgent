@@ -136,7 +136,7 @@ def get_json_from_response(response: str):
         elif char == "}":
             close_braces.append(i)
 
-    for i, j in product(open_braces, close_braces):
+    for i, j in product(open_braces, reversed(close_braces)):
         if i > j:
             continue
         try:
