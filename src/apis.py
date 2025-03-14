@@ -14,7 +14,8 @@ from pptx.oxml import parse_xml
 from pptx.shapes.base import BaseShape
 from pptx.util import Pt
 
-from presentation import Closure, Picture, ShapeElement, SlidePage
+from shapes import Closure, Picture, ShapeElement
+from presentation import SlidePage
 from utils import runs_merge
 
 
