@@ -6,7 +6,7 @@ import traceback
 from itertools import product
 from time import sleep, time
 from types import SimpleNamespace
-from typing import Dict, List, Optional, Set, Tuple, Union, Any, Callable
+from typing import Dict, List, Optional, Set, Tuple, Any
 
 import json_repair
 import Levenshtein
@@ -19,6 +19,15 @@ from pptx.shapes.group import GroupShape
 from pptx.text.text import _Paragraph, _Run
 from pptx.util import Length, Pt
 from tenacity import RetryCallState, retry, stop_after_attempt, wait_fixed
+
+try:
+    import socket
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.settimeout(1)
+        assert s.connect_ex(("localhost", 2003)) == 0, "unoserver is not running"
+        UNOSERVER_RUNNING = True
+except Exception:
+    UNOSERVER_RUNNING = False
 
 # Set of supported image extensions
 IMAGE_EXTENSIONS: Set[str] = {
@@ -275,6 +284,7 @@ def ppt_to_images(pptx: str, output_dir: str) -> None:
     Raises:
         AssertionError: If the file does not exist or conversion fails.
     """
+    assert UNOSERVER_RUNNING, "unoserver is not running, please check the installation and run 'unoserver' in the terminal"
     assert pexists(pptx), f"File {pptx} does not exist"
     os.makedirs(output_dir, exist_ok=True)
 
