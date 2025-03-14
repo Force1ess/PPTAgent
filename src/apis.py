@@ -51,7 +51,14 @@ class CodeExecutor:
         self.registered_functions = API_TYPES.all_funcs()
         self.function_regex = re.compile(r"^[a-z]+_[a-z_]+\(.+\)")
 
-    def get_apis_docs(self, funcs: list[callable], show_example: bool = True) -> str:
+    @classmethod
+    def get_apis_docs(
+        cls,
+        funcs: list[callable],
+        show_doc: bool = True,
+        show_return: bool = True,
+        ignore_keys: list[str] = None,
+    ) -> str:
         """
         Get the documentation for a list of API functions.
 
@@ -62,12 +69,14 @@ class CodeExecutor:
         Returns:
             str: The formatted API documentation.
         """
+        if ignore_keys is None:
+            ignore_keys = set(("slide", "self"))
         api_doc = []
         for func in funcs:
             sig = inspect.signature(func)
             params = []
             for name, param in sig.parameters.items():
-                if name == "slide":
+                if name in ignore_keys:
                     continue
                 param_str = name
                 if param.annotation != inspect.Parameter.empty:
@@ -76,14 +85,15 @@ class CodeExecutor:
                     param_str += f" = {repr(param.default)}"
                 params.append(param_str)
             signature = f"def {func.__name__}({', '.join(params)})"
-            if not show_example:
-                api_doc.append(signature)
-                continue
-            doc = inspect.getdoc(func)
-            if doc is not None:
-                signature += f"\n\t{doc}"
+            if show_return and sig.return_annotation != inspect.Parameter.empty:
+                signature += f" -> {sig.return_annotation.__name__}"
+            if show_doc and inspect.getdoc(func) is not None:
+                doc = "\t" + inspect.getdoc(func)
+            else:
+                doc = ""
+            signature += f"\n{doc}"
             api_doc.append(signature)
-        return "\n\n".join(api_doc)
+        return "\n".join(api_doc)
 
     def execute_actions(
         self, actions: str, edit_slide: SlidePage, found_code: bool = False

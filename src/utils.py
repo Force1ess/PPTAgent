@@ -17,7 +17,6 @@ from pptx.shapes.base import BaseShape
 from pptx.shapes.group import GroupShape
 from pptx.text.text import _Paragraph, _Run
 from pptx.util import Length, Pt
-from rich import print
 from tenacity import RetryCallState, retry, stop_after_attempt, wait_fixed
 
 IMAGE_EXTENSIONS = {"bmp", "jpg", "jpeg", "pgm", "png", "ppm", "tif", "tiff", "webp"}
@@ -43,7 +42,10 @@ def get_font_style(font: dict):
     if font.size:
         styles.append(f"font-size: {font.size}pt")
     if font.color:
-        styles.append(f"color: #{font.color}")
+        if all(c in '0123456789abcdefABCDEF' for c in font.color):
+            styles.append(f"color: #{font.color}")
+        else:
+            styles.append(f"color: {font.color}")
     if font.bold:
         styles.append("font-weight: bold")
     if font.italic:
@@ -102,7 +104,7 @@ def get_slide_content(doc_json: dict, slide_title: str, slide: dict):
                 ]
             for subsection in subsections:
                 try:
-                    if edit_distance(key, subsection["title"]) > 0.9:
+                    if edit_distance(key, subsection["title"]) > 0.8:
                         slide_content += f"# {key} \n{subsection['content']}\n"
                 except:
                     pass
@@ -150,63 +152,49 @@ tenacity = retry(
 
 
 @tenacity
-def ppt_to_images(file: str, output_dir: str, warning: bool = False):
-    assert pexists(file), f"File {file} does not exist"
-    if pexists(output_dir) and warning:
-        print(f"ppt2images: {output_dir} already exists")
+def ppt_to_images(pptx: str, output_dir: str):
+    assert pexists(pptx), f"File {pptx} does not exist"
     os.makedirs(output_dir, exist_ok=True)
-    with tempfile.TemporaryDirectory() as temp_dir:
+    with tempfile.TemporaryFile(suffix=".pdf") as temp_pdf:
         command_list = [
-            "soffice",
-            "--headless",
+            "unoconvert",
             "--convert-to",
             "pdf",
-            file,
-            "--outdir",
-            temp_dir,
+            pptx,
+            temp_pdf.name,
         ]
         subprocess.run(command_list, check=True, stdout=subprocess.DEVNULL)
-
-        for f in os.listdir(temp_dir):
-            if not f.endswith(".pdf"):
-                continue
-            temp_pdf = pjoin(temp_dir, f)
-            images = convert_from_path(temp_pdf, dpi=72)
-            for i, img in enumerate(images):
-                img.save(pjoin(output_dir, f"slide_{i+1:04d}.jpg"))
-            return
-
-        raise RuntimeError("No PDF file was created in the temporary directory", file)
+        assert pexists(
+            temp_pdf.name
+        ), f"PPTX convert failed, check the installation of unoserver"
+        images = convert_from_path(temp_pdf.name, dpi=72)
+        for i, img in enumerate(images):
+            img.save(pjoin(output_dir, f"slide_{i+1:04d}.jpg"))
 
 
 @tenacity
 def wmf_to_images(blob: bytes, filepath: str):
-    if not filepath.endswith(".jpg"):
-        raise ValueError("filepath must end with .jpg")
-    dirname = os.path.dirname(filepath)
-    basename = os.path.basename(filepath).removesuffix(".jpg")
-    with tempfile.TemporaryDirectory() as temp_dir:
-        with open(pjoin(temp_dir, f"{basename}.wmf"), "wb") as f:
+    with tempfile.NamedTemporaryFile(suffix=".wmf") as temp_wmf:
+        with open(temp_wmf.name, "wb") as f:
             f.write(blob)
         command_list = [
-            "soffice",
-            "--headless",
+            "unoconvert",
             "--convert-to",
             "jpg",
-            pjoin(temp_dir, f"{basename}.wmf"),
-            "--outdir",
-            dirname,
+            temp_wmf.name,
+            filepath,
         ]
         subprocess.run(command_list, check=True, stdout=subprocess.DEVNULL)
 
-    assert pexists(filepath), f"File {filepath} does not exist"
+    assert pexists(filepath), f"WMF convert failed"
 
 
 def extract_fill(shape: BaseShape):
     if "fill" not in dir(shape):
         return None
-    else:
-        return shape.fill._xPr.xml
+    fill_str = "Fill: " + str(shape.fill.value)
+    fill_xml = shape.fill._xPr.xml
+    return fill_str, fill_xml
 
 
 def apply_fill(shape: BaseShape, fill_xml: str):
@@ -308,7 +296,6 @@ def dict_to_object(dict: dict, obj: object, exclude=None):
 
 
 class Config:
-
     def __init__(self, rundir=None, session_id=None, debug=True):
         self.DEBUG = debug
         if session_id is not None:

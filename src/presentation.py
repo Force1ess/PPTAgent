@@ -5,15 +5,18 @@ from typing import Callable
 
 from pptx import Presentation as PPTXPre
 from pptx.chart.chart import Chart as PPTXChart
+from pptx import __version__ as PPTXVersion
+from pptx.chart.chart import Chart as PPTXChart
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.oxml import parse_xml
 from pptx.shapes.autoshape import Shape as PPTXAutoShape
 from pptx.shapes.base import BaseShape
-from pptx.shapes.connector import Connector as PPTXConnector
 from pptx.shapes.group import GroupShape as PPTXGroupShape
 from pptx.shapes.picture import Picture as PPTXPicture
 from pptx.shapes.placeholder import PlaceholderPicture, SlidePlaceholder
 from pptx.slide import Slide as PPTXSlide
+from pptx.table import Table as PPTXTable
+from pptx.text.text import _Paragraph
 from pptx.table import Table as PPTXTable
 from pptx.text.text import _Paragraph
 from rich import print
@@ -36,6 +39,10 @@ from utils import (
 
 INDENT = "\t"
 
+assert (
+    PPTXVersion == "1.0.3+PPTAgent"
+), "You should install the version of `python-pptx` maintained specifically for this project."
+
 
 # textframe: shape bounds font
 # paragraph: space, alignment, level, font bullet
@@ -49,9 +56,11 @@ class StyleArg:
     paragraph_id: bool = True
     element_id: bool = True
     font_style: bool = True
+    fill_style: bool = True  # TODO 添加fill_style
     area: bool = False
     size: bool = False
     geometry: bool = False
+    show_name: bool = False
     show_image: bool = True
     show_content: bool = True
     show_semantic_name: bool = False
@@ -170,6 +179,18 @@ class TextFrame:
         return len(self.text)
 
 
+class Background:
+    def __init__(self, slide: PPTXSlide):
+        background = slide.background
+        self.xml = background._element.xml
+
+    def build(self, slide: PPTXSlide):
+        pass
+
+    def to_html(self, style_args: StyleArg):
+        pass
+
+
 class ShapeElement:
     def __init__(
         self,
@@ -222,7 +243,7 @@ class ShapeElement:
         line = None
         if "line" in dir(shape) and shape.line._ln is not None:
             line = {
-                "fill": extract_fill(shape.line),
+                "fill_xml": extract_fill(shape.line),
                 "width": shape.line.width,
                 "dash_style": shape.line.dash_style,
             }
@@ -236,9 +257,18 @@ class ShapeElement:
             },
             "shape_type": str(shape.shape_type).split("(")[0].lower(),
             "rotation": shape.rotation,
-            "fill": fill,
+            "fill_xml": fill,
             "line": line,
+            "name": shape.name,
         }
+
+        try: # rectangle, oval, triangle, star...
+            autoshape =  shape.auto_shape_type
+            assert autoshape is not None
+            style["semantic_name"] = str(autoshape).split()[0].lower().strip()
+        except: # freeform, connector, table, chart...
+            style["semantic_name"] = str(shape.shape_type).split("(")[0].lower().strip()
+
         text_frame = TextFrame(shape, level + 1)
         try:  # rectangle, oval, triangle, star...
             autoshape = shape.auto_shape_type
@@ -257,7 +287,7 @@ class ShapeElement:
             level,
         )
         obj.xml = shape._element.xml
-        # ? for debug, mask to enable pickling
+        # ? This is for debug use, mask to enable pickling
         # obj.shape = shape
         return obj
 
@@ -352,6 +382,15 @@ class ShapeElement:
         """
         return self.width * self.height
 
+    @property
+    def semantic_name(self):
+        return self.style.get("semantic_name", None)
+
+    @semantic_name.setter
+    def semantic_name(self, value):
+        self.style["semantic_name"] = value
+
+
     def get_inline_style(self, style_args: StyleArg):
         """
         Get the inline style for the shape element.
@@ -366,9 +405,9 @@ class ShapeElement:
         data_attrs = []
         styles = []
         if style_args.area:
-            data_attrs.append(
-                f"data-relative-area={self.area*100/self.slide_area:.2f}%;"
-            )
+            data_attrs.append(f"data-relative-area={self.area*100/self.slide_area:.2f}%;")
+        if style_args.show_name:
+            data_attrs.append(f"data-shapeName='{self.style['name']}'")
         if style_args.show_semantic_name and self.semantic_name is not None:
             data_attrs.append(f"data-semanticName='{self.semantic_name}'")
         if style_args.size:
@@ -423,10 +462,12 @@ class TextBox(ShapeElement):
         return cls(slide_idx, shape_idx, style, [], text_frame, slide_area, level)
 
     def to_html(self, style_args: StyleArg) -> str:
-
+        content = self.text_frame.to_html(style_args)
+        if not style_args.show_content:
+            content = ""
         return (
             f"{self.indent}<div{self.get_inline_style(style_args)}>\n"
-            + self.text_frame.to_html(style_args)
+            + content
             + f"\n{self.indent}</div>\n"
         )
 
@@ -479,12 +520,12 @@ class Picture(ShapeElement):
             self.img_path,
             **self.style["shape_bounds"],
         )
-        shape.name = self.data[1]
+        shape.name = self.style["name"]
         dict_to_object(self.style["img_style"], shape.image)
-        apply_fill(shape, self.style["fill"])
+        apply_fill(shape, self.style["fill_xml"])
         if self.style["line"] is not None:
-            apply_fill(shape.line, self.style["line"]["fill"])
-            dict_to_object(self.style["line"], shape.line, exclude=["fill"])
+            apply_fill(shape.line, self.style["line"]["fill_xml"])
+            dict_to_object(self.style["line"], shape.line, exclude=["fill_xml"])
 
         dict_to_object(self.style["shape_bounds"], shape)
         if "rotation" in dir(shape):
@@ -493,19 +534,19 @@ class Picture(ShapeElement):
 
     @property
     def img_path(self):
-        return self.data[0]
+        return self.data.get("img_path", None)
 
     @img_path.setter
     def img_path(self, img_path: str):
-        self.data[0] = img_path
+        self.data["img_path"] = img_path
 
     @property
     def caption(self):
-        return self.data[2]
+        return self.data.get("caption", None)
 
     @caption.setter
     def caption(self, caption: str):
-        self.data[2] = caption
+        self.data["caption"] = caption
 
     def to_html(self, style_args: StyleArg) -> str:
         if not style_args.show_image:
@@ -515,8 +556,7 @@ class Picture(ShapeElement):
                 f"caption not found for picture {self.shape_idx} of slide {self.slide_idx}"
             )
         return (
-            self.indent
-            + f"<img {self.get_inline_style(style_args)} alt='{self.caption}'/>"
+            self.indent + f"<img {self.get_inline_style(style_args)} alt='{content}'/>"
         )
 
 
@@ -527,11 +567,8 @@ class Placeholder(ShapeElement):
         slide_idx: int,
         shape_idx: int,
         shape: SlidePlaceholder,
-        style: dict,
-        text_frame: TextFrame,
-        config: Config,
-        slide_area: float,
-        level: int,
+        *args,
+        **kwargs,
     ):
         assert (
             sum(
@@ -549,22 +586,16 @@ class Placeholder(ShapeElement):
                 slide_idx,
                 shape_idx,
                 shape,
-                style,
-                text_frame,
-                config,
-                slide_area,
-                level,
+                *args,
+                **kwargs,
             )
         elif shape.has_text_frame:
             data = TextBox.from_shape(
                 slide_idx,
                 shape_idx,
                 shape,
-                style,
-                text_frame,
-                config,
-                slide_area,
-                level,
+                *args,
+                **kwargs,
             )
         else:
             raise ValueError(f"unsupported placeholder {shape.placeholder_type}")
@@ -625,10 +656,12 @@ class GroupShape(ShapeElement):
         return f"{self.__class__.__name__}: {self.data}"
 
     def to_html(self, style_args: StyleArg) -> str:
+        content = "\n".join([shape.to_html(style_args) for shape in self.data])
+        if not style_args.show_content:
+            content = ""
         return (
-            self.indent
-            + f"<div class='{self.group_label}'{self.get_inline_style(style_args)}>\n"
-            + "\n".join([shape.to_html(style_args) for shape in self.data])
+            f"<div {self.get_inline_style(style_args)} data-group-label='{self.group_label}'>\n"
+            + content
             + "\n"
             + self.indent
             + "</div>\n"
@@ -649,10 +682,12 @@ class FreeShape(ShapeElement):
         level: int,
     ):
         return cls(slide_idx, shape_idx, style, [], text_frame, slide_area, level)
+        return cls(slide_idx, shape_idx, style, [], text_frame, slide_area, level)
 
     def to_html(self, style_args: StyleArg) -> str:
         textframe = self.text_frame.to_html(style_args)
         return (
+            f"{self.indent}<div {self.get_inline_style(style_args)}>"
             f"{self.indent}<div {self.get_inline_style(style_args)}>"
             + f"\n{textframe}"
             + f"\n{self.indent}</div>"
@@ -665,7 +700,7 @@ class SemanticPicture(ShapeElement):
         cls,
         slide_idx: int,
         shape_idx: int,
-        shape: PPTXTable | PPTXChart | PPTXConnector,
+        shape: PPTXTable | PPTXChart | PPTXTable | PPTXChart,
         style: dict,
         text_frame: TextFrame,
         config: Config,
@@ -690,6 +725,7 @@ class SemanticPicture(ShapeElement):
             slide_area,
             level,
         )
+        return obj
         obj.semantic_name = shape_type
         return obj
 
@@ -702,9 +738,9 @@ class SlidePage:
     def __init__(
         self,
         shapes: list[ShapeElement],
+        background: Background,
         slide_idx: int,
         real_idx: int,
-        background_xml: str,
         slide_notes: str,
         slide_layout_name: str,
         slide_title: str,
@@ -712,9 +748,9 @@ class SlidePage:
         slide_height: int,
     ):
         self.shapes = shapes
+        self.background = background
         self.slide_idx = slide_idx
         self.real_idx = real_idx
-        self.background_xml = background_xml
         self.slide_notes = slide_notes
         self.slide_layout_name = slide_layout_name
         self.slide_title = slide_title
@@ -753,6 +789,7 @@ class SlidePage:
         Returns:
             SlidePage: The created SlidePage.
         """
+        background = Background(slide)
         shapes = [
             ShapeElement.from_shape(
                 slide_idx, i, shape, config, slide_width * slide_height
@@ -760,7 +797,6 @@ class SlidePage:
             for i, shape in enumerate(slide.shapes)
             if shape.visible
         ]
-        background_xml = extract_fill(slide.background)
         slide_layout_name = slide.slide_layout.name if slide.slide_layout else None
         slide_title = slide.shapes.title.text if slide.shapes.title else None
         slide_notes = (
@@ -770,9 +806,9 @@ class SlidePage:
         )
         return cls(
             shapes,
+            background,
             slide_idx,
             real_idx,
-            background_xml,
             slide_notes,
             slide_layout_name,
             slide_title,
@@ -784,8 +820,8 @@ class SlidePage:
         for ph in slide.placeholders:
             ph.element.getparent().remove(ph.element)
 
-        apply_fill(slide.background, self.background_xml)
-
+        # todo 这里需要重建background
+        self.background.build(slide)
         for shape in self.shapes:
             build_shape = shape.build(slide)
             for closure in shape.closures:
@@ -1028,21 +1064,22 @@ SHAPECAST: dict[MSO_SHAPE_TYPE, type[ShapeElement]] = {
     MSO_SHAPE_TYPE.AUTO_SHAPE: FreeShape,
     MSO_SHAPE_TYPE.LINE: FreeShape,
     MSO_SHAPE_TYPE.FREEFORM: FreeShape,
+    MSO_SHAPE_TYPE.LINE: FreeShape,
+    MSO_SHAPE_TYPE.FREEFORM: FreeShape,
     MSO_SHAPE_TYPE.PLACEHOLDER: Placeholder,
     MSO_SHAPE_TYPE.PICTURE: Picture,
     MSO_SHAPE_TYPE.GROUP: GroupShape,
     MSO_SHAPE_TYPE.TEXT_BOX: TextBox,
     MSO_SHAPE_TYPE.TABLE: SemanticPicture,
     MSO_SHAPE_TYPE.CHART: SemanticPicture,
+    MSO_SHAPE_TYPE.TABLE: SemanticPicture,
+    MSO_SHAPE_TYPE.CHART: SemanticPicture,
 }
 
 if __name__ == "__main__":
-    from copy import deepcopy
-    from glob import glob
-
     config = Config("/tmp")
     presentation = Presentation.from_file(
-        "runs/pptx/default_template/source.pptx", config
+        "test.pptx", config
     )
     for slide in presentation.slides:
         print(slide.to_html(show_image=False))

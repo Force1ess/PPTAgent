@@ -9,9 +9,8 @@ import jsonlines
 from jinja2 import Template
 from PIL import Image
 from pptx import Presentation
-from torch import cosine_similarity
 from tqdm import tqdm
-from transformers import CLIPModel, CLIPProcessor
+from transformers import pipeline
 
 import llms
 from utils import edit_distance, ppt_to_images
@@ -112,27 +111,14 @@ def generate_slides(
     source_text: str,
     bird_eye: dict,
     images: list[str],
-    model: CLIPModel,
-    processor: CLIPProcessor,
+    pipeline: pipeline,
 ):
     os.makedirs(output_dir, exist_ok=True)
-    images = filter_aspect_ratio(images)
     slides = generate_content(source_text, bird_eye, 7)
-    image_embeddings = model.get_image_features(
-        **processor(images=[Image.open(i) for i in images], return_tensors="pt").to(
-            "cuda"
-        )
-    ).unsqueeze(0)
-    text_embeddings = model.get_text_features(
-        **processor(
-            text=["\n".join(slide["bullets"]) for slide in slides],
-            return_tensors="pt",
-            padding=True,
-            max_length=77,
-            truncation=True,
-        ).to("cuda")
-    ).unsqueeze(1)
-    similarity = cosine_similarity(image_embeddings, text_embeddings, dim=-1)
+    similarity = pipeline(
+        filter_aspect_ratio(images),
+        candidate_labels=["\n".join(slide["bullets"]) for slide in slides],
+    )
     pptx = Presentation()
     for slide_idx, slide in enumerate(slides):  # match image here
         title = slide["title"]
@@ -168,12 +154,13 @@ def generate(model: Literal["Qwen2.5", "gpt"]):
 
     llm_name = llms.get_model_abbr(llms.language_model)
     print("Generating slides on baseline with ", model)
-    model = CLIPModel.from_pretrained("openai/clip-vit-large-patch14").to("cuda").eval()
-    processor = CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14")
+    pipeline = pipeline(
+        "zero-shot-image-classification", model="openai/clip-vit-large-patch14"
+    )
     folders = list(glob("data/*/pdf/*"))
     progress = tqdm(total=len(folders))
 
-    def process_folder(pdf_folder, model, processor):
+    def process_folder(pdf_folder, pipeline):
         source_text = open(f"{pdf_folder}/source.md").read()
         bird_eye = json.load(open(f"{pdf_folder}/refined_doc.json"))
         images = json.load(open(f"{pdf_folder}/image_caption.json")).keys()
@@ -188,8 +175,7 @@ def generate(model: Literal["Qwen2.5", "gpt"]):
                 source_text,
                 bird_eye,
                 list(images),
-                model,
-                processor,
+                pipeline,
             )
             progress.update(1)
         except Exception as e:
@@ -199,7 +185,7 @@ def generate(model: Literal["Qwen2.5", "gpt"]):
     #     process_folder(folder, model, processor)
 
     with ThreadPoolExecutor() as executor:
-        list(executor.map(lambda f: process_folder(f, model, processor), folders))
+        list(executor.map(lambda f: process_folder(f, pipeline), folders))
 
 
 if __name__ == "__main__":

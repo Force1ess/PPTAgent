@@ -13,8 +13,8 @@ from FlagEmbedding import BGEM3FlagModel
 from jinja2 import Environment, StrictUndefined
 from rich import print
 
+from agent import Agent
 from apis import API_TYPES, CodeExecutor
-from llms import Role
 from model_utils import get_text_embedding
 from presentation import Presentation, SlidePage, StyleArg
 from utils import Config, get_slide_content, pdirname, pexists, pjoin, tenacity
@@ -241,13 +241,13 @@ class PPTGen(ABC):
                 raise ValueError("Failed to generate outline, tried too many times")
         return outline
 
-    def _hire_staffs(self, record_cost: bool, **kwargs) -> dict[str, Role]:
+    def _hire_staffs(self, record_cost: bool, **kwargs) -> dict[str, Agent]:
         """
         Initialize agent roles and their models
         """
         jinja_env = Environment(undefined=StrictUndefined)
         self.staffs = {
-            role: Role(
+            role: Agent(
                 role,
                 env=jinja_env,
                 record_cost=record_cost,
@@ -343,7 +343,7 @@ class PPTCrew(PPTGen):
         command_list = self._generate_commands(editor_output, content_schema, old_data)
 
         edit_actions = self.staffs["coder"](
-            api_docs=code_executor.get_apis_docs(API_TYPES.Agent.value),
+            api_docs=CodeExecutor.get_apis_docs(API_TYPES.Agent.value),
             edit_target=self.presentation.slides[template["template_id"] - 1].to_html(),
             command_list="\n".join([str(i) for i in command_list]),
         )

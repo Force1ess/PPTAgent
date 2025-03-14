@@ -79,7 +79,7 @@ class PPTCrew_wo_Decoupling(PPTCrew):
         schema = template["content_schema"]
         edit_actions = self.staffs["agent"](
             schema=schema,
-            api_docs=code_executor.get_apis_docs(API_TYPES.Agent.value),
+            api_docs=CodeExecutor.get_apis_docs(API_TYPES.Agent.value),
             edit_target=self.presentation.slides[template["template_id"] - 1].to_html(),
             outline=self.simple_outline,
             metadata=self.metadata,
@@ -132,7 +132,7 @@ class PPTCrew_wo_SchemaInduction(PPTCrew):
         command_list = self._generate_commands(editor_output, new_schema, old_data)
 
         edit_actions = self.staffs["coder"](
-            api_docs=code_executor.get_apis_docs(API_TYPES.Agent.value),
+            api_docs=CodeExecutor.get_apis_docs(API_TYPES.Agent.value),
             edit_target=self.presentation.slides[template["template_id"] - 1].to_html(),
             command_list="\n".join([str(i) for i in command_list]),
         )
