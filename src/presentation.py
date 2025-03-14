@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Callable
 
 from pptx import Presentation as PPTXPre
+from pptx.chart.chart import Chart as PPTXChart
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.oxml import parse_xml
 from pptx.shapes.autoshape import Shape as PPTXAutoShape
@@ -13,7 +14,8 @@ from pptx.shapes.group import GroupShape as PPTXGroupShape
 from pptx.shapes.picture import Picture as PPTXPicture
 from pptx.shapes.placeholder import PlaceholderPicture, SlidePlaceholder
 from pptx.slide import Slide as PPTXSlide
-from pptx.text.text import _Paragraph, _Run
+from pptx.table import Table as PPTXTable
+from pptx.text.text import _Paragraph
 from rich import print
 
 from utils import (
@@ -22,7 +24,6 @@ from utils import (
     apply_fill,
     dict_to_object,
     extract_fill,
-    get_font_pptcstyle,
     get_font_style,
     merge_dict,
     object_to_dict,
@@ -52,6 +53,17 @@ class StyleArg:
     size: bool = False
     geometry: bool = False
     show_image: bool = True
+    show_content: bool = True
+    show_semantic_name: bool = False
+
+    @classmethod
+    def all_true(cls):
+        return cls(
+            area=True,
+            size=True,
+            geometry=True,
+            show_semantic_name=True,
+        )
 
 
 @dataclass
@@ -157,28 +169,6 @@ class TextFrame:
             return 0
         return len(self.text)
 
-    def to_pptc(self, father_idx: int) -> str:
-        """
-        Convert the text frame to PPTC format.
-
-        Args:
-            father_idx (int): The index of the parent shape.
-
-        Returns:
-            str: The PPTC representation of the text frame.
-        """
-        if not self.is_textframe:
-            return ""
-        s = f"[Text id={father_idx}]"
-        for para in self.paragraphs:
-            if para.idx == -1:
-                continue
-            s += f"\n"
-            s += f"[Paragraph id={para.idx}]"
-            s += get_font_pptcstyle(para.font) + f"\n"
-            s += para.text + "\n"
-        return s
-
 
 class ShapeElement:
     def __init__(
@@ -186,7 +176,7 @@ class ShapeElement:
         slide_idx: int,
         shape_idx: int,
         style: dict,
-        data: dict,
+        data: list,
         text_frame: TextFrame,
         slide_area: float,
         level: int,
@@ -250,6 +240,12 @@ class ShapeElement:
             "line": line,
         }
         text_frame = TextFrame(shape, level + 1)
+        try:  # rectangle, oval, triangle, star...
+            autoshape = shape.auto_shape_type
+            assert autoshape is not None
+            style["semantic_name"] = str(autoshape).split()[0].lower().strip()
+        except:  # freeform, connector, table, chart...
+            style["semantic_name"] = str(shape.shape_type).split("(")[0].lower().strip()
         obj = SHAPECAST.get(shape.shape_type, UnsupportedShape).from_shape(
             slide_idx,
             shape_idx,
@@ -292,7 +288,9 @@ class ShapeElement:
         Returns:
             str: The HTML representation of the shape element.
         """
-        return ""
+        raise NotImplementedError(
+            f"to_html not implemented for {self.__class__.__name__}"
+        )
 
     @property
     def closures(self):
@@ -354,62 +352,6 @@ class ShapeElement:
         """
         return self.width * self.height
 
-    @property
-    def pptc_text_info(self):
-        """
-        Get the PPTC text information of the shape element.
-
-        Returns:
-            str: The PPTC text information.
-        """
-        if isinstance(self, Picture):
-            return self.caption
-        return self.text_frame.to_pptc(self.shape_idx)
-
-    @property
-    def pptc_space_info(self):
-        """
-        Get the PPTC space information of the shape element.
-
-        Returns:
-            str: The PPTC space information.
-        """
-        return f"Visual Positions: left={self.left}pt, top={self.top}pt\n"
-
-    @property
-    def pptc_size_info(self):
-        """
-        Get the PPTC size information of the shape element.
-
-        Returns:
-            str: The PPTC size information.
-        """
-        return f"Size: height={self.height}pt, width={self.width}pt\n"
-
-    @property
-    def pptc_description(self):
-        """
-        Get the PPTC description of the shape element.
-
-        Returns:
-            str: The PPTC description.
-        """
-        return f"[{self.__class__.__name__} id={self.shape_idx}]\n"
-
-    def to_pptc(self):
-        """
-        Convert the shape element to PPTC format.
-
-        Returns:
-            str: The PPTC representation of the shape element.
-        """
-        s = ""
-        s += self.pptc_description
-        s += self.pptc_size_info
-        s += self.pptc_space_info
-        s += self.pptc_text_info
-        return s
-
     def get_inline_style(self, style_args: StyleArg):
         """
         Get the inline style for the shape element.
@@ -421,9 +363,14 @@ class ShapeElement:
             str: The inline style string.
         """
         id_str = f" id='{self.shape_idx}'" if style_args.element_id else ""
+        data_attrs = []
         styles = []
         if style_args.area:
-            styles.append(f"data-relative-area={self.area*100/self.slide_area:.2f}%;")
+            data_attrs.append(
+                f"data-relative-area={self.area*100/self.slide_area:.2f}%;"
+            )
+        if style_args.show_semantic_name and self.semantic_name is not None:
+            data_attrs.append(f"data-semanticName='{self.semantic_name}'")
         if style_args.size:
             styles.append(f"width: {self.width}pt; height: {self.height}pt;")
         if style_args.geometry:
@@ -433,8 +380,18 @@ class ShapeElement:
             if font_style:
                 styles.append(font_style)
         if len(styles) != 0:
-            return id_str + " style='" + " ".join(styles) + "'"
+            id_str += " style='" + " ".join(styles) + "'"
+        if len(data_attrs) != 0:
+            id_str += " " + " ".join(data_attrs)
         return id_str
+
+    @property
+    def semantic_name(self):
+        return self.style.get("semantic_name", None)
+
+    @semantic_name.setter
+    def semantic_name(self, value):
+        self.style["semantic_name"] = value
 
 
 class UnsupportedShape(ShapeElement):
@@ -463,7 +420,7 @@ class TextBox(ShapeElement):
         slide_area: float,
         level: int,
     ):
-        return cls(slide_idx, shape_idx, style, None, text_frame, slide_area, level)
+        return cls(slide_idx, shape_idx, style, [], text_frame, slide_area, level)
 
     def to_html(self, style_args: StyleArg) -> str:
 
@@ -510,7 +467,7 @@ class Picture(ShapeElement):
             slide_idx,
             shape_idx,
             style,
-            [img_path, shape.name, ""],
+            [img_path, shape.name, None],
             text_frame,
             slide_area,
             level=level,
@@ -553,7 +510,7 @@ class Picture(ShapeElement):
     def to_html(self, style_args: StyleArg) -> str:
         if not style_args.show_image:
             return ""
-        if not self.caption:
+        if self.caption is None:
             raise ValueError(
                 f"caption not found for picture {self.shape_idx} of slide {self.slide_idx}"
             )
@@ -649,9 +606,6 @@ class GroupShape(ShapeElement):
             shape.build(slide)
         return slide
 
-    def to_pptc(self):
-        return "\n".join([shape.to_pptc() for shape in self.data])
-
     def __iter__(self):
         for shape in self.data:
             if isinstance(shape, GroupShape):
@@ -694,32 +648,24 @@ class FreeShape(ShapeElement):
         slide_area: float,
         level: int,
     ):
-        data = {
-            "shape_type": shape.auto_shape_type.real,
-            "svg_tag": str(shape.auto_shape_type).split()[0].lower(),
-        }
-        return cls(
-            slide_idx, shape_idx, style, data, text_frame, slide_area, level=level
-        )
+        return cls(slide_idx, shape_idx, style, [], text_frame, slide_area, level)
 
     def to_html(self, style_args: StyleArg) -> str:
         textframe = self.text_frame.to_html(style_args)
-        if not textframe:
-            return ""
         return (
-            f"{self.indent}<div data-shape-type='{self.data['svg_tag']}'{self.get_inline_style(style_args)}>"
+            f"{self.indent}<div {self.get_inline_style(style_args)}>"
             + f"\n{textframe}"
             + f"\n{self.indent}</div>"
         )
 
 
-class Connector(ShapeElement):
+class SemanticPicture(ShapeElement):
     @classmethod
     def from_shape(
         cls,
         slide_idx: int,
         shape_idx: int,
-        shape: PPTXConnector,
+        shape: PPTXTable | PPTXChart | PPTXConnector,
         style: dict,
         text_frame: TextFrame,
         config: Config,
@@ -729,15 +675,23 @@ class Connector(ShapeElement):
         """
         Convert a connector to a freeform shape.
         """
-        return FreeShape(
+        shape_type = str(shape.shape_type).split()[0]
+        style["img_style"] = {}
+        obj = Picture(
             slide_idx,
             shape_idx,
             style,
-            {"shape_type": "connector", "svg_tag": "connector"},
+            [
+                "resource/pic_placeholder.png",
+                shape.name,
+                f"This is a picture of {shape_type}",
+            ],
             text_frame,
             slide_area,
             level,
         )
+        obj.semantic_name = shape_type
+        return obj
 
 
 class SlidePage:
@@ -841,7 +795,7 @@ class SlidePage:
                     raise ValueError("Failed to apply closures to slides")
         return slide
 
-    def shape_filter(self, shape_type: type, shapes: list[ShapeElement] = None):
+    def shape_filter(self, shape_type: type, shapes: list[ShapeElement] | None = None):
         """
         Filter shapes in the slide by type.
 
@@ -868,7 +822,7 @@ class SlidePage:
             return "picture"
         return "text"
 
-    def to_html(self, style_args: StyleArg = None, **kwargs) -> str:
+    def to_html(self, style_args: StyleArg | None = None, **kwargs) -> str:
         """
         Represent the slide page in HTML.
 
@@ -891,12 +845,6 @@ class SlidePage:
             ]
         )
 
-    def to_pptc(self):
-        """
-        Represent the slide page in PPTC format.
-        """
-        return "\n".join([shape.to_pptc() for shape in self.shapes])
-
     def to_text(self, show_image: bool = False) -> str:
         """
         Represent the slide page in text.
@@ -910,7 +858,7 @@ class SlidePage:
         )
         if show_image:
             for image in self.shape_filter(Picture):
-                if not image.caption:
+                if image.caption is None:
                     raise ValueError(
                         f"caption not found for picture {image.shape_idx} of slide {image.slide_idx}"
                     )
@@ -977,7 +925,7 @@ class Presentation:
         layouts = [layout.name for layout in prs.slide_layouts]
         num_pages = len(prs.slides)
         for slide in prs.slides:
-            if slide._element.get("show") == "0":
+            if slide._element.get("show", 1) == "0":
                 continue  # will not be printed to pdf
 
             slide_idx += 1
@@ -1076,13 +1024,16 @@ class Presentation:
         return len(self.slides)
 
 
-SHAPECAST: dict[int, ShapeElement] = {
+SHAPECAST: dict[MSO_SHAPE_TYPE, type[ShapeElement]] = {
     MSO_SHAPE_TYPE.AUTO_SHAPE: FreeShape,
+    MSO_SHAPE_TYPE.LINE: FreeShape,
+    MSO_SHAPE_TYPE.FREEFORM: FreeShape,
     MSO_SHAPE_TYPE.PLACEHOLDER: Placeholder,
     MSO_SHAPE_TYPE.PICTURE: Picture,
     MSO_SHAPE_TYPE.GROUP: GroupShape,
     MSO_SHAPE_TYPE.TEXT_BOX: TextBox,
-    MSO_SHAPE_TYPE.LINE: Connector,
+    MSO_SHAPE_TYPE.TABLE: SemanticPicture,
+    MSO_SHAPE_TYPE.CHART: SemanticPicture,
 }
 
 if __name__ == "__main__":
@@ -1090,11 +1041,8 @@ if __name__ == "__main__":
     from glob import glob
 
     config = Config("/tmp")
-    presentation = deepcopy(
-        Presentation.from_file("runs/pptx/default_template/source.pptx", config)
+    presentation = Presentation.from_file(
+        "runs/pptx/default_template/source.pptx", config
     )
-    for pptx in glob("data/*/pptx/*/source.pptx"):
-        presentation = deepcopy(Presentation.from_file(pptx, config))
-        for slide in presentation.slides:
-            print(slide.to_html(show_image=False))
-            print("\033c", end="")
+    for slide in presentation.slides:
+        print(slide.to_html(show_image=False))

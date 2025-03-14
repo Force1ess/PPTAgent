@@ -37,11 +37,6 @@ def is_image_path(file: str):
     return False
 
 
-def get_font_pptcstyle(font: dict):
-    font = SimpleNamespace(**font)
-    return f"Font Style: bold={font.bold}, italic={font.italic}, underline={font.underline}, size={font.size}pt, color={font.color}, font style={font.name}\n"
-
-
 def get_font_style(font: dict):
     font = SimpleNamespace(**font)
     styles = []

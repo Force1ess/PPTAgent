@@ -51,6 +51,7 @@ template: |
   Structural Layouts:
   {{ functional_keys }}
 
+  You should make full of the given images, with corresponding picture/table layouts.
   Output:
 jinja_args:
   - num_slides

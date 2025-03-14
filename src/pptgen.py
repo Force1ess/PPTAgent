@@ -16,8 +16,11 @@ from rich import print
 from apis import API_TYPES, CodeExecutor
 from llms import Role
 from model_utils import get_text_embedding
-from presentation import Presentation, SlidePage
-from utils import Config, get_slide_content, pexists, pjoin, tenacity
+from presentation import Presentation, SlidePage, StyleArg
+from utils import Config, get_slide_content, pdirname, pexists, pjoin, tenacity
+
+style = StyleArg.all_true()
+style.area = False
 
 
 @dataclass
@@ -37,7 +40,7 @@ class PPTGen(ABC):
         force_pages: bool = False,
         error_exit: bool = True,
         record_cost: bool = True,
-        length_factor: float = None,
+        length_factor: float | None = None,
         **kwargs,
     ):
         """
@@ -115,6 +118,7 @@ class PPTGen(ABC):
             f"{meta_data}\nPresentation Time: {datetime.now().strftime('%Y-%m-%d')}\n"
         )
         self.image_information = ""
+        self.image_dir = pdirname(list(images.keys())[0])
         for k, v in images.items():
             assert pexists(k), f"Image {k} not found"
             size = PIL.Image.open(k).size
@@ -259,7 +263,7 @@ class PPTGen(ABC):
         template: dict,
         slide_content: str,
         code_executor: CodeExecutor,
-        image_info: str,
+        images_info: str,
     ) -> SlidePage:
         """
         Synergize Agents to generate a slide.
@@ -269,7 +273,9 @@ class PPTGen(ABC):
         """
         pass
 
-    def _generate_slide(self, slide_data, code_executor: CodeExecutor) -> SlidePage:
+    def _generate_slide(
+        self, slide_data, code_executor: CodeExecutor
+    ) -> SlidePage | None:
         """
         Generate a slide from the slide data.
         """
@@ -278,7 +284,7 @@ class PPTGen(ABC):
         if any(
             [
                 i in slide["layout"]
-                for i in ["picture", "chart", "table", "diagram", "freeform"]
+                for i in ["picture", "chart", "table", "diagram", "freeform", "image"]
             ]
         ):
             images_info = self.image_information
@@ -449,6 +455,9 @@ class PPTCrew(PPTGen):
             new_content = [i for i in new_content if i]
 
             if content_schema[el_name]["type"] == "image":
+                for i in range(len(new_content)):
+                    if pexists(pjoin(self.image_dir, new_content[i])):
+                        new_content[i] = pjoin(self.image_dir, new_content[i])
                 new_content = [i for i in new_content if pexists(i)]
 
             quantity_change = len(new_content) - len(old_content)

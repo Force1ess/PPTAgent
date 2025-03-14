@@ -9,15 +9,11 @@ fi
 
 export PYTHONPATH=/PPTAgent/src:$PYTHONPATH
 
-# Sync the PPTAgent with Upstream
-cd /PPTAgent
-git pull
-
 # Launch Backend Server
-python3 pptagent_ui/backend.py &
+cd /PPTAgent
+python3 pptagent/ui/backend.py &
 
 # Launch Frontend Server
-cd pptagent_ui
-
+cd pptagent/ui
 npm install
 npm run serve

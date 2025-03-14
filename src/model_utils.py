@@ -10,7 +10,6 @@ from marker.config.parser import ConfigParser
 from marker.converters.pdf import PdfConverter
 from marker.output import text_from_rendered
 from PIL import Image
-from torchvision.transforms.functional import InterpolationMode
 from transformers import AutoFeatureExtractor, AutoModel
 
 from presentation import Presentation, SlidePage
