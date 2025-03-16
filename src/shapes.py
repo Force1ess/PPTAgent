@@ -2,8 +2,10 @@ import re
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional, Type, TypeVar, Union
 
+from lxml import etree
 from pptx.chart.chart import Chart as PPTXChart
 from pptx.slide import Slide as PPTXSlide
+from pptx.parts.slide import SlidePart
 from pptx.shapes.connector import Connector as PPTXConnector
 from pptx.oxml import parse_xml
 from pptx.shapes.autoshape import Shape as PPTXAutoShape
@@ -15,19 +17,18 @@ from pptx.shapes.placeholder import PlaceholderPicture, SlidePlaceholder
 from pptx.text.text import _Paragraph
 from pptx.table import Table as PPTXTable
 from pptx.enum.shapes import MSO_SHAPE_TYPE
-
-
+from pptx.enum.dml import MSO_FILL_TYPE
+from pptx.dml.fill import FillFormat
+from pptx.dml.line import LineFormat
 from utils import (
     IMAGE_EXTENSIONS,
     Config,
-    apply_fill,
     dict_to_object,
-    extract_fill,
     get_font_style,
     merge_dict,
     object_to_dict,
     parse_groupshape,
-    pexists,
+    parsing_image,
     pjoin,
     runs_merge,
     wmf_to_images,
@@ -70,6 +71,127 @@ class StyleArg:
             geometry=True,
             show_semantic_name=True,
         )
+
+
+class Fill:
+    """
+    A class to represent a fill.
+    """
+
+    def __init__(
+        self,
+        fill_type: MSO_FILL_TYPE,
+        fill_str: str,
+        fill_xml: str,
+        image_path: Optional[str] = None,
+    ):
+        self.fill_type = fill_type
+        self.fill_str = fill_str
+        self.fill_xml = fill_xml
+        self.image_path = image_path
+
+    @classmethod
+    def from_shape(cls, fill: Optional[FillFormat], part: SlidePart, config: Config):
+        if fill is None or fill.type is None or fill.type == MSO_FILL_TYPE.BACKGROUND:
+            return cls(MSO_FILL_TYPE.BACKGROUND, "", None)
+
+        fill_str = "Fill: " + str(fill.value)
+        fill_xml = fill._xPr.xml
+        fill_type = fill.type
+        image_path = None
+        if fill_type == MSO_FILL_TYPE.PICTURE:
+            image = part.get_image(fill._fill.rId)
+            image_path = pjoin(config.IMAGE_DIR, image.sha1)
+            image_path = parsing_image(image, image_path)
+        return cls(fill_type, fill_str, fill_xml, image_path)
+
+    def build(self, fill: FillFormat, part: SlidePart) -> None:
+        """
+        Build the fill in a shape.
+        Args:
+            shape (BaseShape): The shape to apply fill to.
+            fill_xml (Optional[str]): The fill XML to apply.
+        """
+        if self.fill_type == MSO_FILL_TYPE.BACKGROUND:
+            return
+        if self.fill_type == MSO_FILL_TYPE.PICTURE:
+            fill.blip()
+            _, rId = part.get_or_add_image_part(self.image_path)
+            fill.rId = rId
+        else:
+            new_element = etree.fromstring(self.fill_xml)
+            fill._xPr.getparent().replace(fill._xPr, new_element)
+
+    def to_html(self, style_args: StyleArg) -> str:
+        """
+        Convert the fill to HTML.
+        """
+        pass
+
+
+class Line:
+    """
+    A class to represent a line.
+    """
+    def __init__(self, fill: Fill, line_width: float, line_dash_style: str):
+        self.fill = fill
+        self.line_width = line_width
+        self.line_dash_style = line_dash_style
+
+    @classmethod
+    def from_shape(cls, line: Optional[LineFormat], part: SlidePart, config: Config):
+        line_fill = getattr(line, "fill", None)
+        if line_fill is None:
+            return cls(Fill(MSO_FILL_TYPE.BACKGROUND, "", None), 0, "")
+        fill = Fill.from_shape(line_fill, part, config)
+        line_width = line.width
+        line_dash_style = line.dash_style
+        return cls(fill, line_width, line_dash_style)
+
+    def build(self, line: LineFormat, part: SlidePart) -> None:
+        """
+        Build the line in a shape.
+        """
+        if self.fill.fill_type == MSO_FILL_TYPE.BACKGROUND:
+            return
+        self.fill.build(line.fill, part)
+        line.width = self.line_width
+        line.dash_style = self.line_dash_style
+
+
+class Background(Fill):
+    """
+    A class to represent a slide background.
+    """
+
+    @classmethod
+    def from_slide(cls, slide: PPTXSlide, config: Config) -> "Background":
+        """
+        Build the background in a slide.
+
+        Args:
+            slide (PPTXSlide): The slide to build the background in.
+        """
+        background = slide.background
+        return cls.from_shape(background.fill, slide.part, config)
+
+    def build(self, slide: PPTXSlide) -> None:
+        """
+        Build the background in a slide.
+        """
+        super().build(slide.background.fill, slide.part)
+
+    def to_html(self, style_args: StyleArg) -> str:
+        """
+        Convert the background to HTML.
+
+        Args:
+            style_args (StyleArg): The style arguments for HTML conversion.
+
+        Returns:
+            str: The HTML representation of the background.
+        """
+        pass
 
 
 @dataclass
@@ -241,43 +363,6 @@ class TextFrame:
         return len(self.text)
 
 
-class Background:
-    """
-    A class to represent a slide background.
-    """
-
-    def __init__(self, slide: PPTXSlide):
-        """
-        Initialize a Background.
-
-        Args:
-            slide (PPTXSlide): The slide containing the background.
-        """
-        background = slide.background
-        self.xml = background._element.xml
-
-    def build(self, slide: PPTXSlide) -> None:
-        """
-        Build the background in a slide.
-
-        Args:
-            slide (PPTXSlide): The slide to build the background in.
-        """
-        pass
-
-    def to_html(self, style_args: StyleArg) -> str:
-        """
-        Convert the background to HTML.
-
-        Args:
-            style_args (StyleArg): The style arguments for HTML conversion.
-
-        Returns:
-            str: The HTML representation of the background.
-        """
-        pass
-
-
 class ShapeElement:
     """
     Base class for shape elements in a presentation.
@@ -348,18 +433,6 @@ class ShapeElement:
         if shape_idx > 100 and isinstance(shape, PPTXGroupShape):
             raise ValueError("Nested group shapes are not allowed")
 
-        # Extract line properties if available
-        line = None
-        if hasattr(shape, "line") and shape.line._ln is not None:
-            line = {
-                "fill_xml": extract_fill(shape.line),
-                "width": shape.line.width,
-                "dash_style": shape.line.dash_style,
-            }
-
-        # Extract fill properties
-        fill = extract_fill(shape)
-
         # Create style dictionary
         style = {
             "shape_bounds": {
@@ -370,8 +443,6 @@ class ShapeElement:
             },
             "shape_type": str(shape.shape_type).split("(")[0].lower(),
             "rotation": shape.rotation,
-            "fill_xml": fill,
-            "line": line,
             "name": shape.name,
         }
 
@@ -403,6 +474,8 @@ class ShapeElement:
 
         # Store XML for later use
         obj.xml = shape._element.xml
+        obj.fill = Fill.from_shape(getattr(shape, "fill", None), shape.part, config)
+        obj.line = Line.from_shape(getattr(shape, "line", None), shape.part, config)
         # ? This is for debug use, mask to enable pickling
         # obj.shape = shape
         return obj
@@ -417,9 +490,12 @@ class ShapeElement:
         Returns:
             BaseShape: The built shape.
         """
-        return slide.shapes._shape_factory(
+        shape = slide.shapes._shape_factory(
             slide.shapes._spTree.insert_element_before(parse_xml(self.xml), "p:extLst")
         )
+        self.fill.build(shape.fill, shape.part)
+        self.line.build(shape.line, shape.part)
+        return shape
 
     def __repr__(self) -> str:
         """
@@ -722,20 +798,7 @@ class Picture(ShapeElement):
             config.IMAGE_DIR,
             f"{shape.image.sha1}.{shape.image.ext}",
         )
-
-        # Handle WMF images
-        if shape.image.ext == "wmf":
-            img_path = img_path.replace(".wmf", ".jpg")
-            if not pexists(img_path):
-                wmf_to_images(shape.image.blob, img_path)
-        # Check for supported image types
-        elif shape.image.ext not in IMAGE_EXTENSIONS:
-            raise ValueError(f"Unsupported image type {shape.image.ext}")
-
-        # Save image if it doesn't exist
-        if not pexists(img_path):
-            with open(img_path, "wb") as f:
-                f.write(shape.image.blob)
+        img_path = parsing_image(shape.image, img_path)
 
         # Add image style information
         style["img_style"] = {
@@ -776,12 +839,6 @@ class Picture(ShapeElement):
         # Set properties
         shape.name = self.style["name"]
         dict_to_object(self.style["img_style"], shape.image)
-        apply_fill(shape, self.style["fill_xml"])
-
-        # Apply line style if available
-        if self.style["line"] is not None:
-            apply_fill(shape.line, self.style["line"]["fill_xml"])
-            dict_to_object(self.style["line"], shape.line, exclude=["fill_xml"])
 
         # Apply shape bounds and rotation
         dict_to_object(self.style["shape_bounds"], shape)

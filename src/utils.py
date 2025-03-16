@@ -6,22 +6,22 @@ import traceback
 from itertools import product
 from time import sleep, time
 from types import SimpleNamespace
-from typing import Dict, List, Optional, Set, Tuple, Any
+from typing import Dict, List, Optional, Set, Any
 
 import json_repair
 import Levenshtein
-from lxml import etree
 from pdf2image import convert_from_path
 from pptx.dml.color import RGBColor
 from pptx.oxml import parse_xml
-from pptx.shapes.base import BaseShape
 from pptx.shapes.group import GroupShape
 from pptx.text.text import _Paragraph, _Run
 from pptx.util import Length, Pt
+from pptx.parts.image import Image
 from tenacity import RetryCallState, retry, stop_after_attempt, wait_fixed
 
 try:
     import socket
+
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.settimeout(1)
         assert s.connect_ex(("localhost", 2003)) == 0, "unoserver is not running"
@@ -284,7 +284,9 @@ def ppt_to_images(pptx: str, output_dir: str) -> None:
     Raises:
         AssertionError: If the file does not exist or conversion fails.
     """
-    assert UNOSERVER_RUNNING, "unoserver is not running, please check the installation and run 'unoserver' in the terminal"
+    assert (
+        UNOSERVER_RUNNING
+    ), "unoserver is not running, please check the installation and run 'unoserver' in the terminal"
     assert pexists(pptx), f"File {pptx} does not exist"
     os.makedirs(output_dir, exist_ok=True)
 
@@ -314,6 +316,23 @@ def ppt_to_images(pptx: str, output_dir: str) -> None:
                 img.save(pjoin(output_dir, f"slide_{i+1:04d}.jpg"))
         except Exception as e:
             raise AssertionError(f"PDF to image conversion failed: {e}")
+
+
+def parsing_image(image: Image, image_path: str) -> str:
+    # Handle WMF images (PDFs)
+    if image.ext == "wmf":
+        image_path = image_path.replace(".wmf", ".jpg")
+        if not pexists(image_path):
+            wmf_to_images(image.blob, image_path)
+    # Check for supported image types
+    elif image.ext not in IMAGE_EXTENSIONS:
+        raise ValueError(f"Unsupported image type {image.ext}")
+
+    # Save image if it doesn't exist
+    if not pexists(image_path):
+        with open(image_path, "wb") as f:
+            f.write(image.blob)
+    return image_path
 
 
 @tenacity
@@ -348,46 +367,6 @@ def wmf_to_images(blob: bytes, filepath: str) -> None:
             raise AssertionError(f"WMF conversion failed: {e}")
 
     assert pexists(filepath), f"WMF convert failed, output file {filepath} not found"
-
-
-def extract_fill(shape: BaseShape) -> Optional[Tuple[str, str]]:
-    """
-    Extract fill information from a shape.
-
-    Args:
-        shape (BaseShape): The shape to extract fill from.
-
-    Returns:
-        Optional[Tuple[str, str]]: The fill string and XML, or None if the shape has no fill.
-    """
-    if not hasattr(shape, "fill"):
-        return None
-
-    try:
-        fill_str = "Fill: " + str(shape.fill.value)
-        fill_xml = shape.fill._xPr.xml
-        return fill_str, fill_xml
-    except Exception as e:
-        print(f"Error extracting fill: {e}")
-        return None
-
-
-def apply_fill(shape: BaseShape, fill_xml: Optional[str]) -> None:
-    """
-    Apply fill XML to a shape.
-
-    Args:
-        shape (BaseShape): The shape to apply fill to.
-        fill_xml (Optional[str]): The fill XML to apply.
-    """
-    if fill_xml is None:
-        return
-
-    try:
-        new_element = etree.fromstring(fill_xml)
-        shape.fill._xPr.getparent().replace(shape.fill._xPr, new_element)
-    except Exception as e:
-        print(f"Error applying fill: {e}")
 
 
 def parse_groupshape(groupshape: GroupShape) -> List[Dict[str, Length]]:
@@ -590,8 +569,10 @@ class Config:
 
         if session_id is not None:
             self.set_session(session_id)
-        if rundir is not None:
+        elif rundir is not None:
             self.set_rundir(rundir)
+        else:
+            raise ValueError("No session ID or run directory provided")
 
     def set_session(self, session_id: str) -> None:
         """

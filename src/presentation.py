@@ -4,6 +4,8 @@ from typing import List, Optional, Tuple, Type,  Generator
 from pptx import Presentation as PPTXPre
 from pptx import __version__ as PPTXVersion
 from pptx.slide import Slide as PPTXSlide
+from pptx.shapes.base import BaseShape
+from pptx.shapes.group import GroupShape as PPTXGroupShape
 from rich import print
 
 from utils import Config
@@ -11,6 +13,7 @@ from shapes import (
     T,
     GroupShape,
     Picture,
+    SemanticPicture,
     ShapeElement,
     Background,
     StyleArg,
@@ -97,7 +100,7 @@ class SlidePage:
         Returns:
             SlidePage: The created SlidePage.
         """
-        background = Background(slide)
+        background = Background.from_slide(slide, config)
         shapes = [
             ShapeElement.from_shape(
                 slide_idx, i, shape, config, slide_width * slide_height
@@ -174,7 +177,6 @@ class SlidePage:
             elif isinstance(shape, GroupShape):
                 yield from self.shape_filter(shape_type, shape.data)
 
-    # todo 这里semantic image 需要添加
     def get_content_type(self) -> str:
         """
         Get the content type of the slide.
@@ -182,9 +184,12 @@ class SlidePage:
         Returns:
             str: The content type of the slide.
         """
-        if len(list(self.shape_filter(Picture))) > 0:
-            return "picture"
-        return "text"
+        if len(list(self.shape_filter(Picture))) == 0:
+            return "text"
+        content_types = {"picture"}
+        for shape in self.shape_filter(SemanticPicture):
+            content_types.add(shape.semantic_name)
+        return ",".join(content_types)
 
     def to_html(self, style_args: Optional[StyleArg] = None, **kwargs) -> str:
         """
@@ -384,3 +389,49 @@ class Presentation:
         return slide.build(
             self.prs.slides.add_slide(self.layout_mapping[slide.slide_layout_name])
         )
+
+    def clear_slides(self):
+        """
+        Delete all slides from the presentation.
+        """
+        while len(self.prs.slides) != 0:
+            rId = self.prs.slides._sldIdLst[0].rId
+            self.prs.part.drop_rel(rId)
+            del self.prs.slides._sldIdLst[0]
+
+    def clear_images(self, shapes: list[ShapeElement]):
+        for shape in shapes:
+            if isinstance(shape, GroupShape):
+                self.clear_images(shape.data)
+            elif isinstance(shape, Picture):
+                shape.img_path = "resource/pic_placeholder.png"
+
+    def clear_text(self, shapes: list[BaseShape]):
+        for shape in shapes:
+            if isinstance(shape, PPTXGroupShape):
+                self.clear_text(shape.shapes)
+            elif shape.has_text_frame:
+                for para in shape.text_frame.paragraphs:
+                    for run in para.runs:
+                        run.text = "a" * len(run.text)
+
+    def to_text(self, show_image: bool = False) -> str:
+        """
+        Represent the presentation in text.
+        """
+        return "\n----\n".join(
+            [
+                (
+                    f"Slide {slide.slide_idx} of {len(self.prs.slides)}\n"
+                    + (f"Title:{slide.slide_title}\n" if slide.slide_title else "")
+                    + slide.to_text(show_image)
+                )
+                for slide in self.slides
+            ]
+        )
+
+
+if __name__ == "__main__":
+    config = Config("/tmp")
+    prs = Presentation.from_file("test.pptx", config)
+    prs.save("test_output.pptx")
