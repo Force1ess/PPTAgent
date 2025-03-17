@@ -5,7 +5,7 @@ data
 .vscode
 oaib.txt
 *DS_Store*
-*test*
+/test_*
 *egg-info
 .yarn
 runs

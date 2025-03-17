@@ -1,7 +1,9 @@
+from shutil import which
 import pytest
 import tempfile
 
-from utils import get_json_from_response, ppt_to_images
+import utils
+from utils import get_json_from_response
 
 
 class TestGetJsonFromResponse:
@@ -107,6 +109,9 @@ class TestPptToImages:
     def test_ppt_to_images_conversion(self):
         """Test converting a PPTX file to images."""
         # Skip if unoconvert is not available
+        assert (
+            which("unoconvert") is not None and which("unoserver") is not None
+        ), "executable `unoconvert` or `unoserver` not available"
         try:
             import subprocess
 
@@ -120,5 +125,7 @@ class TestPptToImages:
             pytest.skip("unoconvert not available")
 
         # Run the conversion
-        ppt_to_images("test.pptx", tempfile.mkdtemp())
-
+        process = subprocess.Popen(["unoserver"], shell=False)
+        utils.UNOSERVER_RUNNING = True
+        utils.ppt_to_images("resource/test/test.pptx", tempfile.mkdtemp())
+        process.terminate()
