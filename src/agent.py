@@ -249,7 +249,7 @@ class AsyncAgent(Agent):
         text_model: Optional[AsyncLLM] = None,
     ):
         super().__init__(name, env, record_cost, llm_mapping, config, text_model)
-        assert isinstance(self.llm, AsyncLLM), "llm must be an AsyncLLM"
+        assert isinstance(self.llm, AsyncLLM), "You should use AsyncLLM for AsyncAgent"
         self.llm = self.llm.rebuild()  # in case of sharing the same instance
 
     async def retry(self, feedback: str, traceback: str, error_idx: int):
