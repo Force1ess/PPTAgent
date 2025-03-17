@@ -34,10 +34,9 @@ class Element:
     def from_dict(cls, el_name: str, data: dict):
         if not isinstance(data["data"], list):
             data["data"] = [data["data"]]
+        # todo user auto character container later
         if data["type"] == "text":
-            assert (
-                "suggestedCharacters" in data
-            ), "suggestedCharacters is required for text elements"
+            suggested_characters = max(len(i) for i in data["data"])
         return cls(
             el_name=el_name,
             el_type=data["type"],
@@ -45,7 +44,7 @@ class Element:
             description=data["description"],
             variable_length=data.get("variableLength", None),
             variable_data=data.get("variableData", None),
-            suggested_characters=data.get("suggestedCharacters", None),
+            suggested_characters=suggested_characters,
         )
 
 
@@ -140,12 +139,3 @@ class Layout:
                             f"Image {el_data['data'][i]} not found"
                             f"Please check the image path and use only existing images"
                         )
-
-
-if __name__ == "__main__":
-    import json
-
-    template = json.load(open("/home/zhenghao2022/pptagent/induct_cache.json"))
-    layout = Layout.from_dict(template["opening:text"])
-    print(layout.content_schema)
-    print(layout.get_old_data())
