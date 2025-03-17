@@ -10,7 +10,6 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from functools import partial
 
 import torch
-from FlagEmbedding import BGEM3FlagModel
 from jinja2 import Template
 from tqdm import tqdm
 
@@ -152,7 +151,7 @@ def check_consistency(slides: list[SlidePage], ppt_folder: str, image_model):
     return True
 
 
-def prepare_ppt_folder(ppt_folder: str, text_model: BGEM3FlagModel, image_model):
+def prepare_ppt_folder(ppt_folder: str, text_model: llms.LLM, image_model):
     if pexists(ppt_folder + "/source.pptx") or not older_than(
         ppt_folder + "/original.pptx"
     ):
@@ -229,7 +228,7 @@ def prepare_induction(induct_id: int, wait: bool = False):
 
 if __name__ == "__main__":
     if sys.argv[1] == "prepare_ppt":
-        text_model = BGEM3FlagModel("BAAI/bge-m3", use_fp16=True, device=2)
+        text_model = llms.bge_m3
         image_model = get_image_model(3)
         for ppt_folder in tqdm(glob.glob("data/*/pptx/*"), desc="prepare ppt"):
             prepare_ppt_folder(ppt_folder, text_model, image_model)

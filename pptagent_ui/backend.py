@@ -28,7 +28,6 @@ from fastapi import (
 from fastapi.logger import logger
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from FlagEmbedding import BGEM3FlagModel
 from jinja2 import Template
 from marker.models import create_model_dict
 
@@ -38,7 +37,7 @@ import pptgen
 from model_utils import get_image_model, parse_pdf
 from multimodal import ImageLabler
 from presentation import Presentation
-from utils import Config, is_image_path, pjoin, ppt_to_images, tenacity
+from utils import Config, is_image_path, pjoin, ppt_to_images
 
 # constants
 DEBUG = True if len(sys.argv) == 1 else False
@@ -51,19 +50,16 @@ STAGES = [
     "Success!",
 ]
 NUM_MODELS = 1 if len(sys.argv) == 1 else int(sys.argv[1])
-DEVICE_COUNT = torch.cuda.device_count()
+DEVICE = (
+    "cuda"
+    if torch.cuda.is_available()
+    else "mps" if torch.backends.mps.is_available() else "cpu"
+)
 REFINE_TEMPLATE = Template(open("prompts/document_refine.txt").read())
 
 # models
-text_models = [
-    BGEM3FlagModel("BAAI/bge-m3", use_fp16=True, device=i % DEVICE_COUNT)
-    for i in range(NUM_MODELS)
-]
-image_models = [get_image_model(device=i % DEVICE_COUNT) for i in range(NUM_MODELS)]
-marker_models = [
-    create_model_dict(device=i % DEVICE_COUNT, dtype=torch.float16)
-    for i in range(NUM_MODELS)
-]
+image_model = get_image_model(device=DEVICE)
+marker_model = create_model_dict(device=DEVICE, dtype=torch.float16)
 
 # server
 app = FastAPI()
@@ -76,7 +72,6 @@ app.add_middleware(
 )
 progress_store: Dict[str, Dict] = {}
 active_connections: Dict[str, WebSocket] = {}
-counter = itertools.cycle(range(NUM_MODELS))
 executor = ThreadPoolExecutor(max_workers=NUM_MODELS)
 
 
@@ -142,7 +137,6 @@ async def create_task(
     os.makedirs(pjoin(RUNS_DIR, task_id))
     task = {
         "numberOfPages": numberOfPages,
-        "model_idx": next(counter),
         "pptx": "default_template",
         "model": selectedModel,
     }
@@ -194,7 +188,6 @@ async def websocket_endpoint(websocket: WebSocket, task_id: str):
         active_connections.pop(task_id, None)
 
 
-@tenacity
 def topic_generate(topic: str):
     prompt = (
         "Please generate a detailed presentation planning document about "
@@ -297,13 +290,6 @@ def ppt_gen(task_id: str, rerun=False):
                 topic_generate(task["pdf"]),
                 open(pjoin(pdf_dir, "refined_doc.json"), "w"),
             )
-
-    model_idx = task["model_idx"]
-    text_model, image_model, marker_model = (
-        text_models[model_idx],
-        image_models[model_idx],
-        marker_models[model_idx],
-    )
 
     progress = ProgressManager(task_id, STAGES)
     parsedpdf_dir = pjoin(RUNS_DIR, "pdf", pdf_md5)
@@ -409,13 +395,16 @@ def ppt_gen(task_id: str, rerun=False):
 
         # PPT Generation
         progress.run_stage(
-            pptgen.PPTCrew(text_model, error_exit=False, retry_times=5)
-            .set_reference(presentation, slide_induction)
+            pptgen.PPTAgent(llms.embedding_model, error_exit=False, retry_times=5)
+            .set_reference(
+                config=generation_config,
+                slide_induction=slide_induction,
+                presentation=presentation,
+            )
             .generate_pres,
-            generation_config,
-            images,
-            task["numberOfPages"],
-            doc_json,
+            images=images,
+            doc_json=doc_json,
+            num_slides=task["numberOfPages"],
         )
         logger.info(task_id, "generation finished")
         progress.report_progress()

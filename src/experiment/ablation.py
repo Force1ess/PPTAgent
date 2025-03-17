@@ -4,20 +4,19 @@ from copy import deepcopy
 
 from apis import API_TYPES, CodeExecutor
 from llms import Role
-from pptgen import PPTCrew
+from pptgen import PPTAgent
 from presentation import GroupShape, ShapeElement, SlidePage, TextFrame
-from utils import get_slide_content, pexists, pjoin, tenacity
+from utils import get_slide_content, pexists, pjoin
 
 
-class PPTCrew_wo_Structure(PPTCrew):
+class PPTCrew_wo_Structure(PPTAgent):
     def _hire_staffs(self, record_cost: bool, **kwargs) -> dict[str, Role]:
         new_planner = "planner_wo_structure"
         self.roles.append(new_planner)
         super()._hire_staffs(record_cost, **kwargs)
         self.staffs["planner"] = self.staffs.pop(new_planner)
 
-    @tenacity
-    def _generate_outline(self, num_slides: int):
+    def generate_outline(self, num_slides: int):
         outline_file = pjoin(self.config.RUN_DIR, "presentation_outline.json")
         if pexists(outline_file):
             outline = json.load(open(outline_file, "r"))
@@ -27,7 +26,7 @@ class PPTCrew_wo_Structure(PPTCrew):
                 layouts="\n".join(
                     set(self.slide_induction.keys()).difference(self.functional_keys)
                 ),
-                json_content=self.doc_json,
+                json_content=self.source_doc,
                 image_information=self.image_information,
             )
             outline = self._valid_outline(outline)
@@ -40,7 +39,7 @@ class PPTCrew_wo_Structure(PPTCrew):
         return outline
 
 
-class PPTCrew_wo_LayoutInduction(PPTCrew):
+class PPTCrew_wo_LayoutInduction(PPTAgent):
     def _generate_slide(self, slide_data, code_executor: CodeExecutor) -> SlidePage:
         slide_idx, (slide_title, slide) = slide_data
         images_info = "No Images"
@@ -52,7 +51,7 @@ class PPTCrew_wo_LayoutInduction(PPTCrew):
         ):
             images_info = self.image_information
         slide_content = f"Slide-{slide_idx+1} " + get_slide_content(
-            self.doc_json, slide_title, slide
+            self.source_doc, slide_title, slide
         )
         try:
             return self.synergize(
@@ -66,7 +65,7 @@ class PPTCrew_wo_LayoutInduction(PPTCrew):
             return None
 
 
-class PPTCrew_wo_Decoupling(PPTCrew):
+class PPTCrew_wo_Decoupling(PPTAgent):
     roles: list[str] = ["agent"]
 
     def synergize(
@@ -102,7 +101,7 @@ class PPTCrew_wo_Decoupling(PPTCrew):
         return edited_slide
 
 
-class PPTCrew_wo_SchemaInduction(PPTCrew):
+class PPTCrew_wo_SchemaInduction(PPTAgent):
     def _hire_staffs(self, record_cost: bool, **kwargs) -> dict[str, Role]:
         new_editor = "editor_wo_schema"
         self.roles.append(new_editor)
@@ -162,7 +161,7 @@ def monkeypatch_render():
         cls.to_html = lambda s: s.to_pptc()
 
 
-class PPTCrew_wo_HTML(PPTCrew):
+class PPTCrew_wo_HTML(PPTAgent):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         monkeypatch_render()

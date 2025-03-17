@@ -8,8 +8,10 @@ from time import sleep, time
 from types import SimpleNamespace
 from typing import Dict, List, Optional, Set, Any
 
+from html2image import Html2Image
 import json_repair
 import Levenshtein
+from markdown import markdown
 from pdf2image import convert_from_path
 from pptx.dml.color import RGBColor
 from pptx.oxml import parse_xml
@@ -270,6 +272,49 @@ def get_json_from_response(response: str) -> Dict[str, Any]:
 tenacity = retry(
     wait=wait_fixed(3), stop=stop_after_attempt(5), after=tenacity_log, reraise=True
 )
+
+TABLE_CSS = """
+table {
+    border-collapse: collapse;  /* Merge borders */
+    width: auto;               /* Width adapts to content */
+    font-family: SimHei, Arial, sans-serif;  /* Font supporting Chinese characters */
+    background: white;
+}
+th, td {
+    border: 1px solid black;  /* Add borders */
+    padding: 8px;             /* Cell padding */
+    text-align: center;       /* Center text */
+}
+th {
+    background-color: #f2f2f2; /* Header background color */
+}
+"""
+# Convert Markdown to HTML
+def markdown_table_to_image(markdown_text: str, output_path: str):
+    """
+    Convert a Markdown table to a cropped image
+
+    Args:
+    markdown_text (str): Markdown text containing a table
+    output_path (str): Output image path, defaults to 'table_cropped.png'
+
+    Returns:
+    str: The path of the generated image
+    """
+    html = markdown(markdown_text, extensions=["tables"])
+    assert "table" in html, "Failed to find table in markdown"
+
+
+
+    hti = Html2Image(disable_logging=True)
+    hti.browser.use_new_headless = None
+    hti.screenshot(html_str=html, css_str=TABLE_CSS, save_as=output_path)
+
+    img = Image.open(output_path).convert("RGB")
+    bbox = img.getbbox()
+    assert bbox is not None, "Failed to capture the bbox, markdown conversion failed"
+
+    return output_path
 
 
 @tenacity

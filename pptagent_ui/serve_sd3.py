@@ -63,9 +63,10 @@ async def generate_images(request: ImageRequest) -> ImagesResponse:
 
 
 try:
+    device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
     pipe = StableDiffusion3Pipeline.from_pretrained(
         MODEL, torch_dtype=torch.bfloat16
-    ).to("cuda")
+    ).to(device)
     print("Model loaded successfully")
 except Exception as e:
     print(f"Error loading model: {e}")

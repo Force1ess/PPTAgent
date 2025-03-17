@@ -5,23 +5,20 @@ from copy import deepcopy
 import numpy as np
 import torch
 import torchvision.transforms as T
-from FlagEmbedding import BGEM3FlagModel
 from marker.config.parser import ConfigParser
 from marker.converters.pdf import PdfConverter
 from marker.output import text_from_rendered
 from PIL import Image
 from transformers import AutoFeatureExtractor, AutoModel
 
+from llms import LLM
 from presentation import Presentation, SlidePage
 from utils import is_image_path, pjoin
-
-device_count = torch.cuda.device_count()
 
 
 def prs_dedup(
     presentation: Presentation,
-    model: BGEM3FlagModel,
-    batchsize: int = 32,
+    model: LLM,
     threshold: float = 0.8,
 ) -> list[SlidePage]:
     """
@@ -36,9 +33,7 @@ def prs_dedup(
     Returns:
         list: A list of removed duplicate slides.
     """
-    text_embeddings = get_text_embedding(
-        [i.to_text() for i in presentation.slides], model, batchsize
-    )
+    text_embeddings = model.get_embedding([i.to_text() for i in presentation.slides])
     pre_embedding = text_embeddings[0]
     slide_idx = 1
     duplicates = []
@@ -49,23 +44,6 @@ def prs_dedup(
         slide_idx += 1
         pre_embedding = cur_embedding
     return [presentation.slides.pop(i) for i in reversed(duplicates)]
-
-
-def get_text_model(device: str = None) -> BGEM3FlagModel:
-    """
-    Initialize and return a text model.
-
-    Args:
-        device (str): The device to run the model on.
-
-    Returns:
-        BGEM3FlagModel: The initialized text model.
-    """
-    return BGEM3FlagModel(
-        "BAAI/bge-m3",
-        use_fp16=True,
-        device=device,
-    )
 
 
 def get_image_model(device: str = None):
@@ -132,32 +110,6 @@ def parse_pdf(
         f.write(json.dumps(rendered.metadata, indent=4))
 
     return full_text
-
-
-def get_text_embedding(
-    text: list[str], model: BGEM3FlagModel, batchsize: int = 32
-) -> list[torch.Tensor]:
-    """
-    Generate text embeddings for a list of text strings.
-
-    Args:
-        text (list[str]): A list of text strings.
-        model: The model used for generating embeddings.
-        batchsize (int): The batch size for processing text.
-
-    Returns:
-        list: A list of text embeddings.
-    """
-    if isinstance(text, str):
-        return torch.tensor(model.encode(text)["dense_vecs"]).to(model.device)
-    result = []
-    for i in range(0, len(text), batchsize):
-        result.extend(
-            torch.tensor(model.encode(text[i : i + batchsize])["dense_vecs"]).to(
-                model.device
-            )
-        )
-    return result
 
 
 def get_image_embedding(

@@ -20,7 +20,7 @@ from experiment.ablation import (
 from experiment.preprocess import process_filetype
 from model_utils import get_text_model
 from multimodal import ImageLabler
-from pptgen import PPTCrew
+from pptgen import PPTAgent
 from presentation import Presentation
 from utils import Config, older_than, pbasename, pexists, pjoin, ppt_to_images
 
@@ -41,14 +41,14 @@ EVAL_MODELS = [
 # 6: retry 5 times
 
 AGENT_CLASS = {
-    -1: PPTCrew,
+    -1: PPTAgent,
     0: PPTCrew_wo_LayoutInduction,
     1: PPTCrew_wo_SchemaInduction,
     2: PPTCrew_wo_Decoupling,
     3: PPTCrew_wo_HTML,
-    4: PPTCrew,
+    4: PPTAgent,
     5: PPTCrew_wo_Structure,
-    6: PPTCrew,
+    6: PPTAgent,
 }
 
 
@@ -76,7 +76,7 @@ def get_setting(setting_id: int, ablation_id: int):
 
 
 def do_generate(
-    genclass: Type[PPTCrew],
+    genclass: Type[PPTAgent],
     setting: str,
     model_identifier: str,
     debug: bool,
@@ -97,7 +97,7 @@ def do_generate(
         print(f"induct_cache not found: {induct_cache}")
         return
     slide_induction = json.load(open(induct_cache))
-    pptgen: PPTCrew = genclass(text_model).set_reference(presentation, slide_induction)
+    pptgen: PPTAgent = genclass(text_model).set_reference(presentation, slide_induction)
     topic = ppt_folder.split("/")[1]
     for pdf_folder in glob(f"data/{topic}/pdf/*"):
         app_config.set_rundir(pjoin(ppt_folder, setting, pbasename(pdf_folder)))

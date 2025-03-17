@@ -5,6 +5,7 @@ from typing import Union, List, Dict, Tuple, Optional, Any
 
 from oaib import Auto
 from openai import AsyncOpenAI, OpenAI
+import torch
 
 from utils import get_json_from_response, tenacity
 
@@ -160,27 +161,29 @@ class LLM:
                     print(f"Error loading image {image}: {e}")
         return system, message
 
+    def gen_image(self, prompt: str, n: int = 1, **kwargs) -> str:
+        """
+        Generate an image from a prompt.
+        """
+        return (
+            self.client.images.generate(model=self.model, prompt=prompt, n=n, **kwargs)
+            .data[0]
+            .b64_json
+        )
 
-def get_model_abbr(llms: Union[LLM, List[LLM]]) -> str:
-    """
-    Get abbreviated model names from LLM instances.
-
-    Args:
-        llms: A single LLM instance or a list of LLM instances.
-
-    Returns:
-        str: Abbreviated model names joined with '+'.
-    """
-    # Convert single LLM to list for consistent handling
-    if isinstance(llms, LLM):
-        llms = [llms]
-
-    try:
-        # Attempt to extract model names before version numbers
-        return "+".join(re.search(r"^(.*?)-\d{2}", llm.model).group(1) for llm in llms)
-    except Exception:
-        # Fallback: return full model names if pattern matching fails
-        return "+".join(llm.model for llm in llms)
+    def get_embedding(
+        self, text: str, encoding_format: str = "float", to_tensor: bool = True, **kwargs
+    ) -> torch.Tensor | List[float]:
+        """
+        Get the embedding of a text.
+        """
+        result =  self.client.embeddings.create(
+            model=self.model, input=text, encoding_format=encoding_format, **kwargs
+        )
+        embeddings = [embedding.embedding for embedding in result.data]
+        if to_tensor:
+            embeddings = torch.tensor(embeddings)
+        return embeddings
 
 
 class AsyncLLM(LLM):
@@ -261,6 +264,54 @@ class AsyncLLM(LLM):
             print(f"Async connection test failed: {e}")
             return False
 
+    async def gen_image(self, prompt: str, n: int = 1, **kwargs) -> str:
+        """
+        Generate an image from a prompt asynchronously.
+
+        Args:
+            prompt (str): The text prompt to generate an image from.
+            n (int): Number of images to generate.
+            **kwargs: Additional keyword arguments for image generation.
+
+        Returns:
+            str: Base64-encoded image data.
+        """
+        await self.client.add(
+            "images.generate", model=self.model, prompt=prompt, n=n, **kwargs
+        )
+        result = await self.client.run()
+        return result["result"][0]["data"][0]["b64_json"]
+
+    async def get_embedding(
+        self, text: str, encoding_format: str = "float", to_tensor: bool = True, **kwargs
+    ) -> torch.Tensor | List[float]:
+        """
+        Get the embedding of a text asynchronously.
+
+        Args:
+            text (str): The text to get embeddings for.
+            encoding_format (str): The format of the embeddings.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            List[float]: The embedding vector.
+        """
+        await self.client.add(
+            "embeddings.create",
+            model=self.model,
+            input=text,
+            encoding_format=encoding_format,
+            **kwargs,
+        )
+        result = await self.client.run()
+        assert len(result["result"]) == 1, "The length of result should be 1, but got {}.".format(
+            len(result["result"])
+        )
+        embeddings = [embedding.embedding for embedding in result["result"][0]["data"]]
+        if to_tensor:
+            embeddings = torch.tensor(embeddings)
+        return embeddings
+
     def rebuild(self) -> "AsyncLLM":
         """
         Create a new instance with the same configuration.
@@ -271,22 +322,46 @@ class AsyncLLM(LLM):
         return AsyncLLM(model=self.model, base_url=self.base_url, api_key=self.api_key)
 
 
+def get_model_abbr(llms: Union[LLM, List[LLM]]) -> str:
+    """
+    Get abbreviated model names from LLM instances.
+
+    Args:
+        llms: A single LLM instance or a list of LLM instances.
+
+    Returns:
+        str: Abbreviated model names joined with '+'.
+    """
+    # Convert single LLM to list for consistent handling
+    if isinstance(llms, LLM):
+        llms = [llms]
+
+    try:
+        # Attempt to extract model names before version numbers
+        return "+".join(re.search(r"^(.*?)-\d{2}", llm.model).group(1) for llm in llms)
+    except Exception:
+        # Fallback: return full model names if pattern matching fails
+        return "+".join(llm.model for llm in llms)
+
+
 # Async LLMs should use rebuild in case of racing condition
 qwen2_5_async = AsyncLLM(
-    model="Qwen2.5-72B-Instruct-GPTQ-Int4", base_url="http://124.16.138.143:7812/v1"
+    model="Qwen2.5-72B-Instruct-GPTQ-Int4", base_url="http://api.cipsup.cn/v1"
 )
 qwen_vl_async = AsyncLLM(
-    model="Qwen2-VL-7B-Instruct", base_url="http://192.168.14.16:5013/v1"
+    model="Qwen2-VL-7B-Instruct", base_url="http://api.cipsup.cn/v1"
 )
 sd3_5_turbo_async = AsyncOpenAI(base_url="http://localhost:8001/v1")
 
 qwen2_5 = LLM(
-    model="Qwen2.5-72B-Instruct-GPTQ-Int4", base_url="http://124.16.138.143:7812/v1"
+    model="Qwen2.5-72B-Instruct-GPTQ-Int4", base_url="http://api.cipsup.cn/v1"
 )
-qwen_vl = LLM(model="Qwen2-VL-7B-Instruct", base_url="http://192.168.14.16:5013/v1")
-sd3_5_turbo = OpenAI(base_url="http://localhost:8001/v1")
+qwen_vl = LLM(model="Qwen2-VL-7B-Instruct", base_url="http://api.cipsup.cn/v1")
+sd3_5_turbo = LLM(base_url="http://localhost:8001/v1", model="stable-diffusion-3.5-turbo")
+bge_m3 = LLM(base_url="http://api.cipsup.cn/v1", model="bge-m3")
 
 # Default models
 language_model = qwen2_5
 vision_model = qwen_vl
 text2image_model = sd3_5_turbo
+embedding_model = bge_m3
