@@ -1,11 +1,11 @@
 from dataclasses import asdict, dataclass
 from functools import partial
 from math import ceil
+from typing import Optional
 
 import jsonlines
 import tiktoken
 import yaml
-from FlagEmbedding import BGEM3FlagModel
 from jinja2 import Environment, Template
 from PIL import Image
 from torch import Tensor, cosine_similarity
@@ -14,7 +14,6 @@ from llms import LLM, AsyncLLM
 
 ENCODING = tiktoken.encoding_for_model("gpt-4o")
 import llms
-from model_utils import get_text_embedding
 from utils import get_json_from_response, pexists, pjoin
 
 
@@ -59,9 +58,9 @@ class Agent:
         name: str,
         env: Environment,
         record_cost: bool,
-        llm: LLM = None,
-        config: dict = None,
-        text_model: BGEM3FlagModel = None,
+        config: Optional[dict] = None,
+        text_model: Optional[LLM] = None,
+        llm_mapping: Optional[dict[str, LLM]] = None,
     ):
         """
         Initialize the Agent.
@@ -72,13 +71,15 @@ class Agent:
             record_cost (bool): Whether to record the token cost.
             llm (LLM): The language model.
             config (dict): The configuration.
-            text_model (BGEM3FlagModel): The text model.
+            text_model (LLM): The text embedding model.
         """
         self.name = name
         if config is None:
             with open(f"roles/{name}.yaml", "r") as f:
                 config = yaml.safe_load(f)
-        if llm is None:
+        if llm_mapping is not None:
+            llm = llm_mapping[config["use_model"]]
+        else:
             llm = getattr(llms, config["use_model"] + "_model")
         self.llm = llm
         self.model = llm.model
@@ -120,7 +121,7 @@ class Agent:
         """
         history = self.history[-recent:] if recent > 0 else []
         if similar > 0:
-            embedding = get_text_embedding(prompt, self.text_model)
+            embedding = self.text_model.get_embedding(prompt)
             history.sort(key=lambda x: cosine_similarity(embedding, x.embedding))
             for turn in history:
                 if len(history) > similar + recent:
@@ -224,7 +225,7 @@ class Agent:
         """
         self.history.append(turn)
         if similar > 0:
-            turn.embedding = get_text_embedding(turn.prompt, self.text_model)
+            turn.embedding = self.text_model.get_embedding(turn.prompt)
         if self.record_cost:
             turn.calc_token()
             self.calc_cost(history + [turn])
@@ -243,11 +244,11 @@ class AsyncAgent(Agent):
         name: str,
         env: Environment,
         record_cost: bool = True,
-        llm: AsyncLLM = None,
-        config: dict = None,
-        text_model: BGEM3FlagModel = None,
+        llm_mapping: Optional[dict[str, AsyncLLM]] = None,
+        config: Optional[dict] = None,
+        text_model: Optional[AsyncLLM] = None,
     ):
-        super().__init__(name, env, record_cost, llm, config, text_model)
+        super().__init__(name, env, record_cost, llm_mapping, config, text_model)
         assert isinstance(self.llm, AsyncLLM), "llm must be an AsyncLLM"
         self.llm = self.llm.rebuild()  # in case of sharing the same instance
 
@@ -319,6 +320,38 @@ class AsyncAgent(Agent):
             images=images,
         )
         return self.__post_process__(response, history, turn, similar)
+
+    async def get_history(self, similar: int, recent: int, prompt: str):
+        """
+        Get the conversation history.
+        """
+        history = self.history[-recent:] if recent > 0 else []
+        if similar > 0:
+            embedding = await self.text_model.get_embedding(prompt)
+            history.sort(key=lambda x: cosine_similarity(embedding, x.embedding))
+            for turn in history:
+                if len(history) > similar + recent:
+                    break
+                if turn not in history:
+                    history.append(turn)
+        history.sort(key=lambda x: x.id)
+        return history
+
+    async def __post_process__(
+        self, response: str, history: list[Turn], turn: Turn, similar: int = 0
+    ):
+        """
+        Post-process the response from the agent.
+        """
+        self.history.append(turn)
+        if similar > 0:
+            turn.embedding = await self.text_model.get_embedding(turn.prompt)
+        if self.record_cost:
+            turn.calc_token()
+            self.calc_cost(history + [turn])
+        if self.return_json:
+            response = get_json_from_response(response)
+        return response
 
 
 def calc_image_tokens(images: list[str]):
