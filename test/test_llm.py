@@ -13,7 +13,7 @@ async def test_asyncllm():
     assert result is True, "Async LLM connection failed"
 
     # Test response generation
-    response = await qwen2_5_async("Hello, how are you?")
+    response = await qwen2_5_async("Hello, how are you?", max_tokens=1)
     assert response is not None, "Async LLM returned None response"
     assert len(response) > 0, "Async LLM returned empty response"
 
@@ -27,6 +27,6 @@ def test_sync_llm():
     assert result is True, "Sync LLM connection failed"
 
     # Test response generation
-    response = qwen2_5("Hello, how are you?")
+    response = qwen2_5("Hello, how are you?", max_tokens=1)
     assert response is not None, "Sync LLM returned None response"
     assert len(response) > 0, "Sync LLM returned empty response"
