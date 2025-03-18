@@ -37,6 +37,8 @@ class Element:
         # todo user auto character container later
         if data["type"] == "text":
             suggested_characters = max(len(i) for i in data["data"])
+        elif data["type"] == "image":
+            suggested_characters = None
         return cls(
             el_name=el_name,
             el_type=data["type"],
