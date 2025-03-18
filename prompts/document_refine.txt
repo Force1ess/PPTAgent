@@ -1,51 +1,60 @@
-You are a document content divider and extractor specialist, expert in dividing and extracting content from various types of documents and reorganizing it into a two-level json format for later PPT generation.
+You are a document content divider and extractor specialist, expert in dividing and extracting content from various types of Markdown documents, and reorganizing it into a two-level format.
 
-Based on given markdown document, generate a JSON output for later PPT generation, make sure the output is concise and focused.
+Based on the given Markdown document, generate a structured document.
 Step-by-Step Instructions:
-1. Identify Sections and Subsections in document and identify sections and subsections based on the heading levels and logical structure.
+1. Identify Sections and Subsections: Use heading levels and logical structure to divide the document into parts.
+2. Divide Content: Reorganize content into sections and subsections based on the identified structure.
+3. Extract Titles: Prioritize using existing headings as titles for sections and subsections; if none exist, generate concise and appropriate titles based on content.
+4. Process Content: 
+   - Retain original text as provided, but refine it by removing unnecessary elements like citations (e.g., [1], (Author, 2020)), trivial repetitive or off-topic text to ensure conciseness and unwanted elements such as headers, footers, and text within `~~` (deleted content).
+5. Process Media: extract a possible caption from nearby text, and include it in the `media` field of the nearby subsection.
+   - For images (e.g., ![](path/to/image)), include a `media` field with the given path as `path`, `![](path/to/image)` as `markdown_content`.
+   - For tables (e.g., starting with |—), include a `media` field with `path` as `None`, the table’s Markdown syntax as `markdown_content`.
+6. Extract available metadata (e.g., title, author, publish date, organization, etc.) from the document content or context; include only the keys for which data is present.
 
-2. Divide Content: Reorganize the content into sections and subsections, ensuring that each subsection contains approximately 500 words.
+Output Format:
+- Use a two-level JSON structure (sections and subsections) unless deeper nesting is required.
+- For subsections with minimal content, keep them separate unless empty; omit empty sections.
 
-3. Refine Titles: Use the provided headings as titles for each section and subsection if they exist, otherwise create an appropriate and relevant title for it.
-
-4. Remove Unwanted Elements: Eliminate any unwanted elements such as headers, footers, text surrounded by `~~` indicating deletion.
-
-5. Refine Text: Appropriately remove unnecessary(like citations) or trivial(repetitive or non-important information) text to make the content more concise and focused.
 Example Output:
 {
     "metadata": {
-        "title": "title of document",
-        "author": "name of authors",
-        "publish date": "date of publication",
-        "organization": "name of organization"
+        "title": "Title of the document",
+        "author": "Author Name",
+        "publish date": "Example Publish Date",
+        "organization": "Example Organization Name"
     },
     "sections": [
         {
-            "title": "title of section1",
+            "title": "Section 1",
             "subsections": [
                 {
-                    "title": "title of subsection1.1",
-                    "content": "content of subsection1.1"
+                    "title": "Subsection 1.1",
+                    "content": "Refined content of subsection 1.1"
                 },
                 {
-                    "title": "title of subsection1.2",
-                    "content": "content of subsection1.2"
-                }
-            ]
-        },
-        {
-            "title": "title of section2",
-            "subsections": [
+                    "title": "Subsection 1.2",
+                    "content": "Refined content with image",
+                    "media": {
+                        "markdown_content": "![](path/to/image)",
+                        "markdown_caption": "Caption inferred from nearby text",
+                        "path": "path/to/image"
+                    }
+                },
                 {
-                    "title": "title of subsection2.1",
-                    "content": "content of subsection2.1"
+                    "title": "Subsection 1.3",
+                    "content": "Refined content with table",
+                    "media": {
+                        "markdown_content": "| Col1 | Col2 |\n|------|------|\n| A    | B    |",
+                        "markdown_caption": "Table caption from nearby text",
+                        "path": "None"
+                    }
                 }
             ]
         }
     ]
 }
 
-Give your output in JSON format
 Input:
 {{ markdown_document }}
-Output:
+Output: Give your output in JSON format

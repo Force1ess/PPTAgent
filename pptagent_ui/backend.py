@@ -38,6 +38,7 @@ from model_utils import get_image_model, parse_pdf
 from multimodal import ImageLabler
 from presentation import Presentation
 from utils import Config, is_image_path, pjoin, ppt_to_images
+from document import Document
 
 # constants
 DEBUG = True if len(sys.argv) == 1 else False
@@ -85,36 +86,35 @@ class ProgressManager:
         self.current_stage = 0
         self.total_stages = len(stages)
 
-    def run_stage(self, func, *args, **kwargs):
+    async def run_stage(self, func, *args, **kwargs):
         if self.task_id not in active_connections:
             self.failed = True
         if self.failed:
             return
         try:
-            self.report_progress()
-            result = func(*args, **kwargs)
+            await self.report_progress()
+            if asyncio.iscoroutinefunction(func):
+                result = await func(*args, **kwargs)
+            else:
+                result = func(*args, **kwargs)
             return result
         except Exception as e:
-            self.fail_stage(str(e))
+            await self.fail_stage(str(e))
 
-    def report_progress(self):
+    async def report_progress(self):
         self.current_stage += 1
         progress = int((self.current_stage / self.total_stages) * 100)
-        asyncio.run(
-            send_progress(
-                self.socket,
-                f"Stage: {self.stages[self.current_stage - 1]}",
-                progress,
-            )
+        await send_progress(
+            self.socket,
+            f"Stage: {self.stages[self.current_stage - 1]}",
+            progress,
         )
 
-    def fail_stage(self, error_message: str):
-        asyncio.run(
-            send_progress(
-                self.socket,
-                f"{self.stages[self.current_stage]} Error: {error_message}",
-                100,
-            )
+    async def fail_stage(self, error_message: str):
+        await send_progress(
+            self.socket,
+            f"{self.stages[self.current_stage]} Error: {error_message}",
+            100,
         )
         self.failed = True
         active_connections.pop(self.task_id, None)
@@ -161,7 +161,8 @@ async def create_task(
     if topic is not None:
         task["pdf"] = topic
     progress_store[task_id] = task
-    executor.submit(ppt_gen, task_id)
+    # Start the PPT generation task asynchronously
+    asyncio.create_task(ppt_gen(task_id))
     return {"task_id": task_id.replace("/", "|")}
 
 
@@ -188,7 +189,7 @@ async def websocket_endpoint(websocket: WebSocket, task_id: str):
         active_connections.pop(task_id, None)
 
 
-def topic_generate(topic: str):
+async def topic_generate(topic: str):
     prompt = (
         "Please generate a detailed presentation planning document about "
         + topic
@@ -224,7 +225,7 @@ def topic_generate(topic: str):
 }
 """
     )
-    text = llms.language_model(prompt, return_json=True)
+    text = await llms.language_model(prompt, return_json=True)
     assert isinstance(text, dict), "Text is not in JSON format"
     return text
 
@@ -260,7 +261,7 @@ def hello():
     return {"message": "Hello, World!"}
 
 
-def ppt_gen(task_id: str, rerun=False):
+async def ppt_gen(task_id: str, rerun=False):
     if DEBUG:
         importlib.reload(induct)
         importlib.reload(pptgen)
@@ -268,13 +269,16 @@ def ppt_gen(task_id: str, rerun=False):
         task_id = task_id.replace("|", "/")
         active_connections[task_id] = None
         progress_store[task_id] = json.load(open(pjoin(RUNS_DIR, task_id, "task.json")))
+
+    # Wait for WebSocket connection
     for _ in range(100):
         if task_id in active_connections:
             break
-        time.sleep(0.02)
+        await asyncio.sleep(0.02)
     else:
         progress_store.pop(task_id)
         return
+
     task = progress_store.pop(task_id)
     pptx_md5 = task["pptx"]
     pdf_md5 = task["pdf"]
@@ -287,7 +291,7 @@ def ppt_gen(task_id: str, rerun=False):
         if not os.path.exists(pdf_dir + "/refined_doc.json"):
             os.makedirs(pdf_dir, exist_ok=True)
             json.dump(
-                topic_generate(task["pdf"]),
+                await topic_generate(task["pdf"]),
                 open(pjoin(pdf_dir, "refined_doc.json"), "w"),
             )
 
@@ -295,8 +299,8 @@ def ppt_gen(task_id: str, rerun=False):
     parsedpdf_dir = pjoin(RUNS_DIR, "pdf", pdf_md5)
     ppt_image_folder = pjoin(pptx_config.RUN_DIR, "slide_images")
 
-    asyncio.run(
-        send_progress(active_connections[task_id], "task initialized successfully", 10)
+    await send_progress(
+        active_connections[task_id], "task initialized successfully", 10
     )
 
     try:
@@ -322,13 +326,13 @@ def ppt_gen(task_id: str, rerun=False):
                 )
 
         labler = ImageLabler(presentation, pptx_config)
-        progress.run_stage(labler.caption_images)
+        await progress.run_stage(labler.caption_images)
 
         # pdf parsing
         if not os.path.exists(pjoin(parsedpdf_dir, "source.md")) and not os.path.exists(
             pjoin(parsedpdf_dir, "refined_doc.json")
         ):
-            text_content = progress.run_stage(
+            text_content = await progress.run_stage(
                 parse_pdf,
                 pjoin(RUNS_DIR, "pdf", pdf_md5, "source.pdf"),
                 parsedpdf_dir,
@@ -337,7 +341,7 @@ def ppt_gen(task_id: str, rerun=False):
         else:
             if not os.path.exists(pjoin(parsedpdf_dir, "refined_doc.json")):
                 text_content = open(pjoin(parsedpdf_dir, "source.md")).read()
-            progress.report_progress()
+            await progress.report_progress()
 
         # doc refine and caption
         if not os.path.exists(pjoin(parsedpdf_dir, "image_caption.json")):
@@ -347,7 +351,7 @@ def ppt_gen(task_id: str, rerun=False):
                 if is_image_path(k):
                     try:
                         images[pjoin(parsedpdf_dir, k)] = [
-                            llms.vision_model(
+                            await llms.vision_model(
                                 caption_prompt, [pjoin(parsedpdf_dir, k)]
                             ),
                             PIL.Image.open(pjoin(parsedpdf_dir, k)).size,
@@ -362,15 +366,16 @@ def ppt_gen(task_id: str, rerun=False):
             )
         else:
             images = json.load(open(pjoin(parsedpdf_dir, "image_caption.json")))
+
         if not os.path.exists(pjoin(parsedpdf_dir, "refined_doc.json")):
-            doc_json = llms.language_model(
+            doc_json = await llms.language_model(
                 REFINE_TEMPLATE.render(markdown_document=text_content), return_json=True
             )
             json.dump(doc_json, open(pjoin(parsedpdf_dir, "refined_doc.json"), "w"))
         else:
             doc_json = json.load(open(pjoin(parsedpdf_dir, "refined_doc.json")))
 
-        progress.report_progress()
+        await progress.report_progress()
 
         # Slide Induction
         if not os.path.exists(pptx_config.RUN_DIR + "/template_images") or len(
@@ -383,6 +388,7 @@ def ppt_gen(task_id: str, rerun=False):
                 pjoin(pptx_config.RUN_DIR, "template.pptx"),
                 pjoin(pptx_config.RUN_DIR, "template_images"),
             )
+
         slide_inducter = induct.SlideInducter(
             presentation,
             ppt_image_folder,
@@ -393,27 +399,33 @@ def ppt_gen(task_id: str, rerun=False):
         )
         slide_induction = slide_inducter.content_induct()
 
-        # PPT Generation
-        progress.run_stage(
-            pptgen.PPTAgent(llms.embedding_model, error_exit=False, retry_times=5)
-            .set_reference(
-                config=generation_config,
-                slide_induction=slide_induction,
-                presentation=presentation,
-            )
-            .generate_pres,
-            images=images,
-            doc_json=doc_json,
+        # Create source document
+        source_doc = Document(doc_json, images, parsedpdf_dir)
+
+        # PPT Generation with PPTAgentAsync
+        ppt_agent = pptgen.PPTAgentAsync(
+            llms.embedding_model, error_exit=False, retry_times=5
+        )
+        ppt_agent.set_reference(
+            config=generation_config,
+            slide_induction=slide_induction,
+            presentation=presentation,
+        )
+
+        await progress.run_stage(
+            ppt_agent.generate_pres,
+            source_doc=source_doc,
             num_slides=task["numberOfPages"],
         )
-        logger.info(task_id, "generation finished")
-        progress.report_progress()
+
+        logger.info(f"{task_id}: generation finished")
+        await progress.report_progress()
     except Exception as e:
-        progress.fail_stage(str(e))
+        await progress.fail_stage(str(e))
         traceback.print_exc()
 
 
-def setup_models():
+async def setup_models():
     if os.path.exists("serve.json"):
         serve_config = json.load(open("serve.json"))
         llms.language_model = llms.LLM(
@@ -422,15 +434,20 @@ def setup_models():
         llms.vision_model = llms.LLM(
             serve_config["vision"]["model"], serve_config["vision"]["url"]
         )
-    if llms.language_model.test_connection() and llms.vision_model.test_connection():
+
+    if (
+        await llms.language_model.test_connection()
+        and await llms.vision_model.test_connection()
+    ):
         logger.info("Primary models connected successfully")
         return
 
-    if llms.gpt4o.test_connection():
+    if await llms.gpt4o.test_connection():
         logger.warn("Switching to OpenAI GPT-4o models as fallback")
         llms.language_model = llms.gpt4o
         llms.vision_model = llms.gpt4o
         return
+
     raise RuntimeError(
         "No working model connections available. Please check OpenAI API keys and connections."
     )
@@ -439,7 +456,8 @@ def setup_models():
 if __name__ == "__main__":
     import uvicorn
 
-    setup_models()
+    # Run setup_models in an event loop
+    asyncio.run(setup_models())
 
     ip = "0.0.0.0"
     uvicorn.run(app, host=ip, port=9297)

@@ -1,0 +1,108 @@
+{
+    "metadata": {
+        "title": "PPTAgent: Generating and Evaluating Presentations Beyond Text-to-Slides",
+        "author": "Hao Zheng, Xinyan Guan, Hao Kong, Jia Zheng, Hongyu Lin, Yaojie Lu, Ben He, Xianpei Han, Le Sun",
+        "publish date": "7 Jan 2025",
+        "organization": "Chinese Information Processing Laboratory, Institute of Software, Chinese Academy of Sciences, University of Chinese Academy of Sciences, Shanghai Jiexin Technology"
+    },
+    "sections": [
+        {
+            "title": "Introduction",
+            "subsections": [
+                {
+                    "title": "Overview of the Problem",
+                    "content": "Presentations are a widely used medium for information delivery, valued for their visual effectiveness in engaging and communicating with audiences. However, creating high-quality presentations requires advanced presentation skills and significant effort. Given the inherent complexity of presentation creation, there is growing interest in automating the presentation generation process by leveraging the generalization capabilities of large language models (LLMs). Existing approaches often focus on textual content while neglecting layout design and presentation structures, making them impractical for real-world applications."
+                },
+                {
+                    "title": "Challenges and Solutions",
+                    "content": "Creating visually rich and structurally clear presentations is challenging due to the complexity of data formats and the lack of effective evaluation frameworks. *PPTAgent* addresses these issues by decomposing presentation generation into an iterative, edit-based workflow inspired by human workflows. It first analyzes reference presentations to understand their structural patterns and content schemas, then drafts outlines and generates slides through code actions to ensure consistency and alignment."
+                }
+            ]
+        },
+        {
+            "title": "PPTAgent Framework",
+            "subsections": [
+                {
+                    "title": "Problem Formulation",
+                    "content": "*PPTAgent* is designed to generate an engaging presentation via an edit-based process. The conventional method generates each slide S as a sum of elements (Equation 1), while *PPTAgent* adopts an edit-based paradigm, generating a sequence of actions to modify existing slides (Equation 2). This approach addresses challenges in processing spatial relationships and designing styles."
+                },
+                {
+                    "title": "Presentation Analysis",
+                    "content": "In Stage I, *PPTAgent* clusters slides in the reference presentation and extracts their content schemas. This structured semantic representation helps LLMs determine which slides to edit and what content to convey in each slide. Clustering is done based on textual or visual characteristics, and schema extraction ensures purposeful alignment of the editing process."
+                },
+                {
+                    "title": "Presentation Generation",
+                    "content": "In Stage II, *PPTAgent* generates an outline specifying the reference slide and relevant content for each slide in the new presentation. LLMs iteratively edit the reference slide using interactive executable code actions to complete the generation process. Specialized APIs allow LLMs to edit, remove, and duplicate text and visual elements, enhancing the robustness of the generation process."
+                }
+            ]
+        },
+        {
+            "title": "PPTEval Evaluation Framework",
+            "subsections": [
+                {
+                    "title": "Overview",
+                    "content": "To comprehensively evaluate the quality of generated presentations, we propose *PPTEval*, a multidimensional evaluation framework that assesses presentations across three dimensions: Content, Design, and Coherence. *PPTEval* leverages the MLLM-as-a-judge paradigm to enable systematic and scalable evaluation, providing both quantitative scores and qualitative feedback."
+                },
+                {
+                    "title": "Evaluation Dimensions",
+                    "content": "Content evaluates the quality of text and images within the slides, focusing on information amount, clarity, and visual support. Design examines the visual consistency and appeal of the slides, including color schemes and visual elements. Coherence focuses on the logical flow and contextual information provided, ensuring a captivating storyline that engages the audience."
+                }
+            ]
+        },
+        {
+            "title": "Experiments and Results",
+            "subsections": [
+                {
+                    "title": "Dataset",
+                    "content": "We introduce *Zenodo10K*, a new dataset sourced from Zenodo, an open digital repository hosting diverse artifacts from different domains. The dataset includes 10,448 presentations and 50 documents from five domains. Data preprocessing involves extracting textual and visual content and organizing it into sections and captions."
+                },
+                {
+                    "title": "Experimental Settings and Baseline",
+                    "content": "We evaluate our method using state-of-the-art models, including GPT-4o, Qwen2.5-72B-Instruct, and Qwen2-VL-72B-Instruct. Our method is compared against a baseline approach that employs a multi-staged end-to-end model. The performance is measured using success rate, perplexity, FID, and *PPTEval* metrics."
+                },
+                {
+                    "title": "Results and Analysis",
+                    "content": "Experimental results show that *PPTAgent* significantly outperforms the baseline in generating high-quality presentations, achieving high success rates and superior scores in content, design, and coherence. Open-source LLMs like Qwen2.5LM+Qwen2-VLVM perform on par with GPT-4o, demonstrating the potential of open-source models in presentation generation."
+                },
+                {
+                    "title": "Ablation Study",
+                    "content": "Ablation studies reveal the importance of each component in *PPTAgent*. Removing the outline, structural information, code representation, and slide schema significantly degrades performance, highlighting their crucial roles in maintaining logical flow and generating targeted content."
+                },
+                {
+                    "title": "Error Analysis",
+                    "content": "Error analysis shows that while GPT-4o exhibits superior self-correction capabilities, Qwen2.5 encounters fewer errors in the first iteration. Qwen2-VL experiences more frequent errors due to its multimodal post-training. The iterative self-correction mechanism effectively ensures the success of the generation process."
+                },
+                {
+                    "title": "Effectiveness of PPTEval",
+                    "content": "Human agreement evaluation shows that *PPTEval* aligns well with human preferences, with a high Pearson correlation of 0.71. The heatmap reveals limitations of existing metrics like PPL and FID, emphasizing the necessity of *PPTEval* for comprehensive and effective presentation evaluation."
+                }
+            ]
+        },
+        {
+            "title": "Related Works",
+            "subsections": [
+                {
+                    "title": "Automated Presentation Generation",
+                    "content": "Automated slide generation methods can be categorized into rule-based and template-based approaches. Rule-based methods focus on textual content but neglect visual elements, while template-based methods create visually appealing presentations but require extensive manual effort for template annotation."
+                },
+                {
+                    "title": "LLM Agent",
+                    "content": "LLMs have been explored for various tasks, including generating executable actions and correcting errors based on feedback. These studies have inspired the use of LLMs for complex tasks, such as presentation generation."
+                },
+                {
+                    "title": "LLM as a Judge",
+                    "content": "LLMs have demonstrated strong capabilities in instruction following and context perception, leading to their widespread use as judges. This research validated the feasibility of using multimodal large language models (MLLMs) as judges, inspiring the development of *PPTEval*."
+                }
+            ]
+        },
+        {
+            "title": "Conclusion",
+            "subsections": [
+                {
+                    "title": "Summary",
+                    "content": "In this paper, we introduced *PPTAgent*, which conceptualizes presentation generation as a two-stage presentation editing task completed through the abilities of LLMs to understand and generate code. Our experiments across data from multiple domains have demonstrated the superiority of our method. Moreover, our proposed *PPTEval* ensures the comprehensive evaluation of presentations, providing a new paradigm for generating slides under unsupervised conditions."
+                }
+            ]
+        }
+    ]
+}

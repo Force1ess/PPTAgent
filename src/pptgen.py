@@ -320,7 +320,7 @@ class PPTAgent(PPTGen):
         editor_output = self.staffs["editor"](
             schema=layout.content_schema,
             outline=self.simple_outline,
-            metadata=self.source_doc.metadata,
+            metadata=self.source_doc.metainfo,
             text=slide_content,
         )
         command_list = self._generate_commands(editor_output, layout)
@@ -431,7 +431,10 @@ class PPTAgentAsync(PPTGen):
         )
 
     def _hire_staffs(
-        self, record_cost: bool, language_model: AsyncLLM = None, vision_model: AsyncLLM = None
+        self,
+        record_cost: bool,
+        language_model: AsyncLLM = None,
+        vision_model: AsyncLLM = None,
     ) -> dict[str, Agent]:
         """
         Initialize async agent roles and their models
@@ -625,7 +628,7 @@ class PPTAgentAsync(PPTGen):
         editor_output = await self.staffs["editor"](
             schema=layout.content_schema,
             outline=self.simple_outline,
-            metadata=self.source_doc.metadata,
+            metadata=self.source_doc.metainfo,
             text=slide_content,
         )
         command_list = await self._generate_commands_async(editor_output, layout)
