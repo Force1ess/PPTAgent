@@ -1,0 +1,51 @@
+{
+    "runs/pdf/3d6a0cbb19c542d16343ca09abaf7fc5/_page_0_Figure_14.jpeg": [
+        "Diagram: Flowchart comparing methods of generating slides for presentations using AI or text-based approaches.",
+        [
+            583,
+            453
+        ]
+    ],
+    "runs/pdf/3d6a0cbb19c542d16343ca09abaf7fc5/_page_1_Figure_0.jpeg": [
+        "Diagram: Flowchart illustrating the process of creating a presentation, involving steps like reference presentation analysis, slide clustering, schema extraction, outline generation, slide generation, and feedback loops.",
+        [
+            1197,
+            548
+        ]
+    ],
+    "runs/pdf/3d6a0cbb19c542d16343ca09abaf7fc5/_page_7_Figure_0.jpeg": [
+        "Chart: Heatmap displaying correlation values between 'content,' 'vision,' 'ppl,' and 'fid.' Gradient colors from yellow to dark blue represent correlation strength, with darker shades indicating higher correlation.",
+        [
+            582,
+            499
+        ]
+    ],
+    "runs/pdf/3d6a0cbb19c542d16343ca09abaf7fc5/_page_6_Figure_0.jpeg": [
+        "Chart: Horizontal bar graph displaying performance metrics for three models named Qwen2.5, Qwen2-VL, and gpt-4o across iterations 0 and 1, along with failed instances. Logarithmic scale on the x-axis.",
+        [
+            587,
+            341
+        ]
+    ],
+    "runs/pdf/3d6a0cbb19c542d16343ca09abaf7fc5/Statistics_of_Dataset.jpeg": [
+        "Table: Statistics of the dataset used in the study.",
+        [
+            1250,
+            634
+        ]
+    ],
+    "runs/pdf/3d6a0cbb19c542d16343ca09abaf7fc5/Evaluation_Result.jpeg": [
+        "Table: The evaluation result of the main experiment.",
+        [
+            587,
+            341
+        ]
+    ],
+    "runs/pdf/3d6a0cbb19c542d16343ca09abaf7fc5/Human_Evaluation_Result.jpeg": [
+        "Table: the correlation between proposed PPTEval and human ratings.",
+        [
+            776,
+            466
+        ]
+    ]
+}
