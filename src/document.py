@@ -379,34 +379,18 @@ class Document:
 
 @dataclass
 class OutlineItem:
-    title: str
+    purpose: str
     description: str
     indexs: Dict[str, List[str]]
 
     def retrieve(self, slide_idx: int, document: Document):
         subsections = document.index(self.indexs)
-        content = f"Slide-{slide_idx+1} {self.title}\n{self.description}\n"
+        content = (
+            f"Slide-{slide_idx+1}: {self.purpose}\nDescription: {self.description}\n"
+        )
         for subsection in subsections:
-            content += f"{subsection.title}\n{subsection.content}\n"
+            content += f"Paragraph: {subsection.title}\nContent: {subsection.content}\n"
+            if subsection.medias is not None:
+                for media in subsection.medias:
+                    content += f"Image: {media.path}\nCaption: {media.caption}\n"
         return content
-
-
-if __name__ == "__main__":
-    import json
-    import llms
-
-    with open("test_pdf/refined_doc.json", "r") as f:
-        document = Document.from_dict(json.load(f), "test_pdf", False)
-    image_dir = "test_pdf"
-    document = Document.from_markdown(
-        markdown_content,
-        llms.language_model.to_sync(),
-        llms.vision_model.to_sync(),
-        image_dir,
-    )
-    outline_item = OutlineItem(
-        title="Outline",
-        description="Outline of the document",
-        indexs={"section1": ["subsection1", "subsection2"]},
-    )
-    print(outline_item.retrieve(0, document))

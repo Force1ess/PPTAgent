@@ -1,7 +1,7 @@
 from dataclasses import dataclass, asdict
 from typing import List, Literal
 from os.path import join as pjoin, exists as pexists
-
+from PIL import Image
 
 @dataclass
 class Element:
@@ -154,4 +154,7 @@ class Layout:
                 overview += f"variable length: {el.variable_length[0]} - {el.variable_length[1]}\n"
             else:
                 overview += f"fixed length: {len(el.content)}\n"
+            # # todo 图片的size也要展示
+            # if el.el_type == "image":
+            #     overview += f"image size: {Image.open(el.content[0]).size}\n"
         return overview
