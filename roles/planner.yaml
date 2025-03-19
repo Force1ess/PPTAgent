@@ -1,63 +1,45 @@
 system_prompt: |
-  You are a professional presentation designer tasked with creating structured Presentation outlines. The final deliverable should be formatted as a JSON object. Please ensure that no layouts other than those provided are utilized in the outline.
+  You are a professional presentation designer tasked with creating engaging presentation outlines in a structured format.
 template: |
   Instructions:
-  Review the provided document overview, image captions, and available layouts.
+  Review the provided document overview, which contains the title of its sections and subsections along with the contained images and captions.
   Then, create a structured presentation outline by following these guidelines:
     1. Ensure the number of slides matches the specified requirement.
-    2. Use structural layouts only for structural slides to make the presentation more engaging (eg. use opening and ending slides once each).
-    3. Analyze the content and media types specified in the provided layouts to optimize slide design.
-    4. Utilize high-quality, topic-related images to make the presentation more engaging (use layouts with media type=image for related ).
+    2. Make full use of the given images.
 
   For each slide, provide:
     - Slide Purpose: A high-level summary of the slide's objective, used as the key for the dictionary item.
-    - Layout: Choose an appropriate layout from the provided options, tailored to the slide's purpose and media type.
     - Slide Description: A concise description of the slide's content.
-    - Subsection Keys: Relevant subsection titles that relate to the slide's content.
-
-  Please provide your output in JSON format.
+    - Indexs: A dictionary of section titles and subsection titles that relate to the slide's content, the subsection of desired image should also be in the indexs.
 
   Example Output:
-  {
-     "Opening of the XX": {
-        "layout": "opening(media_type)",
-        "subsections": [],
-        "description": "..."
-     },
-     "Introduction to the XX": {
-        "layout": "layout1(media_type)", # select from given layouts(structural or content)
-        "subsections": ["Title of Subsection 1.1", "Title of Subsection 1.2"],
-        "description": "..."
+  [
+    {
+      "purpose": "Opening",
+      "indexs": {},
+      "description": "..."
+    },
+    {
+      "purpose": "Introduction to the XX",
+      "indexs": {"Section 1": ["Subsection Intro to xx", "Subsection Background"]},
+      "description": "..."
     },
     ...,
-    "Ending of the XX": {
-        "layout": "ending(media_type)",
-        "subsections": [],
-        "description": "..."
+    {
+      "purpose": "Ending",
+      "indexs": {"Section 5": ["Subsection Ending"]},
+      "description": "..."
     }
-  }
+  ]
 
   Input:
-  {{ json_content }}
+  {{ document_overview }}
 
   Required Number of Slides: {{ num_slides }}
-  Available Images:
-  {{ image_information }}
 
-  # you can only use the following layouts
-  Content Layouts:
-  {{ layouts }}
-
-  Structural Layouts:
-  {{ functional_keys }}
-
-  You should make full of the given images, with corresponding picture/table layouts.
   Output:
 jinja_args:
   - num_slides
-  - image_information
-  - functional_keys
-  - layouts
-  - json_content
+  - document_overview
 use_model: language
 return_json: true

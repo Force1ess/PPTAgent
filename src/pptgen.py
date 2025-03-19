@@ -5,10 +5,9 @@ import traceback
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Dict, List, Optional
 
 import jsonlines
-import PIL.Image
 import torch
 from jinja2 import Environment, StrictUndefined
 from rich import print
@@ -18,9 +17,9 @@ from apis import API_TYPES, CodeExecutor
 from llms import LLM, AsyncLLM
 import llms
 from presentation import Presentation, SlidePage, StyleArg
-from utils import Config, get_slide_content, pdirname, pexists, pjoin
+from utils import Config, get_slide_content, pexists, pjoin
 from layout import Layout
-from document import Document
+from document import Document, OutlineItem
 
 style = StyleArg.all_true()
 style.area = False
@@ -97,16 +96,16 @@ class PPTGen(ABC):
         source_doc: Document,
         file_prefix: str = "final",
         num_slides: Optional[int] = None,
-        outline: Optional[dict[str, dict]] = None,
+        outline: Optional[List[OutlineItem]] = None,
     ):
         """
         Generate a PowerPoint presentation.
 
         Args:
-            config (Config): The configuration object.
-            images (dict[str, str]): A dictionary of image paths and captions.
-            num_slides (int): The number of slides to generate.
-            doc_json (dict[str, str]): The document JSON data.
+            source_doc (Document): The source document.
+            file_prefix (str): The prefix for the output file.
+            num_slides (Optional[int]): The number of slides to generate.
+            outline (Optional[List[OutlineItem]]): The outline of the presentation.
 
         Save:
             final.pptx: The final PowerPoint presentation to the config.RUN_DIR directory.
@@ -124,15 +123,15 @@ class PPTGen(ABC):
             self.outline = outline
         self.simple_outline = "\n".join(
             [
-                f"Slide {slide_idx+1}: {slide_title}"
-                for slide_idx, slide_title in enumerate(self.outline)
+                f"Slide {slide_idx+1}: {item.purpose}"
+                for slide_idx, item in enumerate(self.outline)
             ]
         )
         generated_slides = []
-        for slide_data in enumerate(self.outline.items()):
-            if self.force_pages and slide_data[0] == num_slides:
+        for slide_idx, outline_item in enumerate(self.outline):
+            if self.force_pages and slide_idx == num_slides:
                 break
-            slide = self._generate_slide(slide_data, code_executor)
+            slide = self._generate_slide(slide_idx, outline_item, code_executor)
             if slide is not None:
                 generated_slides.append(slide)
                 continue
@@ -164,13 +163,9 @@ class PPTGen(ABC):
             return json.load(open(outline_file, "r"))
         outline = self.staffs["planner"](
             num_slides=num_slides,
-            layouts="\n".join(
-                set(self.slide_induction.keys()).difference(self.functional_keys)
-            ),
-            functional_keys="\n".join(self.functional_keys),
-            json_content=source_doc.overview,
+            document_overview=source_doc.overview,
         )
-        outline = self._valid_outline(outline)
+        outline = self._valid_outline(outline, source_doc)
         json.dump(
             outline,
             open(outline_file, "w"),
@@ -179,7 +174,9 @@ class PPTGen(ABC):
         )
         return outline
 
-    def _valid_outline(self, outline: dict, retry: int = 0) -> dict:
+    def _valid_outline(
+        self, outline: List[Dict], source_doc: Document, retry: int = 0
+    ) -> List[OutlineItem]:
         """
         Validate the generated outline.
 
@@ -187,54 +184,43 @@ class PPTGen(ABC):
             ValueError: If the outline is invalid.
         """
         try:
-            for slide in outline.values():
-                layout_sim = torch.cosine_similarity(
-                    self.text_embedder.get_embedding(slide["layout"]),
-                    self.layout_embeddings,
-                )
-                if layout_sim.max() < 0.7:
-                    raise ValueError(
-                        f"Layout `{slide['layout']}` not found, must be one of {self.layout_names}"
-                    )
-                slide["layout"] = self.layout_names[layout_sim.argmax().item()]
-            if any(
-                not {"layout", "subsections", "description"}.issubset(set(slide.keys()))
-                for slide in outline.values()
-            ):
-                raise ValueError(
-                    "Invalid outline structure, must be a dict with layout, subsections, description"
-                )
+            outline_items = [OutlineItem(**outline_item) for outline_item in outline]
+            for outline_item in outline_items:
+                source_doc.index(outline_item.indexs)
+            return outline_items
         except ValueError as e:
             print(outline, e)
             if retry < self.retry_times:
                 new_outline = self.staffs["planner"].retry(
                     str(e), traceback.format_exc(), retry + 1
                 )
-                return self._valid_outline(new_outline, retry + 1)
+                return self._valid_outline(new_outline, source_doc, retry + 1)
             else:
                 raise ValueError("Failed to generate outline, tried too many times")
-        return outline
 
+    @abstractmethod
     def _generate_slide(
-        self, slide_data, code_executor: CodeExecutor
+        self, slide_idx: int, outline_item: OutlineItem, code_executor: CodeExecutor
     ) -> SlidePage | None:
         """
-        Generate a slide from the slide data.
+        Generate a slide from the outline item.
         """
-        slide_idx, (slide_title, slide) = slide_data
-        slide_content = f"Slide-{slide_idx+1} " + get_slide_content(
-            self.source_doc, slide_title, slide
-        )
-        try:
-            return self.synergize(
-                self.layouts[slide["layout"]],
-                slide_content,
-                code_executor,
-            )
-        except Exception as e:
-            print(f"generate slide {slide_idx} failed: {e}")
-            print(traceback.format_exc())
-            print(self.config.RUN_DIR)
+        raise NotImplementedError("Subclass must implement this method")
+
+    @abstractmethod
+    def synergize(
+        self,
+        layout: Layout,
+        slide_content: str,
+        code_executor: CodeExecutor,
+    ) -> SlidePage:
+        """
+        Synergize Agents to generate a slide.
+
+        Returns:
+            SlidePage: The generated slide.
+        """
+        raise NotImplementedError("Subclass must implement this method")
 
     def _save_history(self, code_executor: CodeExecutor):
         """
@@ -261,7 +247,6 @@ class PPTGen(ABC):
         """
         Initialize agent roles and their models
         """
-        jinja_env = Environment(undefined=StrictUndefined)
         llm_mapping = {
             "language": language_model or llms.language_model,
             "vision": vision_model or llms.vision_model,
@@ -269,7 +254,6 @@ class PPTGen(ABC):
         self.staffs = {
             role: Agent(
                 role,
-                env=jinja_env,
                 record_cost=record_cost,
                 text_model=self.text_embedder,
                 llm_mapping=llm_mapping,
@@ -277,28 +261,37 @@ class PPTGen(ABC):
             for role in ["planner"] + self.roles
         }
 
-    @abstractmethod
-    def synergize(
-        self,
-        layout: Layout,
-        slide_content: str,
-        code_executor: CodeExecutor,
-    ) -> SlidePage:
-        """
-        Synergize Agents to generate a slide.
-
-        Returns:
-            SlidePage: The generated slide.
-        """
-        raise NotImplementedError("Subclass must implement this method")
-
 
 class PPTAgent(PPTGen):
     """
     A class to generate PowerPoint presentations with a crew of agents.
     """
 
-    roles: list[str] = ["editor", "coder"]
+    roles: list[str] = ["editor", "coder", "layout_selector"]
+
+    def _generate_slide(
+        self, slide_idx: int, outline_item: OutlineItem, code_executor: CodeExecutor
+    ) -> SlidePage | None:
+        """
+        Generate a slide from the outline item.
+        """
+        pregenerated = self.pre_generate(slide_idx, self.source_doc, outline_item)
+        layout = self.layout_select(pregenerated)
+        return self.synergize(layout, pregenerated, code_executor)
+
+    def pre_generate(self, slide_idx: int, source_doc: Document, outline: OutlineItem):
+        """
+        Abstractive summarization of the content source, faciliating the selection of the layout and the generation of the slide.
+        """
+        content_source = outline.retrieve(slide_idx, source_doc)
+
+    def layout_select(self, layout_description: str):
+        available_layouts = [layout.overview for layout in self.layouts.values()]
+        layout = self.staffs["layout_selector"](
+            layout_description=layout_description,
+            available_layouts=available_layouts,
+        )
+        return self.layouts[layout]
 
     def synergize(
         self,
@@ -400,35 +393,10 @@ class PPTAgent(PPTGen):
         return command_list
 
 
-class PPTAgentAsync(PPTGen):
+class PPTAgentAsync(PPTAgent):
     """
     A class to generate PowerPoint presentations with a crew of agents asynchronously.
     """
-
-    roles: list[str] = ["editor", "coder"]
-
-    def __init__(
-        self,
-        text_embedder: AsyncLLM,
-        retry_times: int = 3,
-        force_pages: bool = False,
-        error_exit: bool = False,
-        record_cost: bool = True,
-        length_factor: float | None = None,
-        language_model: AsyncLLM = None,
-        vision_model: AsyncLLM = None,
-    ):
-        """Initialize with async agents"""
-        super().__init__(
-            text_embedder,
-            retry_times,
-            force_pages,
-            error_exit,
-            record_cost,
-            length_factor,
-            language_model,
-            vision_model,
-        )
 
     def _hire_staffs(
         self,
@@ -536,9 +504,7 @@ class PPTAgentAsync(PPTGen):
 
         outline = await self.staffs["planner"](
             num_slides=num_slides,
-            layouts="\n".join(set(self.layout_names).difference(self.functional_keys)),
-            functional_keys="\n".join(self.functional_keys),
-            json_content=source_doc.overview,
+            document_overview=source_doc.overview,
         )
         outline = await self._valid_outline_async(outline)
         json.dump(

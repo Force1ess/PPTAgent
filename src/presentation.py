@@ -186,10 +186,7 @@ class SlidePage:
         """
         if len(list(self.shape_filter(Picture))) == 0:
             return "text"
-        content_types = {"picture"}
-        for shape in self.shape_filter(SemanticPicture):
-            content_types.add(shape.semantic_name)
-        return ",".join(content_types)
+        return "image"
 
     def to_html(self, style_args: Optional[StyleArg] = None, **kwargs) -> str:
         """
@@ -429,9 +426,3 @@ class Presentation:
                 for slide in self.slides
             ]
         )
-
-
-if __name__ == "__main__":
-    config = Config("/tmp")
-    prs = Presentation.from_file("test.pptx", config)
-    prs.save("test_output.pptx")
