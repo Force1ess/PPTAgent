@@ -6,7 +6,7 @@ from typing import Optional
 import jsonlines
 import tiktoken
 import yaml
-from jinja2 import Environment, Template
+from jinja2 import Environment, StrictUndefined, Template
 from PIL import Image
 from torch import Tensor, cosine_similarity
 
@@ -56,8 +56,8 @@ class Agent:
     def __init__(
         self,
         name: str,
-        env: Environment,
-        record_cost: bool,
+        record_cost: bool = False,
+        env: Optional[Environment] = None,
         config: Optional[dict] = None,
         text_model: Optional[LLM] = None,
         llm_mapping: Optional[dict[str, LLM]] = None,
@@ -74,21 +74,26 @@ class Agent:
             text_model (LLM): The text embedding model.
         """
         self.name = name
-        if config is None:
+        self.config = config
+        if self.config is None:
             with open(f"roles/{name}.yaml", "r") as f:
-                config = yaml.safe_load(f)
-        if llm_mapping is not None:
-            llm = llm_mapping[config["use_model"]]
+                self.config = yaml.safe_load(f)
+        self.llm_mapping = llm_mapping
+        if self.llm_mapping is not None:
+            llm = self.llm_mapping[self.config["use_model"]]
         else:
-            llm = getattr(llms, config["use_model"] + "_model")
+            llm = getattr(llms, self.config["use_model"] + "_model")
         self.llm = llm
         self.model = llm.model
         self.record_cost = record_cost
         self.text_model = text_model
-        self.return_json = config.get("return_json", False)
-        self.system_message = config["system_prompt"]
-        self.prompt_args = set(config["jinja_args"])
-        self.template = env.from_string(config["template"])
+        self.return_json = self.config.get("return_json", False)
+        self.system_message = self.config["system_prompt"]
+        self.prompt_args = set(self.config["jinja_args"])
+        self.env = env
+        if self.env is None:
+            self.env = Environment(undefined=StrictUndefined)
+        self.template = self.env.from_string(self.config["template"])
         self.retry_template = Template(
             """The previous output is invalid, please carefully analyze the traceback and feedback information, correct errors happened before.
             feedback:
@@ -101,7 +106,7 @@ class Agent:
         self.input_tokens = 0
         self.output_tokens = 0
         self.history: list[Turn] = []
-        run_args = config.get("run_args", {})
+        run_args = self.config.get("run_args", {})
         self.llm.__call__ = partial(self.llm.__call__, **run_args)
         self.system_tokens = len(ENCODING.encode(self.system_message))
 
@@ -242,13 +247,13 @@ class AsyncAgent(Agent):
     def __init__(
         self,
         name: str,
-        env: Environment,
-        record_cost: bool = True,
-        llm_mapping: Optional[dict[str, AsyncLLM]] = None,
+        record_cost: bool = False,
+        env: Optional[Environment] = None,
         config: Optional[dict] = None,
         text_model: Optional[AsyncLLM] = None,
+        llm_mapping: Optional[dict[str, AsyncLLM]] = None,
     ):
-        super().__init__(name, env, record_cost, llm_mapping, config, text_model)
+        super().__init__(name, record_cost, env, config, text_model, llm_mapping)
         assert isinstance(self.llm, AsyncLLM), "You should use AsyncLLM for AsyncAgent"
         self.llm = self.llm.rebuild()  # in case of sharing the same instance
 
@@ -272,10 +277,7 @@ class AsyncAgent(Agent):
             response=response,
             message=message,
         )
-        return self.__post_process__(response, self.history[-error_idx:], turn)
-
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(name={self.name}, model={self.model})"
+        return await self.__post_process__(response, self.history[-error_idx:], turn)
 
     async def __call__(
         self,
@@ -300,7 +302,7 @@ class AsyncAgent(Agent):
             images = [images]
         assert self.prompt_args == set(jinja_args.keys()), "Invalid arguments"
         prompt = self.template.render(**jinja_args)
-        history = self.get_history(similar, recent, prompt)
+        history = await self.get_history(similar, recent, prompt)
         history_msg = []
         for turn in history:
             history_msg.extend(turn.message)
@@ -319,7 +321,7 @@ class AsyncAgent(Agent):
             message=message,
             images=images,
         )
-        return self.__post_process__(response, history, turn, similar)
+        return await self.__post_process__(response, history, turn, similar)
 
     async def get_history(self, similar: int, recent: int, prompt: str):
         """
@@ -352,6 +354,19 @@ class AsyncAgent(Agent):
         if self.return_json:
             response = get_json_from_response(response)
         return response
+
+    def rebuild(self):
+        """
+        Rebuild the agent.
+        """
+        return AsyncAgent(
+            self.name,
+            self.record_cost,
+            self.env,
+            self.config,
+            self.text_model,
+            self.llm_mapping,
+        )
 
 
 def calc_image_tokens(images: list[str]):
