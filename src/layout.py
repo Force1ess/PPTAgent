@@ -59,15 +59,16 @@ class Layout:
     def get_slide_id(self, data: dict):
         for el in self.elements:
             if el.variable_length is not None:
-                if len(data[el.el_name]["data"]) < el.variable_length[0]:
+                num_vary = len(data[el.el_name]["data"])
+                if num_vary < el.variable_length[0]:
                     raise ValueError(
-                        f"The length of {el.el_name}: {len(data[el.el_name]['data'])} is less than the minimum length: {el.variable_length[0]}"
+                        f"The length of {el.el_name}: {num_vary} is less than the minimum length: {el.variable_length[0]}"
                     )
-                if len(data[el.el_name]["data"]) > el.variable_length[1]:
+                if num_vary > el.variable_length[1]:
                     raise ValueError(
-                        f"The length of {el.el_name}: {len(data[el.el_name]['data'])} is greater than the maximum length: {el.variable_length[1]}"
+                        f"The length of {el.el_name}: {num_vary} is greater than the maximum length: {el.variable_length[1]}"
                     )
-                return self.vary_mapping[str(len(data[el.el_name]["data"]))]
+                return self.vary_mapping[str(num_vary)]
         return self.slide_id
 
     @classmethod
@@ -108,7 +109,9 @@ class Layout:
                 old_data[el.el_name] = el.content
         return old_data
 
-    def validate(self, editor_output: dict, length_factor: float | None, image_dir: str):
+    def validate(
+        self, editor_output: dict, length_factor: float | None, image_dir: str
+    ):
         for el_name, el_data in editor_output.items():
             assert (
                 "data" in el_data
@@ -141,3 +144,14 @@ class Layout:
                             f"Image {el_data['data'][i]} not found"
                             f"Please check the image path and use only existing images"
                         )
+
+    @property
+    def overview(self):
+        overview = ""
+        for el in self.elements:
+            overview += f"{el.el_name}: {el.el_type}\n"
+            if el.variable_length is not None:
+                overview += f"variable length: {el.variable_length[0]} - {el.variable_length[1]}\n"
+            else:
+                overview += f"fixed length: {len(el.content)}\n"
+        return overview
