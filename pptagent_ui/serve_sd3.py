@@ -12,6 +12,7 @@ from openai.types import Image, ImagesResponse
 from pydantic import BaseModel
 
 MODEL = sys.argv[1]
+SERVE_NAME = sys.argv[2]
 app = FastAPI()
 
 
@@ -28,6 +29,7 @@ class ImageRequest(BaseModel):
 
 @app.post("/v1/images/generations")
 async def generate_images(request: ImageRequest) -> ImagesResponse:
+    assert request.model == SERVE_NAME, f"Model {request.model} is not available, only {SERVE_NAME} is available"
     try:
         images = pipe(
             request.prompt,

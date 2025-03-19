@@ -1,9 +1,11 @@
 from shutil import which
 import pytest
 import tempfile
+from bs4 import BeautifulSoup
+from markdown import markdown
 
 import utils
-from utils import get_json_from_response
+from utils import get_json_from_response, split_markdown_to_chunks
 
 
 def test_extract_json_from_markdown_block(self):
@@ -122,3 +124,17 @@ def test_ppt_to_images_conversion(self):
     utils.UNOSERVER_RUNNING = True
     utils.ppt_to_images("resource/test/test_ppt/test.pptx", tempfile.mkdtemp())
     process.terminate()
+
+def test_markdown_splits():
+    markdown_content = open("resource/test/test_pdf/source.md", "r").read()
+    chunks = split_markdown_to_chunks(markdown_content)
+    assert len(chunks) == 8
+    markdown_html = markdown(markdown_content, extensions=["tables"])
+    soup = BeautifulSoup(markdown_html, "html.parser")
+    num_medias = len(soup.find_all("img")) + len(soup.find_all("table"))
+    parsed_medias = 0
+    for chunk in chunks:
+        markdown_html = markdown(chunk["content"], extensions=["tables"])
+        soup = BeautifulSoup(markdown_html, "html.parser")
+        parsed_medias += len(soup.find_all("img")) + len(soup.find_all("table"))
+    assert parsed_medias == num_medias

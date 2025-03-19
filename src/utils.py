@@ -12,6 +12,7 @@ from html2image import Html2Image
 import json_repair
 import Levenshtein
 from markdown import markdown
+from PIL import Image as PILImage
 from pdf2image import convert_from_path
 from pptx.dml.color import RGBColor
 from pptx.oxml import parse_xml
@@ -273,6 +274,66 @@ tenacity = retry(
     wait=wait_fixed(3), stop=stop_after_attempt(5), after=tenacity_log, reraise=True
 )
 
+
+def split_markdown_by_level(text: str, level: int = 1):
+    """
+    Split a markdown document into sections based on the level of headings.
+
+    Args:
+        text (str): The markdown document to split.
+        level (int): The level of headings to split the document into.
+
+    Returns:
+        List[Tuple[str, str]]: A list of tuples, each containing a header and content.
+    """
+    lines = text.splitlines()
+    current_header = None
+    current_content = []
+
+    for line in lines:
+        if line.strip().startswith("#" * level + " "):
+            if sum(len(line) for line in current_content) > 128:
+                yield current_header, "\n".join(current_content)
+                current_header = line
+                current_content = []
+            else:
+                current_content.append(line)
+        else:
+            current_content.append(line)
+
+    if current_content:
+        yield current_header, "\n".join(current_content)
+
+
+def split_markdown_to_chunks(markdown_text: str, max_length: int = 16384, max_level: int = 3)-> List[Dict[str, str]]:
+    """
+    Split a markdown document into chunks of a maximum length.
+
+    Args:
+        markdown_text (str): The markdown document to split.
+        max_length (int): The maximum length of a chunk.
+        max_level (int): The maximum level of headings to split the document into.
+
+    Returns:
+        List[Dict[str, str]]: A list of dictionaries, each containing a header and content.
+
+    Raises:
+        ValueError: If the markdown document is too long to be split into chunks.
+    """
+    for level in range(1, max_level + 1):
+        sections = []
+        for header, content in split_markdown_by_level(markdown_text, level):
+            if len(content) > max_length:
+                sections = []
+                break
+            sections.append({"header": header, "content": content})
+        if len(sections) != 0:
+            return sections
+    raise ValueError(
+        f"The markdown document is too long to be split into chunks, with max_level = {max_level} and max_length = {max_length}"
+    )
+
+
 TABLE_CSS = """
 table {
     border-collapse: collapse;  /* Merge borders */
@@ -289,6 +350,8 @@ th {
     background-color: #f2f2f2; /* Header background color */
 }
 """
+
+
 # Convert Markdown to HTML
 def markdown_table_to_image(markdown_text: str, output_path: str):
     """
@@ -304,16 +367,16 @@ def markdown_table_to_image(markdown_text: str, output_path: str):
     html = markdown(markdown_text, extensions=["tables"])
     assert "table" in html, "Failed to find table in markdown"
 
-
-
-    hti = Html2Image(disable_logging=True)
+    parent_dir, basename = os.path.split(output_path)
+    hti = Html2Image(disable_logging=True, output_path=parent_dir)
     hti.browser.use_new_headless = None
-    hti.screenshot(html_str=html, css_str=TABLE_CSS, save_as=output_path)
+    hti.screenshot(html_str=html, css_str=TABLE_CSS, save_as=basename)
 
-    img = Image.open(output_path).convert("RGB")
+    img = PILImage.open(output_path).convert("RGB")
     bbox = img.getbbox()
-    assert bbox is not None, "Failed to capture the bbox, markdown conversion failed"
-
+    assert bbox is not None, "Failed to capture the bbox, may be markdown table conversion failed"
+    bbox = (0, 0, bbox[2] + 10, bbox[3] + 10)
+    img.crop(bbox).save(output_path)
     return output_path
 
 

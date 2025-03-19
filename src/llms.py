@@ -1,7 +1,6 @@
-import asyncio
 import base64
 import re
-from typing import Union, List, Dict, Tuple, Optional, Any
+from typing import Union, List, Dict, Tuple, Optional
 
 from oaib import Auto
 from openai import AsyncOpenAI, OpenAI
@@ -172,18 +171,36 @@ class LLM:
         )
 
     def get_embedding(
-        self, text: str, encoding_format: str = "float", to_tensor: bool = True, **kwargs
+        self,
+        text: str,
+        encoding_format: str = "float",
+        to_tensor: bool = True,
+        **kwargs,
     ) -> torch.Tensor | List[float]:
         """
         Get the embedding of a text.
         """
-        result =  self.client.embeddings.create(
+        result = self.client.embeddings.create(
             model=self.model, input=text, encoding_format=encoding_format, **kwargs
         )
         embeddings = [embedding.embedding for embedding in result.data]
         if to_tensor:
             embeddings = torch.tensor(embeddings)
         return embeddings
+
+    def rebuild(self) -> "LLM|AsyncLLM":
+        """
+        Rebuild the LLM.
+        """
+        return self.__class__(
+            model=self.model, base_url=self.base_url, api_key=self.api_key
+        )
+
+    def to_async(self) -> "AsyncLLM":
+        """
+        Convert the LLM to an asynchronous LLM.
+        """
+        return AsyncLLM(model=self.model, base_url=self.base_url, api_key=self.api_key)
 
 
 class AsyncLLM(LLM):
@@ -283,7 +300,11 @@ class AsyncLLM(LLM):
         return result["result"][0]["data"][0]["b64_json"]
 
     async def get_embedding(
-        self, text: str, encoding_format: str = "float", to_tensor: bool = True, **kwargs
+        self,
+        text: str,
+        encoding_format: str = "float",
+        to_tensor: bool = True,
+        **kwargs,
     ) -> torch.Tensor | List[float]:
         """
         Get the embedding of a text asynchronously.
@@ -304,22 +325,19 @@ class AsyncLLM(LLM):
             **kwargs,
         )
         result = await self.client.run()
-        assert len(result["result"]) == 1, "The length of result should be 1, but got {}.".format(
-            len(result["result"])
-        )
+        assert (
+            len(result["result"]) == 1
+        ), "The length of result should be 1, but got {}.".format(len(result["result"]))
         embeddings = [embedding.embedding for embedding in result["result"][0]["data"]]
         if to_tensor:
             embeddings = torch.tensor(embeddings)
         return embeddings
 
-    def rebuild(self) -> "AsyncLLM":
+    def to_sync(self) -> LLM:
         """
-        Create a new instance with the same configuration.
-
-        Returns:
-            AsyncLLM: A new instance with the same configuration.
+        Convert the AsyncLLM to a synchronous LLM.
         """
-        return AsyncLLM(model=self.model, base_url=self.base_url, api_key=self.api_key)
+        return LLM(model=self.model, base_url=self.base_url, api_key=self.api_key)
 
 
 def get_model_abbr(llms: Union[LLM, List[LLM]]) -> str:
@@ -345,20 +363,15 @@ def get_model_abbr(llms: Union[LLM, List[LLM]]) -> str:
 
 
 # Async LLMs should use rebuild in case of racing condition
-qwen2_5_async = AsyncLLM(
+qwen2_5 = AsyncLLM(
     model="Qwen2.5-72B-Instruct-GPTQ-Int4", base_url="http://api.cipsup.cn/v1"
 )
-qwen_vl_async = AsyncLLM(
-    model="Qwen2-VL-7B-Instruct", base_url="http://api.cipsup.cn/v1"
+qwen_vl = AsyncLLM(
+    model="Qwen2.5-VL-72B-Instruct-AWQ", base_url="http://api.cipsup.cn/v1"
 )
-sd3_5_turbo_async = AsyncOpenAI(base_url="http://localhost:8001/v1")
+sd3_5_turbo = AsyncOpenAI(base_url="http://localhost:8001/v1")
+bge_m3 = AsyncLLM(base_url="http://api.cipsup.cn/v1", model="bge-m3")
 
-qwen2_5 = LLM(
-    model="Qwen2.5-72B-Instruct-GPTQ-Int4", base_url="http://api.cipsup.cn/v1"
-)
-qwen_vl = LLM(model="Qwen2-VL-7B-Instruct", base_url="http://api.cipsup.cn/v1")
-sd3_5_turbo = LLM(base_url="http://localhost:8001/v1", model="stable-diffusion-3.5-turbo")
-bge_m3 = LLM(base_url="http://api.cipsup.cn/v1", model="bge-m3")
 
 # Default models
 language_model = qwen2_5

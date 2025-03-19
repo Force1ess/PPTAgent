@@ -7,10 +7,11 @@ def test_document():
     document = Document.from_dict(
         json.load(open("resource/test/test_pdf/refined_doc.json")), "resource/test/test_pdf", False
     )
-    medias = list(document.iter_medias())
     document.overview
     document.metainfo
-    document.index({"Experiment": ["Dataset"]})
-    assert len(medias) == 7
-    assert sum(isinstance(media, Table) for media in medias) == 3
-
+    document.index({"Abstract": ["Introduction to PPTAgent"]})
+    medias = list(document.iter_medias())
+    assert len(medias) == 8
+    assert sum(isinstance(media, Table) for media in medias) == 0
+    for media in document.iter_medias():
+        assert media.caption is not None
