@@ -165,6 +165,11 @@ class CodeExecutor:
             self.command_history[-1][0] = HistoryMark.COMMENT_CORRECT
         self.api_history[-1][0] = HistoryMark.API_CALL_CORRECT
 
+    def __add__(self, other):
+        self.api_history.extend(other.api_history)
+        self.command_history.extend(other.command_history)
+        self.code_history.extend(other.code_history)
+        return self
 
 # supporting functions
 def element_index(slide: SlidePage, element_id: int) -> ShapeElement:

@@ -33,7 +33,7 @@ class SlidePage:
     def __init__(
         self,
         shapes: List[ShapeElement],
-        background: Background,
+        backgrounds: List[Background],
         slide_idx: int,
         real_idx: int,
         slide_notes: Optional[str],
@@ -47,7 +47,7 @@ class SlidePage:
 
         Args:
             shapes (List[ShapeElement]): The shapes in the slide.
-            background (Background): The background of the slide.
+            backgrounds (List[Background]): The backgrounds of the slide.
             slide_idx (int): The index of the slide.
             real_idx (int): The real index of the slide.
             slide_notes (Optional[str]): The notes of the slide.
@@ -57,7 +57,7 @@ class SlidePage:
             slide_height (int): The height of the slide.
         """
         self.shapes = shapes
-        self.background = background
+        self.backgrounds = backgrounds
         self.slide_idx = slide_idx
         self.real_idx = real_idx
         self.slide_notes = slide_notes
@@ -100,7 +100,7 @@ class SlidePage:
         Returns:
             SlidePage: The created SlidePage.
         """
-        background = Background.from_slide(slide, config)
+        backgrounds = [Background.from_slide(slide, config)]
         shapes = [
             ShapeElement.from_shape(
                 slide_idx, i, shape, config, slide_width * slide_height
@@ -108,6 +108,10 @@ class SlidePage:
             for i, shape in enumerate(slide.shapes)
             if shape.visible
         ]
+        for i, s in enumerate(shapes):
+            if isinstance(s, Picture) and s.area / s.slide_area > 0.95:
+                backgrounds.append(shapes.pop(i))
+
         slide_layout_name = slide.slide_layout.name if slide.slide_layout else None
         slide_title = slide.shapes.title.text if slide.shapes.title else None
         slide_notes = (
@@ -118,7 +122,7 @@ class SlidePage:
 
         return cls(
             shapes,
-            background,
+            backgrounds,
             slide_idx,
             real_idx,
             slide_notes,
@@ -143,7 +147,8 @@ class SlidePage:
             ph.element.getparent().remove(ph.element)
 
         # Build background
-        self.background.build(slide)
+        for background in self.backgrounds:
+            background.build(slide)
 
         # Build shapes and apply closures
         for shape in self.shapes:

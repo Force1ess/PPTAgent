@@ -4,7 +4,7 @@ template: |
 
   Requirements:
   1. Content Generation Rules:
-    - Follow default_quantity for elements, adjust when necessary
+    - Follow default_quantity for elements, adjust when necessary, you can properly rewrite the content to fit the schema
     - Ensure text content meets character limits
     - Generated text should use concise and impactful presentation style
 
@@ -24,25 +24,27 @@ template: |
   }
 
   Input:
-  Schema:
-  {{schema}}
+  Outline:
+  {{outline}}
+
+  Current Slide Description:
+  {{slide_description}}
 
   Metadata of Presentation:
   {{metadata}}
-  {{outline}}
 
-  Reference Text:
-  {{text}}
+  Slide Content Source:
+  {{slide_content}}
 
-  Available Images:
-  {{images_info}}
+  Schema:
+  {{schema}}
 
   Output: Ensure the generated content strictly adheres to the schema specifications, follows the slide style, reader-friendly, and use the same language as the reference text.
 jinja_args:
   - outline
-  - schema
-  - text
+  - slide_description
   - metadata
-  - images_info
+  - slide_content
+  - schema
 use_model: language
 return_json: true

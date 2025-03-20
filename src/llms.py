@@ -1,5 +1,6 @@
 import base64
 import re
+import threading
 from typing import Union, List, Dict, Tuple, Optional
 
 from oaib import Auto
@@ -188,14 +189,6 @@ class LLM:
             embeddings = torch.tensor(embeddings)
         return embeddings
 
-    def rebuild(self) -> "LLM|AsyncLLM":
-        """
-        Rebuild the LLM.
-        """
-        return self.__class__(
-            model=self.model, base_url=self.base_url, api_key=self.api_key
-        )
-
     def to_async(self) -> "AsyncLLM":
         """
         Convert the LLM to an asynchronous LLM.
@@ -208,7 +201,7 @@ class AsyncLLM(LLM):
     Asynchronous wrapper class for language model interaction.
     """
 
-    def __init__(self, model: str = None, base_url: str = None, api_key: str = None):
+    def __init__(self, model: str = None, base_url: str = None, api_key: str = None, timeout: int = 360):
         """
         Initialize the AsyncLLM.
 
@@ -217,10 +210,11 @@ class AsyncLLM(LLM):
             base_url (str): The base URL for the API.
             api_key (str): API key for authentication. Defaults to environment variable.
         """
-        self.client = Auto(base_url=base_url, api_key=api_key)
+        self.client = Auto(base_url=base_url, api_key=api_key, timeout=timeout)
         self.model = model
         self.base_url = base_url
         self.api_key = api_key
+        self.timeout = timeout
 
     @tenacity
     async def __call__(
@@ -248,6 +242,11 @@ class AsyncLLM(LLM):
         Returns:
             Union[str, Dict, List, Tuple]: The response from the model.
         """
+        # ? here cause the bug of asyncio
+        # if threading.current_thread() is threading.main_thread():
+        #     self.client = Auto(base_url=self.base_url, api_key=self.api_key, timeout=self.timeout)
+        # else:
+        #     print("Warning: AsyncLLM is not running in the main thread, may cause race condition.")
         if history is None:
             history = []
         system, message = self.format_message(content, images, system_message)
@@ -261,7 +260,7 @@ class AsyncLLM(LLM):
         response = completion["result"][0]["choices"][0]["message"]["content"]
         assert (
             len(completion["result"]) == 1
-        ), "The length of completion result should be 1, but got {}.\nRacing condition may happen, try use `rebuild()` to get a new instance.".format(
+        ), "The length of completion result should be 1, but got {}.\nRacing condition may happened.".format(
             len(completion["result"])
         )
         message.append({"role": "assistant", "content": response})
@@ -362,7 +361,6 @@ def get_model_abbr(llms: Union[LLM, List[LLM]]) -> str:
         return "+".join(llm.model for llm in llms)
 
 
-# Async LLMs should use rebuild in case of racing condition
 qwen2_5 = AsyncLLM(
     model="Qwen2.5-72B-Instruct-GPTQ-Int4", base_url="http://api.cipsup.cn/v1"
 )

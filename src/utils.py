@@ -13,6 +13,7 @@ import json_repair
 import Levenshtein
 from markdown import markdown
 from PIL import Image as PILImage
+from shutil import which
 from pdf2image import convert_from_path
 from pptx.dml.color import RGBColor
 from pptx.oxml import parse_xml
@@ -30,7 +31,12 @@ try:
         assert s.connect_ex(("localhost", 2003)) == 0, "unoserver is not running"
         UNOSERVER_RUNNING = True
 except Exception:
-    UNOSERVER_RUNNING = False
+    # todo 这里好像有bug
+    if which("unoconvert") is not None and which("unoserver") is not None:
+        process = subprocess.Popen(["unoserver"], shell=False, start_new_session=True)
+        UNOSERVER_RUNNING = True
+    else:
+        UNOSERVER_RUNNING = False
 
 # Set of supported image extensions
 IMAGE_EXTENSIONS: Set[str] = {
@@ -172,45 +178,6 @@ def edit_distance(text1: str, text2: str) -> float:
     if not text1 and not text2:
         return 1.0
     return 1 - Levenshtein.distance(text1, text2) / max(len(text1), len(text2))
-
-
-def get_slide_content(
-    doc_json: Dict[str, Any], slide_title: str, slide: Dict[str, Any]
-) -> str:
-    """
-    Get the content for a slide based on its title and description.
-
-    Args:
-        doc_json (Dict[str, Any]): The document JSON.
-        slide_title (str): The title of the slide.
-        slide (Dict[str, Any]): The slide data.
-
-    Returns:
-        str: The slide content.
-    """
-    slide_desc = slide.get("description", "")
-    slide_content = f"Slide Purpose: {slide_title}\nSlide Description: {slide_desc}\n"
-
-    for key in slide.get("subsections", []):
-        slide_content += "Slide Content Source: "
-
-        for section in doc_json["sections"]:
-            subsections = section.get("subsections", [])
-
-            # Handle dictionary subsections
-            if isinstance(subsections, dict) and len(subsections) == 1:
-                subsections = [
-                    {"title": k, "content": v} for k, v in subsections.items()
-                ]
-
-            for subsection in subsections:
-                try:
-                    if edit_distance(key, subsection["title"]) > 0.8:
-                        slide_content += f"# {key} \n{subsection['content']}\n"
-                except Exception as e:
-                    print(f"Error processing subsection: {e}")
-
-    return slide_content
 
 
 def tenacity_log(retry_state: RetryCallState) -> None:

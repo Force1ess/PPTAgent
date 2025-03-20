@@ -6,11 +6,12 @@ template: |
   Then, create a structured presentation outline by following these guidelines:
     1. Ensure the number of slides matches the specified requirement.
     2. Make full use of the given images.
+    3. For slides that present metainformation (such as opening, ending, section outline, agenda, etc.), utilize the available functional layouts by adding the chosen functional layout in the slide description.
 
   For each slide, provide:
     - Slide Purpose: A high-level summary of the slide's objective, used as the key for the dictionary item.
     - Slide Description: A concise description of the slide's content.
-    - Indexs: A dictionary of section titles and subsection titles that relate to the slide's content, the subsection of desired image should also be in the indexs.
+    - Indexs: A dictionary where keys are section titles and values are lists of subsection titles that relate to the slide's content. Format: {section_title: [subsection_title1, subsection_title2, ...]}. Include subsections containing desired images in the appropriate section lists.
 
   Example Output:
   [
@@ -21,25 +22,30 @@ template: |
     },
     {
       "purpose": "Introduction to the XX",
-      "indexs": {"Section 1": ["Subsection Intro to xx", "Subsection Background"]},
+      "indexs": {"Section 1": ["Intro to xx", "Background"]},
       "description": "..."
     },
     ...,
     {
       "purpose": "Ending",
-      "indexs": {"Section 5": ["Subsection Ending"]},
+      "indexs": {"Section 5": ["Ending"]},
       "description": "..."
     }
   ]
 
   Input:
-  {{ document_overview }}
-
   Required Number of Slides: {{ num_slides }}
+
+  Available Functional Layouts:
+  {{ functional_layouts }}
+
+  Document Overview:
+  {{ document_overview }}
 
   Output:
 jinja_args:
   - num_slides
   - document_overview
+  - functional_layouts
 use_model: language
 return_json: true

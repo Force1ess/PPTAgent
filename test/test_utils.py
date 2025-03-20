@@ -120,10 +120,8 @@ def test_ppt_to_images_conversion(self):
         pytest.skip("unoconvert not available")
 
     # Run the conversion
-    process = subprocess.Popen(["unoserver"], shell=False)
     utils.UNOSERVER_RUNNING = True
     utils.ppt_to_images("resource/test/test_ppt/test.pptx", tempfile.mkdtemp())
-    process.terminate()
 
 def test_markdown_splits():
     markdown_content = open("resource/test/test_pdf/source.md", "r").read()
