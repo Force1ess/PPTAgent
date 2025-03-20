@@ -493,8 +493,10 @@ class ShapeElement:
         shape = slide.shapes._shape_factory(
             slide.shapes._spTree.insert_element_before(parse_xml(self.xml), "p:extLst")
         )
-        self.fill.build(shape.fill, shape.part)
-        self.line.build(shape.line, shape.part)
+        if getattr(shape, "fill", None) is not None:
+            self.fill.build(shape.fill, shape.part)
+        if getattr(shape, "line", None) is not None:
+            self.line.build(shape.line, shape.part)
         return shape
 
     def __repr__(self) -> str:
