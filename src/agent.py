@@ -199,7 +199,7 @@ class Agent:
         """
         if isinstance(images, str):
             images = [images]
-        assert self.prompt_args == set(jinja_args.keys()), "Invalid arguments"
+        assert self.prompt_args == set(jinja_args.keys()), f"Invalid arguments, expected: {self.prompt_args}, got: {jinja_args.keys()}"
         prompt = self.template.render(**jinja_args)
         history = self.get_history(similar, recent, prompt)
         history_msg = []
@@ -255,7 +255,6 @@ class AsyncAgent(Agent):
     ):
         super().__init__(name, record_cost, env, config, text_model, llm_mapping)
         assert isinstance(self.llm, AsyncLLM), "You should use AsyncLLM for AsyncAgent"
-        self.llm = self.llm.rebuild()  # in case of sharing the same instance
 
     async def retry(self, feedback: str, traceback: str, error_idx: int):
         """
@@ -300,7 +299,7 @@ class AsyncAgent(Agent):
         """
         if isinstance(images, str):
             images = [images]
-        assert self.prompt_args == set(jinja_args.keys()), "Invalid arguments"
+        assert self.prompt_args == set(jinja_args.keys()), f"Invalid arguments, expected: {self.prompt_args}, got: {jinja_args.keys()}"
         prompt = self.template.render(**jinja_args)
         history = await self.get_history(similar, recent, prompt)
         history_msg = []

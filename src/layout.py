@@ -1,7 +1,6 @@
 from dataclasses import dataclass, asdict
 from typing import List, Literal
-from os.path import join as pjoin, exists as pexists
-from PIL import Image
+from os.path import join as pjoin, exists as pexists, basename as pbasename
 
 @dataclass
 class Element:
@@ -52,6 +51,7 @@ class Element:
 
 @dataclass
 class Layout:
+    title: str
     slide_id: int
     elements: List[Element]
     vary_mapping: dict[int, int] | None  # mapping for variable elements
@@ -72,7 +72,7 @@ class Layout:
         return self.slide_id
 
     @classmethod
-    def from_dict(cls, data: dict):
+    def from_dict(cls, title: str, data: dict):
         elements = [
             Element.from_dict(el_name, data["content_schema"][el_name])
             for el_name in data["content_schema"]
@@ -81,6 +81,7 @@ class Layout:
         if num_vary_elements > 1:
             raise ValueError("Only one variable element is allowed")
         return cls(
+            title=title,
             slide_id=data["template_id"],
             elements=elements,
             vary_mapping=data.get("vary_mapping", None),
@@ -140,21 +141,26 @@ class Layout:
                     if pexists(pjoin(image_dir, el_data["data"][i])):
                         el_data["data"][i] = pjoin(image_dir, el_data["data"][i])
                     if not pexists(el_data["data"][i]):
-                        raise ValueError(
-                            f"Image {el_data['data'][i]} not found"
-                            f"Please check the image path and use only existing images"
-                        )
+                        basename = pbasename(el_data["data"][i])
+                        if pexists(pjoin(image_dir, basename)):
+                            el_data["data"][i] = pjoin(image_dir, basename)
+                        else:
+                            raise ValueError(
+                                f"Image {el_data['data'][i]} not found"
+                                f"Please check the image path and use only existing images"
+                            )
 
     @property
     def overview(self):
-        overview = ""
+        overview = f"Layout: {self.title}\n"
         for el in self.elements:
             overview += f"{el.el_name}: {el.el_type}\n"
             if el.variable_length is not None:
                 overview += f"variable length: {el.variable_length[0]} - {el.variable_length[1]}\n"
             else:
-                overview += f"fixed length: {len(el.content)}\n"
-            # # todo 图片的size也要展示
-            # if el.el_type == "image":
-            #     overview += f"image size: {Image.open(el.content[0]).size}\n"
+                overview += f"element length: {len(el.content)}\n"
+            overview += f"description: {el.description}\n"
+            if el.el_type == "text":
+                overview += f"suggested characters: {el.suggested_characters}\n"
+            overview += "\n"
         return overview
