@@ -12,7 +12,14 @@ from jinja2 import Environment, StrictUndefined
 
 from llms import LLM, AsyncLLM
 from agent import Agent, AsyncAgent
-from utils import markdown_table_to_image, pjoin, pexists, split_markdown_to_chunks
+from utils import (
+    markdown_table_to_image,
+    pjoin,
+    pexists,
+    split_markdown_to_chunks,
+    pbasename,
+    edit_distance
+)
 
 env = Environment(undefined=StrictUndefined)
 TABLE_CAPTION_PROMPT = env.from_string(
@@ -111,7 +118,12 @@ class Section:
         for subsection in self.subsections:
             if subsection.title == key:
                 return subsection
-        raise KeyError(f"subsection not found: {key}")
+        sim_subsec = max(self.subsections, key=lambda x: edit_distance(x.title, key))
+        if edit_distance(sim_subsec.title, key) > 0.8:
+            return sim_subsec
+        raise KeyError(
+            f"subsection not found: {key}, available subsections: {[subsection.title for subsection in self.subsections]}"
+        )
 
     def iter_medias(self):
         for subsection in self.subsections:
@@ -123,8 +135,9 @@ class Section:
             if media.path is None:
                 media.to_image(image_dir)
             elif not pexists(media.path):
-                if pexists(pjoin(image_dir, media.path)):
-                    media.path = pjoin(image_dir, media.path)
+                basename = pbasename(media.path)
+                if pexists(pjoin(image_dir, basename)):
+                    media.path = pjoin(image_dir, basename)
                 else:
                     raise FileNotFoundError(
                         f"image file not found: {media.path}, leave null for table elements and real path for image elements"
@@ -136,16 +149,11 @@ class Section:
 
 @dataclass
 class Document:
+    image_dir: str
     sections: List[Section]
     metadata: Dict[str, str]
 
-    def __init__(
-        self,
-        metadata: Dict[str, str],
-        sections: List[Section],
-    ):
-        self.sections = sections
-        self.metadata = metadata
+    def __post_init__(self):
         self.metadata["presentation_time"] = datetime.now().strftime("%Y-%m-%d")
 
     def iter_medias(self):
@@ -164,6 +172,7 @@ class Document:
             "metadata" in data
         ), f"'metadata' key is required in data dictionary but was not found. Available keys: {list(data.keys())}"
         document = cls(
+            image_dir=image_dir,
             sections=[Section.from_dict(section) for section in data["sections"]],
             metadata=data["metadata"],
         )
@@ -217,9 +226,10 @@ class Document:
         section: Optional[Dict[str, Any]],
         image_dir: str,
         num_medias: int,
-        retry: int = -1,
+        retry: int = 0,
+        error_exit: bool = False,
     ):
-        if retry == -1:
+        if retry == 0:
             section = await extractor(
                 markdown_document=section["content"], num_medias=num_medias
             )
@@ -241,7 +251,12 @@ class Document:
                     extractor, metadata, new_section, image_dir, num_medias, retry + 1
                 )
             else:
-                raise ValueError("Failed to extract section, tried too many times")
+                if error_exit:
+                    raise ValueError("Failed to extract section, tried too many times")
+                else:
+                    for subsec in section["subsections"]:
+                        subsec["medias"] = None
+                    section = Section.from_dict(section)
         return metadata, section
 
     @classmethod
@@ -272,7 +287,7 @@ class Document:
         metadata = language_model(
             MERGE_METADATA_PROMPT.render(metadata=metadata), return_json=True
         )
-        document = Document(metadata, sections)
+        document = Document(image_dir=image_dir, metadata=metadata, sections=sections)
         for media in document.iter_medias():
             if isinstance(media, Table):
                 media.caption = language_model(
@@ -312,7 +327,7 @@ class Document:
             num_medias = len(soup.find_all("img")) + len(soup.find_all("table"))
 
             task = cls._parse_chunk_async(
-                doc_extractor.rebuild(), None, chunk, image_dir, num_medias
+                doc_extractor, None, chunk, image_dir, num_medias
             )
             parse_tasks.append(task)
 
@@ -322,7 +337,9 @@ class Document:
         merged_metadata = await language_model(
             MERGE_METADATA_PROMPT.render(metadata=metadata), return_json=True
         )
-        document = Document(merged_metadata, sections)
+        document = Document(
+            image_dir=image_dir, metadata=merged_metadata, sections=sections
+        )
 
         caption_tasks = []
         for media in document.iter_medias():
@@ -351,7 +368,12 @@ class Document:
         for section in self.sections:
             if section.title == key:
                 return section
-        raise KeyError(f"section not found: {key}")
+        sim_sec = max(self.sections, key=lambda x: edit_distance(x.title, key))
+        if edit_distance(sim_sec.title, key) > 0.8:
+            return sim_sec
+        raise KeyError(
+            f"section not found: {key}, available sections: {[section.title for section in self.sections]}"
+        )
 
     def to_dict(self):
         return asdict(self)
@@ -385,12 +407,38 @@ class OutlineItem:
 
     def retrieve(self, slide_idx: int, document: Document):
         subsections = document.index(self.indexs)
-        content = (
+        header = (
             f"Slide-{slide_idx+1}: {self.purpose}\nDescription: {self.description}\n"
         )
+        content = ""
+        images = []
         for subsection in subsections:
             content += f"Paragraph: {subsection.title}\nContent: {subsection.content}\n"
             if subsection.medias is not None:
                 for media in subsection.medias:
-                    content += f"Image: {media.path}\nCaption: {media.caption}\n"
-        return content
+                    images.append(
+                        f"Image: {media.path}\nSize: {media.size}\nCaption: {media.caption}"
+                    )
+        return header, content, "\n".join(images)
+
+
+async def test_document_async():
+    import llms
+    import json
+    from dataclasses import asdict
+
+    with open("runs/pdf/407bfa8b811c20f117ea01d833c67fa3/source.md", "r") as f:
+        markdown_content = f.read()
+    image_dir = "runs/pdf/407bfa8b811c20f117ea01d833c67fa3"
+    document = await Document.from_markdown_async(
+        markdown_content,
+        llms.language_model,
+        llms.vision_model,
+        image_dir,
+    )
+    with open("runs/pdf/407bfa8b811c20f117ea01d833c67fa3/refined_doc.json", "w") as f:
+        json.dump(asdict(document), f, indent=2, ensure_ascii=False)
+
+
+if __name__ == "__main__":
+    asyncio.run(test_document_async())
