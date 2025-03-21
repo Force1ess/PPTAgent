@@ -10,25 +10,30 @@ from markdown import markdown
 from bs4 import BeautifulSoup
 from jinja2 import Environment, StrictUndefined
 
-from llms import LLM, AsyncLLM
-from agent import Agent, AsyncAgent
-from utils import (
+from pptagent.llms import LLM, AsyncLLM
+from pptagent.agent import Agent, AsyncAgent
+from pptagent.utils import (
     markdown_table_to_image,
+    package_join,
     pjoin,
     pexists,
     split_markdown_to_chunks,
     pbasename,
-    edit_distance
+    edit_distance,
+    get_logger,
 )
 
+logger = get_logger(__name__)
 env = Environment(undefined=StrictUndefined)
 TABLE_CAPTION_PROMPT = env.from_string(
-    open("prompts/markdown_table_caption.txt").read()
+    open(package_join("prompts", "markdown_table_caption.txt")).read()
 )
 IMAGE_CAPTION_PROMPT = env.from_string(
-    open("prompts/markdown_image_caption.txt").read()
+    open(package_join("prompts", "markdown_image_caption.txt")).read()
 )
-MERGE_METADATA_PROMPT = env.from_string(open("prompts/merge_metadata.txt").read())
+MERGE_METADATA_PROMPT = env.from_string(
+    open(package_join("prompts", "merge_metadata.txt")).read()
+)
 
 
 @dataclass
@@ -42,7 +47,7 @@ class Media:
     def from_dict(cls, data: Dict[str, Any]):
         assert (
             "markdown_content" in data and "markdown_caption" in data
-        ), f"'markdown_content' and 'markdown_caption' keys are required in data dictionary but were not found. Available keys: {list(data.keys())}"
+        ), f"'markdown_content' and 'markdown_caption' keys are required in data dictionary but were not found. Input keys: {list(data.keys())}"
         if data.get("path", None) is None:
             assert "---" in data["markdown_content"], "Only table elements have no path"
         return cls(
@@ -76,7 +81,7 @@ class SubSection:
     def from_dict(cls, data: Dict[str, Any]):
         assert (
             "title" in data and "content" in data
-        ), f"'title' and 'content' keys are required in data dictionary but were not found. Available keys: {list(data.keys())}"
+        ), f"'title' and 'content' keys are required in data dictionary but were not found. Input keys: {list(data.keys())}"
         medias_chunks = data.get("medias", None)
         medias = []
         if medias_chunks is not None:
@@ -106,7 +111,7 @@ class Section:
     def from_dict(cls, data: Dict[str, Any]):
         assert (
             "title" in data and "subsections" in data
-        ), f"'title' and 'subsections' keys are required in data dictionary but were not found. Available keys: {list(data.keys())}"
+        ), f"'title' and 'subsections' keys are required in data dictionary but were not found. Input keys: {list(data.keys())}"
         return cls(
             title=data["title"],
             subsections=[
@@ -122,7 +127,7 @@ class Section:
         if edit_distance(sim_subsec.title, key) > 0.8:
             return sim_subsec
         raise KeyError(
-            f"subsection not found: {key}, available subsections: {[subsection.title for subsection in self.subsections]}"
+            f"subsection not found: {key}, available subsections of {self.title} are: {[subsection.title for subsection in self.subsections]}"
         )
 
     def iter_medias(self):
@@ -167,10 +172,10 @@ class Document:
     ):
         assert (
             "sections" in data
-        ), f"'sections' key is required in data dictionary but was not found. Available keys: {list(data.keys())}"
+        ), f"'sections' key is required in data dictionary but was not found. Input keys: {list(data.keys())}"
         assert (
             "metadata" in data
-        ), f"'metadata' key is required in data dictionary but was not found. Available keys: {list(data.keys())}"
+        ), f"'metadata' key is required in data dictionary but was not found. Input keys: {list(data.keys())}"
         document = cls(
             image_dir=image_dir,
             sections=[Section.from_dict(section) for section in data["sections"]],
@@ -204,7 +209,12 @@ class Document:
                 parsed_medias == num_medias
             ), f"number of media elements does not match, parsed: {parsed_medias}, expected: {num_medias}"
         except Exception as e:
-            print(e)
+            logger.error(
+                "Failed to extract section, tried %d times, error_exit=%s",
+                retry,
+                error_exit,
+                exc_info=e,
+            )
             if retry < 3:
                 new_section = extractor.retry(str(e), traceback.format_exc(), retry + 1)
                 return cls._parse_chunk(
@@ -242,7 +252,6 @@ class Document:
                 parsed_medias == num_medias
             ), f"number of media elements does not match, parsed: {parsed_medias}, expected: {num_medias}"
         except Exception as e:
-            print(e)
             if retry < 3:
                 new_section = await extractor.retry(
                     str(e), traceback.format_exc(), retry + 1
@@ -251,6 +260,11 @@ class Document:
                     extractor, metadata, new_section, image_dir, num_medias, retry + 1
                 )
             else:
+                logger.error(
+                    "Failed to extract section, tried too many times, error_exit=%s",
+                    error_exit,
+                    exc_info=e,
+                )
                 if error_exit:
                     raise ValueError("Failed to extract section, tried too many times")
                 else:
@@ -420,25 +434,3 @@ class OutlineItem:
                         f"Image: {media.path}\nSize: {media.size}\nCaption: {media.caption}"
                     )
         return header, content, "\n".join(images)
-
-
-async def test_document_async():
-    import llms
-    import json
-    from dataclasses import asdict
-
-    with open("runs/pdf/407bfa8b811c20f117ea01d833c67fa3/source.md", "r") as f:
-        markdown_content = f.read()
-    image_dir = "runs/pdf/407bfa8b811c20f117ea01d833c67fa3"
-    document = await Document.from_markdown_async(
-        markdown_content,
-        llms.language_model,
-        llms.vision_model,
-        image_dir,
-    )
-    with open("runs/pdf/407bfa8b811c20f117ea01d833c67fa3/refined_doc.json", "w") as f:
-        json.dump(asdict(document), f, indent=2, ensure_ascii=False)
-
-
-if __name__ == "__main__":
-    asyncio.run(test_document_async())

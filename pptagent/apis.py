@@ -14,9 +14,9 @@ from pptx.oxml import parse_xml
 from pptx.shapes.base import BaseShape
 from pptx.util import Pt
 
-from shapes import Closure, Picture, ShapeElement
-from presentation import SlidePage
-from utils import runs_merge
+from pptagent.shapes import Closure, Picture, ShapeElement
+from pptagent.presentation import SlidePage
+from pptagent.utils import runs_merge
 
 
 @dataclass
@@ -170,6 +170,7 @@ class CodeExecutor:
         self.command_history.extend(other.command_history)
         self.code_history.extend(other.code_history)
         return self
+
 
 # supporting functions
 def element_index(slide: SlidePage, element_id: int) -> ShapeElement:
@@ -377,7 +378,3 @@ class API_TYPES(Enum):
                 continue
             funcs |= {func.__name__: func for func in getattr(cls, attr).value}
         return funcs
-
-
-if __name__ == "__main__":
-    print(CodeExecutor(0).get_apis_docs(API_TYPES.Agent.value))

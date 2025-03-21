@@ -1,19 +1,17 @@
 import traceback
-from typing import List, Optional, Tuple, Type,  Generator
+from typing import List, Optional, Tuple, Type, Generator
 
 from pptx import Presentation as PPTXPre
 from pptx import __version__ as PPTXVersion
 from pptx.slide import Slide as PPTXSlide
 from pptx.shapes.base import BaseShape
 from pptx.shapes.group import GroupShape as PPTXGroupShape
-from rich import print
 
-from utils import Config
-from shapes import (
+from pptagent.utils import Config, get_logger
+from pptagent.shapes import (
     T,
     GroupShape,
     Picture,
-    SemanticPicture,
     ShapeElement,
     Background,
     StyleArg,
@@ -25,6 +23,7 @@ assert (
 
 # Type variable for ShapeElement subclasses
 
+logger = get_logger(__name__)
 class SlidePage:
     """
     A class to represent a slide page in a presentation.
@@ -359,8 +358,11 @@ class Presentation:
             except Exception as e:
                 error_history.append((slide_idx, str(e)))
                 if config.DEBUG:
-                    print(
-                        f"Warning in slide {slide_idx} of {file_path}: {traceback.format_exc()}"
+                    logger.warning(
+                        "Warning in slide %d of %s: %s",
+                        slide_idx,
+                        file_path,
+                        traceback.format_exc(),
                     )
 
         return cls(
@@ -431,3 +433,9 @@ class Presentation:
                 for slide in self.slides
             ]
         )
+
+    def __len__(self) -> int:
+        """
+        Get the number of slides in the presentation.
+        """
+        return len(self.slides)

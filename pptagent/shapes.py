@@ -20,7 +20,7 @@ from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.enum.dml import MSO_FILL_TYPE
 from pptx.dml.fill import FillFormat
 from pptx.dml.line import LineFormat
-from utils import (
+from pptagent.utils import (
     IMAGE_EXTENSIONS,
     Config,
     dict_to_object,
@@ -47,7 +47,6 @@ class StyleArg:
     paragraph_id: bool = True
     element_id: bool = True
     font_style: bool = True
-    # todo 这里还没实现
     fill_style: bool = True
     area: bool = False
     size: bool = False
@@ -101,7 +100,7 @@ class Fill:
         image_path = None
         if fill_type == MSO_FILL_TYPE.PICTURE:
             image = part.get_image(fill._fill.rId)
-            image_path = pjoin(config.IMAGE_DIR, image.sha1)
+            image_path = pjoin(config.IMAGE_DIR, f"{image.sha1}.{image.ext}")
             image_path = parsing_image(image, image_path)
         return cls(fill_type, fill_str, fill_xml, image_path)
 
@@ -133,6 +132,7 @@ class Line:
     """
     A class to represent a line.
     """
+
     def __init__(self, fill: Fill, line_width: float, line_dash_style: str):
         self.fill = fill
         self.line_width = line_width

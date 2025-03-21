@@ -10,11 +10,11 @@ from jinja2 import Environment, StrictUndefined, Template
 from PIL import Image
 from torch import Tensor, cosine_similarity
 
-from llms import LLM, AsyncLLM
+from pptagent.llms import LLM, AsyncLLM
 
 ENCODING = tiktoken.encoding_for_model("gpt-4o")
-import llms
-from utils import get_json_from_response, pexists, pjoin
+from pptagent import llms
+from pptagent.utils import get_json_from_response, package_join, pexists, pjoin
 
 
 @dataclass
@@ -56,11 +56,11 @@ class Agent:
     def __init__(
         self,
         name: str,
+        llm_mapping: dict[str, LLM | AsyncLLM],
+        text_model: Optional[LLM | AsyncLLM] = None,
         record_cost: bool = False,
-        env: Optional[Environment] = None,
         config: Optional[dict] = None,
-        text_model: Optional[LLM] = None,
-        llm_mapping: Optional[dict[str, LLM]] = None,
+        env: Optional[Environment] = None,
     ):
         """
         Initialize the Agent.
@@ -76,7 +76,7 @@ class Agent:
         self.name = name
         self.config = config
         if self.config is None:
-            with open(f"roles/{name}.yaml", "r") as f:
+            with open(package_join("roles", f"{name}.yaml"), "r") as f:
                 self.config = yaml.safe_load(f)
         self.llm_mapping = llm_mapping
         if self.llm_mapping is not None:
@@ -126,6 +126,7 @@ class Agent:
         """
         history = self.history[-recent:] if recent > 0 else []
         if similar > 0:
+            assert isinstance(self.text_model, LLM), "text_model must be a LLM"
             embedding = self.text_model.get_embedding(prompt)
             history.sort(key=lambda x: cosine_similarity(embedding, x.embedding))
             for turn in history:
@@ -199,7 +200,9 @@ class Agent:
         """
         if isinstance(images, str):
             images = [images]
-        assert self.prompt_args == set(jinja_args.keys()), f"Invalid arguments, expected: {self.prompt_args}, got: {jinja_args.keys()}"
+        assert self.prompt_args == set(
+            jinja_args.keys()
+        ), f"Invalid arguments, expected: {self.prompt_args}, got: {jinja_args.keys()}"
         prompt = self.template.render(**jinja_args)
         history = self.get_history(similar, recent, prompt)
         history_msg = []
@@ -247,13 +250,13 @@ class AsyncAgent(Agent):
     def __init__(
         self,
         name: str,
-        record_cost: bool = False,
-        env: Optional[Environment] = None,
-        config: Optional[dict] = None,
+        llm_mapping: dict[str, AsyncLLM],
         text_model: Optional[AsyncLLM] = None,
-        llm_mapping: Optional[dict[str, AsyncLLM]] = None,
+        record_cost: bool = False,
+        config: Optional[dict] = None,
+        env: Optional[Environment] = None,
     ):
-        super().__init__(name, record_cost, env, config, text_model, llm_mapping)
+        super().__init__(name, llm_mapping, text_model, record_cost, config, env)
         assert isinstance(self.llm, AsyncLLM), "You should use AsyncLLM for AsyncAgent"
 
     async def retry(self, feedback: str, traceback: str, error_idx: int):
@@ -299,7 +302,9 @@ class AsyncAgent(Agent):
         """
         if isinstance(images, str):
             images = [images]
-        assert self.prompt_args == set(jinja_args.keys()), f"Invalid arguments, expected: {self.prompt_args}, got: {jinja_args.keys()}"
+        assert self.prompt_args == set(
+            jinja_args.keys()
+        ), f"Invalid arguments, expected: {self.prompt_args}, got: {jinja_args.keys()}"
         prompt = self.template.render(**jinja_args)
         history = await self.get_history(similar, recent, prompt)
         history_msg = []
@@ -360,11 +365,11 @@ class AsyncAgent(Agent):
         """
         return AsyncAgent(
             self.name,
-            self.record_cost,
-            self.env,
-            self.config,
-            self.text_model,
             self.llm_mapping,
+            self.text_model,
+            self.record_cost,
+            self.config,
+            self.env,
         )
 
 

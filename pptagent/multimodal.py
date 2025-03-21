@@ -1,11 +1,13 @@
-import json
+from typing import Optional
 
 import PIL.Image
-from rich import print
+import asyncio
 
-import llms
-from presentation import Picture, Presentation
-from utils import Config, pbasename, pexists, pjoin
+from pptagent.presentation import Picture, Presentation
+from pptagent.utils import Config, package_join, pbasename, pjoin, get_logger
+from pptagent.llms import LLM, AsyncLLM
+
+logger = get_logger(__name__)
 
 
 class ImageLabler:
@@ -24,41 +26,69 @@ class ImageLabler:
         self.presentation = presentation
         self.slide_area = presentation.slide_width.pt * presentation.slide_height.pt
         self.image_stats = {}
-        self.stats_file = pjoin(config.RUN_DIR, "image_stats.json")
         self.config = config
         self.collect_images()
-        if pexists(self.stats_file):
-            image_stats: dict[str, dict] = json.load(open(self.stats_file, "r"))
-            for name, stat in image_stats.items():
-                if pbasename(name) in self.image_stats:
-                    self.image_stats[pbasename(name)] = stat
 
-    def apply_stats(self):
+    def apply_stats(self, image_stats: Optional[dict[str, dict]] = None):
         """
         Apply image captions to the presentation.
         """
+        if image_stats is None:
+            image_stats = self.image_stats
+
         for slide in self.presentation.slides:
             for shape in slide.shape_filter(Picture):
-                stats = self.image_stats[pbasename(shape.img_path)]
+                stats = image_stats[pbasename(shape.img_path)]
                 shape.caption = stats["caption"]
 
-    def caption_images(self):
+    async def caption_images_async(self, vision_model: AsyncLLM):
         """
-        Generate captions for images in the presentation.
+        Generate captions for images in the presentation asynchronously.
+
+        Args:
+            vision_model (AsyncLLM): The async vision model to use for captioning.
+
+        Returns:
+            dict: Dictionary containing image stats with captions.
         """
-        caption_prompt = open("prompts/caption.txt").read()
+        assert isinstance(
+            vision_model, AsyncLLM
+        ), "vision_model must be an AsyncLLM instance"
+        caption_prompt = open(package_join("prompts", "caption.txt")).read()
+
+        caption_tasks = {}
         for image, stats in self.image_stats.items():
             if "caption" not in stats:
-                stats["caption"] = llms.vision_model(
+                task = vision_model(caption_prompt, pjoin(self.config.IMAGE_DIR, image))
+                caption_tasks[image] = task
+
+        if caption_tasks:
+            results = await asyncio.gather(*caption_tasks.values())
+            for image, caption in zip(caption_tasks.keys(), results):
+                self.image_stats[image]["caption"] = caption
+                logger.info("captioned %s: %s", image, caption)
+
+        self.apply_stats()
+        return self.image_stats
+
+    def caption_images(self, vision_model: LLM):
+        """
+        Generate captions for images in the presentation.
+
+        Args:
+            vision_model (LLM): The vision model to use for captioning.
+
+        Returns:
+            dict: Dictionary containing image stats with captions.
+        """
+        assert isinstance(vision_model, LLM), "vision_model must be an LLM instance"
+        caption_prompt = open(package_join("prompts", "caption.txt")).read()
+        for image, stats in self.image_stats.items():
+            if "caption" not in stats:
+                stats["caption"] = vision_model(
                     caption_prompt, pjoin(self.config.IMAGE_DIR, image)
                 )
-                print("captioned", image, ": ", stats["caption"])
-        json.dump(
-            self.image_stats,
-            open(self.stats_file, "w"),
-            indent=4,
-            ensure_ascii=False,
-        )
+                logger.info("captioned %s: %s", image, stats["caption"])
         self.apply_stats()
         return self.image_stats
 

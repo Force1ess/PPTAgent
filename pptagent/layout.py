@@ -2,6 +2,7 @@ from dataclasses import dataclass, asdict
 from typing import List, Literal
 from os.path import join as pjoin, exists as pexists, basename as pbasename
 
+
 @dataclass
 class Element:
     el_name: str
@@ -33,7 +34,6 @@ class Element:
     def from_dict(cls, el_name: str, data: dict):
         if not isinstance(data["data"], list):
             data["data"] = [data["data"]]
-        # todo user auto character container later
         if data["type"] == "text":
             suggested_characters = max(len(i) for i in data["data"])
         elif data["type"] == "image":

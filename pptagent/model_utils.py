@@ -11,9 +11,9 @@ from marker.output import text_from_rendered
 from PIL import Image
 from transformers import AutoFeatureExtractor, AutoModel
 
-from llms import LLM
-from presentation import Presentation, SlidePage
-from utils import is_image_path, pjoin
+from pptagent.llms import LLM
+from pptagent.presentation import Presentation, SlidePage
+from pptagent.utils import is_image_path, pjoin
 
 
 def prs_dedup(

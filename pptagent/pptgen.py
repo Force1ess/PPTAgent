@@ -4,20 +4,19 @@ import os
 import traceback
 from abc import ABC, abstractmethod
 from copy import deepcopy
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
-import jsonlines
-from rich import print
+from pptagent.agent import Agent, AsyncAgent
+from pptagent.apis import API_TYPES, CodeExecutor
+from pptagent.llms import LLM, AsyncLLM
+from pptagent import llms
+from pptagent.presentation import Presentation, SlidePage, StyleArg
+from pptagent.utils import Config, edit_distance, get_logger
+from pptagent.layout import Layout
+from pptagent.document import Document, OutlineItem
 
-from agent import Agent, AsyncAgent
-from apis import API_TYPES, CodeExecutor
-from llms import LLM, AsyncLLM
-import llms
-from presentation import Presentation, SlidePage, StyleArg
-from utils import Config, pexists, pjoin, edit_distance
-from layout import Layout
-from document import Document, OutlineItem
+logger = get_logger(__name__)
 
 style = StyleArg.all_true()
 style.area = False
@@ -35,14 +34,14 @@ class PPTGen(ABC):
 
     def __init__(
         self,
-        text_embedder: LLM,
+        text_embedder: LLM | AsyncLLM,
+        language_model: LLM | AsyncLLM,
+        vision_model: LLM | AsyncLLM,
         retry_times: int = 3,
         force_pages: bool = False,
         error_exit: bool = False,
         record_cost: bool = True,
         length_factor: float | None = None,
-        language_model: LLM = None,
-        vision_model: LLM = None,
     ):
         """
         Initialize the PPTGen.
@@ -83,7 +82,7 @@ class PPTGen(ABC):
         self.presentation = presentation
         self.functional_keys = slide_induction.pop("functional_keys")
         self.layouts = {k: Layout.from_dict(k, v) for k, v in slide_induction.items()}
-        self.empty_prs = deepcopy(presentation)
+        self.empty_prs = deepcopy(self.presentation)
         self._initialized = True
         return self
 
@@ -103,8 +102,8 @@ class PPTGen(ABC):
             num_slides (Optional[int]): The number of slides to generate.
             outline (Optional[List[OutlineItem]]): The outline of the presentation.
 
-        Save:
-            final.pptx: The final PowerPoint presentation to the config.RUN_DIR directory.
+        Returns:
+            dict: A dictionary containing the presentation data and history.
 
         Raise:
             ValueError: if failed to generate presentation outline.
@@ -136,10 +135,20 @@ class PPTGen(ABC):
             if self.error_exit:
                 succ_flag = False
                 break
-        self._save_history(sum(code_executors, start=CodeExecutor(self.retry_times)))
+
+        # Collect history data
+        history = self._collect_history(
+            sum(code_executors, start=CodeExecutor(self.retry_times))
+        )
+
         if succ_flag:
             self.empty_prs.slides = generated_slides
-            self.empty_prs.save(pjoin(self.config.RUN_DIR, f"{file_prefix}.pptx"))
+            prs = self.empty_prs
+        else:
+            prs = None
+
+        self.empty_prs = deepcopy(self.presentation)
+        return prs, history
 
     def generate_outline(
         self,
@@ -156,21 +165,12 @@ class PPTGen(ABC):
             dict: The generated outline.
         """
         assert self._initialized, "PPTGen not initialized, call `set_reference` first"
-        outline_file = pjoin(self.config.RUN_DIR, "presentation_outline.json")
-        if pexists(outline_file):
-            return json.load(open(outline_file, "r"))
         outline = self.staffs["planner"](
             num_slides=num_slides,
             document_overview=source_doc.overview,
             functional_layouts=self.functional_keys,
         )
         outline = self._valid_outline(outline, source_doc)
-        json.dump(
-            [asdict(item) for item in outline],
-            open(outline_file, "w"),
-            ensure_ascii=False,
-            indent=4,
-        )
         return outline
 
     def _valid_outline(
@@ -188,7 +188,12 @@ class PPTGen(ABC):
                 source_doc.index(outline_item.indexs)
             return outline_items
         except Exception as e:
-            print(e)
+            logger.error(
+                "Failed to generate outline, tried %d times, error_exit=%s",
+                retry,
+                self.error_exit,
+                exc_info=e,
+            )
             if retry < self.retry_times:
                 new_outline = self.staffs["planner"].retry(
                     str(e), traceback.format_exc(), retry + 1
@@ -206,49 +211,37 @@ class PPTGen(ABC):
         """
         raise NotImplementedError("Subclass must implement this method")
 
-    @abstractmethod
-    def edit_slide(
-        self,
-        layout: Layout,
-        slide_content: str,
-        code_executor: CodeExecutor,
-    ) -> SlidePage:
+    def _collect_history(self, code_executor: CodeExecutor):
         """
-        Synergize Agents to generate a slide.
+        Collect the history of code execution, API calls and agent steps.
 
         Returns:
-            SlidePage: The generated slide.
+            dict: The collected history data.
         """
-        raise NotImplementedError("Subclass must implement this method")
+        history = {
+            "agents": {},
+            "code_history": code_executor.code_history,
+            "api_history": code_executor.api_history,
+        }
 
-    def _save_history(self, code_executor: CodeExecutor):
-        """
-        Save the history of code execution, API calls and agent steps.
-        """
-        os.makedirs(pjoin(self.config.RUN_DIR, "history"), exist_ok=True)
-        for role in self.staffs.values():
-            role.save_history(pjoin(self.config.RUN_DIR, "history"))
+        for role_name, role in self.staffs.items():
+            history["agents"][role_name] = role.history
             role.history = []
-        if len(code_executor.code_history) == 0:
-            return
-        with jsonlines.open(
-            pjoin(self.config.RUN_DIR, "code_steps.jsonl"), "w"
-        ) as writer:
-            writer.write_all(code_executor.code_history)
-        with jsonlines.open(
-            pjoin(self.config.RUN_DIR, "agent_steps.jsonl"), "w"
-        ) as writer:
-            writer.write_all(code_executor.api_history)
+
+        return history
 
     def _hire_staffs(
-        self, record_cost: bool, language_model: LLM = None, vision_model: LLM = None
+        self,
+        record_cost: bool,
+        language_model: LLM | AsyncLLM,
+        vision_model: LLM | AsyncLLM,
     ) -> dict[str, Agent]:
         """
         Initialize agent roles and their models
         """
         llm_mapping = {
-            "language": language_model or llms.language_model,
-            "vision": vision_model or llms.vision_model,
+            "language": language_model,
+            "vision": vision_model,
         }
         self.staffs = {
             role: Agent(
@@ -313,10 +306,10 @@ class PPTAgent(PPTGen):
         Args:
             layout (Layout): The layout data.
             slide_content (str): The slide content.
-            code_executor (CodeExecutor): The code executor object.
+            slide_description (str): The description of the slide.
 
         Returns:
-            SlidePage: The generated slide.
+            Optional[tuple[SlidePage, CodeExecutor]]: The generated slide and code executor, or None if generation failed.
         """
         code_executor = CodeExecutor(self.retry_times)
         editor_output = self.staffs["editor"](
@@ -354,9 +347,8 @@ class PPTAgent(PPTGen):
 
         Args:
             editor_output (dict): The editor output.
-            content_schema (dict): The content schema.
-            old_data (dict): The old data.
-            retry (int): The number of retries.
+            layout (Layout): The layout object containing content schema.
+            retry (int, optional): The number of retries. Defaults to 0.
 
         Returns:
             list: A list of commands.
@@ -383,7 +375,7 @@ class PPTAgent(PPTGen):
             if not isinstance(old_content, list):
                 old_content = [old_content]
 
-            new_content = editor_output[el_name]["data"]
+            new_content = editor_output.get(el_name, {"data": []})["data"]
             if not isinstance(new_content, list):
                 new_content = [new_content]
             new_content = [i for i in new_content if i]
@@ -412,15 +404,15 @@ class PPTAgentAsync(PPTGen):
     def _hire_staffs(
         self,
         record_cost: bool,
-        language_model: AsyncLLM = None,
-        vision_model: AsyncLLM = None,
+        language_model: AsyncLLM,
+        vision_model: AsyncLLM,
     ) -> dict[str, AsyncAgent]:
         """
         Initialize async agent roles and their models
         """
         llm_mapping = {
-            "language": language_model or llms.async_language_model,
-            "vision": vision_model or llms.async_vision_model,
+            "language": language_model,
+            "vision": vision_model,
         }
         self.staffs = {
             role: AsyncAgent(
@@ -435,12 +427,14 @@ class PPTAgentAsync(PPTGen):
     async def generate_pres(
         self,
         source_doc: Document,
-        file_prefix: str = "final",
         num_slides: Optional[int] = None,
         outline: Optional[List[OutlineItem]] = None,
     ):
         """
         Asynchronously generate a PowerPoint presentation.
+
+        Returns:
+            tuple: A tuple containing the presentation object and history.
         """
         assert (
             self._initialized
@@ -479,10 +473,19 @@ class PPTAgentAsync(PPTGen):
                 generated_slides.append(slide)
                 code_executors.append(code_executor)
 
-        self._save_history(sum(code_executors, start=CodeExecutor(self.retry_times)))
+        # Collect history data
+        history = self._collect_history(
+            sum(code_executors, start=CodeExecutor(self.retry_times))
+        )
+
         if succ_flag:
             self.empty_prs.slides = generated_slides
-            self.empty_prs.save(pjoin(self.config.RUN_DIR, f"{file_prefix}.pptx"))
+            prs = self.empty_prs
+        else:
+            prs = None
+
+        self.empty_prs = deepcopy(self.presentation)
+        return prs, history
 
     async def generate_outline(
         self,
@@ -495,21 +498,15 @@ class PPTAgentAsync(PPTGen):
         assert (
             self._initialized
         ), "AsyncPPTAgent not initialized, call `set_reference` first"
-        outline_file = pjoin(self.config.RUN_DIR, "presentation_outline.json")
-        if pexists(outline_file):
-            return json.load(open(outline_file, "r"))
+
         outline = await self.staffs["planner"](
             num_slides=num_slides,
             document_overview=source_doc.overview,
             functional_layouts=self.functional_keys,
         )
         outline = await self._valid_outline(outline, source_doc)
-        json.dump(
-            [asdict(item) for item in outline],
-            open(outline_file, "w"),
-            ensure_ascii=False,
-            indent=4,
-        )
+
+        # Return the outline directly instead of saving to file
         return outline
 
     async def _valid_outline(
@@ -524,7 +521,12 @@ class PPTAgentAsync(PPTGen):
                 source_doc.index(outline_item.indexs)
             return outline_items
         except Exception as e:
-            print(e)
+            logger.error(
+                "Failed to generate outline, tried %d times, error_exit=%s",
+                retry,
+                self.error_exit,
+                exc_info=e,
+            )
             if retry < self.retry_times:
                 new_outline = await self.staffs["planner"].retry(
                     str(e), traceback.format_exc(), retry + 1
@@ -576,6 +578,14 @@ class PPTAgentAsync(PPTGen):
     ) -> Optional[tuple[SlidePage, CodeExecutor]]:
         """
         Asynchronously synergize Agents to generate a slide.
+
+        Args:
+            layout (Layout): The layout data.
+            slide_content (str): The slide content.
+            slide_description (str): The description of the slide.
+
+        Returns:
+            Optional[tuple[SlidePage, CodeExecutor]]: The generated slide and code executor, or None if generation failed.
         """
         code_executor = CodeExecutor(self.retry_times)
         editor_output = await self.staffs["editor"](
@@ -612,6 +622,17 @@ class PPTAgentAsync(PPTGen):
     ):
         """
         Asynchronously generate commands for editing the slide content.
+
+        Args:
+            editor_output (dict): The editor output.
+            layout (Layout): The layout object containing content schema.
+            retry (int, optional): The number of retries. Defaults to 0.
+
+        Returns:
+            list: A list of commands.
+
+        Raises:
+            Exception: If command generation fails.
         """
         command_list = []
         try:
@@ -632,7 +653,7 @@ class PPTAgentAsync(PPTGen):
             if not isinstance(old_content, list):
                 old_content = [old_content]
 
-            new_content = editor_output[el_name]["data"]
+            new_content = editor_output.get(el_name, {"data": []})["data"]
             if not isinstance(new_content, list):
                 new_content = [new_content]
             new_content = [i for i in new_content if i]

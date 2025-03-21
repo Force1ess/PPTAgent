@@ -1,3 +1,4 @@
+import asyncio
 import os
 import shutil
 import subprocess
@@ -7,6 +8,7 @@ from itertools import product
 from time import sleep, time
 from types import SimpleNamespace
 from typing import Dict, List, Optional, Set, Any
+import logging
 
 from html2image import Html2Image
 import json_repair
@@ -23,20 +25,43 @@ from pptx.util import Length, Pt
 from pptx.parts.image import Image
 from tenacity import RetryCallState, retry, stop_after_attempt, wait_fixed
 
-try:
-    import socket
 
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.settimeout(1)
-        assert s.connect_ex(("localhost", 2003)) == 0, "unoserver is not running"
-        UNOSERVER_RUNNING = True
-except Exception:
-    # todo 这里好像有bug
-    if which("unoconvert") is not None and which("unoserver") is not None:
-        process = subprocess.Popen(["unoserver"], shell=False, start_new_session=True)
-        UNOSERVER_RUNNING = True
-    else:
-        UNOSERVER_RUNNING = False
+def get_logger(name="pptagent", level=logging.INFO):
+    """
+    Get a logger with the specified name and level.
+
+    Args:
+        name (str): The name of the logger.
+        level (int): The logging level (default: logging.INFO).
+
+    Returns:
+        logging.Logger: A configured logger instance.
+    """
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+
+    # Check if the logger already has handlers to avoid duplicates
+    if not logger.handlers:
+        # Create console handler and set level
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(level)
+
+        # Create formatter
+        formatter = logging.Formatter(
+            "%(asctime)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s"
+        )
+        console_handler.setFormatter(formatter)
+
+        # Add handler to logger
+        logger.addHandler(console_handler)
+
+    return logger
+
+
+logger = get_logger(__name__)
+
+if which("soffice") is None:
+    logging.warning("soffice is not installed, pptx to images conversion will not work")
 
 # Set of supported image extensions
 IMAGE_EXTENSIONS: Set[str] = {
@@ -153,7 +178,7 @@ def older_than(filepath: str, seconds: int = 10, wait: bool = False) -> bool:
     """
     if not os.path.exists(filepath):
         while wait:
-            print("waiting for:", filepath)
+            logger.info("waiting for: %s", filepath)
             sleep(1)
             if os.path.exists(filepath):
                 sleep(seconds)
@@ -187,7 +212,7 @@ def tenacity_log(retry_state: RetryCallState) -> None:
     Args:
         retry_state (RetryCallState): The retry state.
     """
-    print(retry_state)
+    logger.warning("tenacity retry: %s", retry_state)
     traceback.print_tb(retry_state.outcome.exception().__traceback__)
 
 
@@ -272,7 +297,9 @@ def split_markdown_by_level(text: str, level: int = 1):
         yield current_header, "\n".join(current_content)
 
 
-def split_markdown_to_chunks(markdown_text: str, max_length: int = 16384, max_level: int = 3)-> List[Dict[str, str]]:
+def split_markdown_to_chunks(
+    markdown_text: str, max_length: int = 16384, max_level: int = 3
+) -> List[Dict[str, str]]:
     """
     Split a markdown document into chunks of a maximum length.
 
@@ -341,56 +368,81 @@ def markdown_table_to_image(markdown_text: str, output_path: str):
 
     img = PILImage.open(output_path).convert("RGB")
     bbox = img.getbbox()
-    assert bbox is not None, "Failed to capture the bbox, may be markdown table conversion failed"
+    assert (
+        bbox is not None
+    ), "Failed to capture the bbox, may be markdown table conversion failed"
     bbox = (0, 0, bbox[2] + 10, bbox[3] + 10)
     img.crop(bbox).save(output_path)
     return output_path
 
 
 @tenacity
-def ppt_to_images(pptx: str, output_dir: str) -> None:
-    """
-    Convert a PowerPoint file to images.
-
-    Args:
-        pptx (str): The path to the PowerPoint file.
-        output_dir (str): The directory to save the images to.
-
-    Raises:
-        AssertionError: If the file does not exist or conversion fails.
-    """
-    assert (
-        UNOSERVER_RUNNING
-    ), "unoserver is not running, please check the installation and run 'unoserver' in the terminal"
-    assert pexists(pptx), f"File {pptx} does not exist"
+def ppt_to_images(file: str, output_dir: str):
+    assert pexists(file), f"File {file} does not exist"
+    if pexists(output_dir):
+        logger.warning(f"ppt2images: {output_dir} already exists")
     os.makedirs(output_dir, exist_ok=True)
-
-    with tempfile.NamedTemporaryFile(suffix=".pdf") as temp_pdf:
-        # Convert PPTX to PDF
+    with tempfile.TemporaryDirectory() as temp_dir:
         command_list = [
-            "unoconvert",
+            "soffice",
+            "--headless",
             "--convert-to",
             "pdf",
-            pptx,
-            temp_pdf.name,
+            file,
+            "--outdir",
+            temp_dir,
         ]
+        subprocess.run(command_list, check=True, stdout=subprocess.DEVNULL)
 
-        try:
-            subprocess.run(command_list, check=True, stdout=subprocess.DEVNULL)
-        except subprocess.CalledProcessError as e:
-            raise AssertionError(f"PPTX to PDF conversion failed: {e}")
-
-        assert pexists(
-            temp_pdf.name
-        ), "PPTX convert failed, check the installation of unoserver"
-
-        # Convert PDF to images
-        try:
-            images = convert_from_path(temp_pdf.name, dpi=72)
+        for f in os.listdir(temp_dir):
+            if not f.endswith(".pdf"):
+                continue
+            temp_pdf = pjoin(temp_dir, f)
+            images = convert_from_path(temp_pdf, dpi=72)
             for i, img in enumerate(images):
                 img.save(pjoin(output_dir, f"slide_{i+1:04d}.jpg"))
-        except Exception as e:
-            raise AssertionError(f"PDF to image conversion failed: {e}")
+            return
+
+        raise RuntimeError("No PDF file was created in the temporary directory", file)
+
+
+async def ppt_to_images_async(file: str, output_dir: str):
+    assert pexists(file), f"File {file} does not exist"
+    if pexists(output_dir):
+        logger.warning(f"ppt2images: {output_dir} already exists")
+    os.makedirs(output_dir, exist_ok=True)
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        command_list = [
+            "soffice",
+            "--headless",
+            "--convert-to",
+            "pdf",
+            file,
+            "--outdir",
+            temp_dir,
+        ]
+
+        process = await asyncio.create_subprocess_exec(
+            *command_list,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        _, stderr = await process.communicate()
+        if process.returncode != 0:
+            raise RuntimeError(f"soffice failed with error: {stderr.decode()}")
+        for f in os.listdir(temp_dir):
+            if not f.endswith(".pdf"):
+                continue
+            temp_pdf = pjoin(temp_dir, f)
+            images = convert_from_path(temp_pdf, dpi=72)
+            for i, img in enumerate(images):
+                img.save(pjoin(output_dir, f"slide_{i+1:04d}.jpg"))
+            return
+
+        raise RuntimeError(
+            f"No PDF file was created in the temporary directory: {file}"
+        )
 
 
 def parsing_image(image: Image, image_path: str) -> str:
@@ -411,37 +463,26 @@ def parsing_image(image: Image, image_path: str) -> str:
 
 
 @tenacity
-def wmf_to_images(blob: bytes, filepath: str) -> None:
-    """
-    Convert a WMF blob to an image.
-
-    Args:
-        blob (bytes): The WMF blob.
-        filepath (str): The path to save the image to.
-
-    Raises:
-        AssertionError: If the conversion fails.
-    """
-    with tempfile.NamedTemporaryFile(suffix=".wmf") as temp_wmf:
-        # Write blob to temporary file
-        with open(temp_wmf.name, "wb") as f:
+def wmf_to_images(blob: bytes, filepath: str):
+    if not filepath.endswith(".jpg"):
+        raise ValueError("filepath must end with .jpg")
+    dirname = os.path.dirname(filepath)
+    basename = os.path.basename(filepath).removesuffix(".jpg")
+    with tempfile.TemporaryDirectory() as temp_dir:
+        with open(pjoin(temp_dir, f"{basename}.wmf"), "wb") as f:
             f.write(blob)
-
-        # Convert WMF to JPG
         command_list = [
-            "unoconvert",
+            "soffice",
+            "--headless",
             "--convert-to",
             "jpg",
-            temp_wmf.name,
-            filepath,
+            pjoin(temp_dir, f"{basename}.wmf"),
+            "--outdir",
+            dirname,
         ]
+        subprocess.run(command_list, check=True, stdout=subprocess.DEVNULL)
 
-        try:
-            subprocess.run(command_list, check=True, stdout=subprocess.DEVNULL)
-        except subprocess.CalledProcessError as e:
-            raise AssertionError(f"WMF conversion failed: {e}")
-
-    assert pexists(filepath), f"WMF convert failed, output file {filepath} not found"
+    assert pexists(filepath), f"File {filepath} does not exist"
 
 
 def parse_groupshape(groupshape: GroupShape) -> List[Dict[str, Length]]:
@@ -618,7 +659,21 @@ def dict_to_object(
             try:
                 setattr(obj, key, value)
             except Exception as e:
-                print(f"Error setting attribute {key}: {e}")
+                logger.error("Error setting attribute %s: %s", key, e)
+
+
+def package_join(*paths: str) -> str:
+    """
+    Join paths with the appropriate separator for the platform.
+
+    Args:
+        *paths: The paths to join.
+
+    Returns:
+        str: The joined path.
+    """
+    _dir = pdirname(pdirname(__file__))
+    return pjoin(_dir, *paths)
 
 
 class Config:
@@ -642,10 +697,10 @@ class Config:
         """
         self.DEBUG = debug
 
-        if session_id is not None:
-            self.set_session(session_id)
-        elif rundir is not None:
+        if rundir is not None:
             self.set_rundir(rundir)
+        elif session_id is not None:
+            self.set_session(session_id)
         else:
             raise ValueError("No session ID or run directory provided")
 

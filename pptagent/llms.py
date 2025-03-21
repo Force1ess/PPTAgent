@@ -1,37 +1,33 @@
 import base64
 import re
 import threading
+from dataclasses import dataclass
 from typing import Union, List, Dict, Tuple, Optional
 
 from oaib import Auto
 from openai import AsyncOpenAI, OpenAI
 import torch
 
-from utils import get_json_from_response, tenacity
+from pptagent.utils import get_json_from_response, tenacity, get_logger
+
+logger = get_logger(__name__)
 
 
+@dataclass
 class LLM:
     """
     A wrapper class to interact with a language model.
     """
 
-    def __init__(
-        self,
-        model: str = "gpt-4o-2024-08-06",
-        base_url: str = None,
-        api_key: str = None,
-    ) -> None:
-        """
-        Initialize the LLM.
+    model: str
+    base_url: Optional[str] = None
+    api_key: Optional[str] = None
+    timeout: int = 360
 
-        Args:
-            model (str): The model name.
-            base_url (str): The base URL for the API.
-            api_key (str): API key for authentication. Defaults to environment variable.
-        """
-        self.client = OpenAI(base_url=base_url, api_key=api_key)
-        self.model = model
-        self.base_url = base_url
+    def __post_init__(self):
+        self.client = OpenAI(
+            base_url=self.base_url, api_key=self.api_key, timeout=self.timeout
+        )
 
     @tenacity
     def __call__(
@@ -111,7 +107,7 @@ class LLM:
             self.client.models.list()
             return True
         except Exception as e:
-            print(f"Connection test failed: {e}")
+            logger.error("Connection test failed: %s", e)
             return False
 
     def format_message(
@@ -158,7 +154,7 @@ class LLM:
                             }
                         )
                 except Exception as e:
-                    print(f"Error loading image {image}: {e}")
+                    logger.error("Failed to load image %s: %s", image, e)
         return system, message
 
     def gen_image(self, prompt: str, n: int = 1, **kwargs) -> str:
@@ -193,7 +189,12 @@ class LLM:
         """
         Convert the LLM to an asynchronous LLM.
         """
-        return AsyncLLM(model=self.model, base_url=self.base_url, api_key=self.api_key)
+        return AsyncLLM(
+            model=self.model,
+            base_url=self.base_url,
+            api_key=self.api_key,
+            timeout=self.timeout,
+        )
 
 
 class AsyncLLM(LLM):
@@ -201,7 +202,7 @@ class AsyncLLM(LLM):
     Asynchronous wrapper class for language model interaction.
     """
 
-    def __init__(self, model: str = None, base_url: str = None, api_key: str = None, timeout: int = 360):
+    def __post_init__(self):
         """
         Initialize the AsyncLLM.
 
@@ -210,11 +211,12 @@ class AsyncLLM(LLM):
             base_url (str): The base URL for the API.
             api_key (str): API key for authentication. Defaults to environment variable.
         """
-        self.client = Auto(base_url=base_url, api_key=api_key, timeout=timeout)
-        self.model = model
-        self.base_url = base_url
-        self.api_key = api_key
-        self.timeout = timeout
+        self.client = Auto(
+            base_url=self.base_url,
+            api_key=self.api_key,
+            timeout=self.timeout,
+            loglevel=0,
+        )
 
     @tenacity
     async def __call__(
@@ -243,10 +245,17 @@ class AsyncLLM(LLM):
             Union[str, Dict, List, Tuple]: The response from the model.
         """
         # ? here cause the bug of asyncio
-        # if threading.current_thread() is threading.main_thread():
-        #     self.client = Auto(base_url=self.base_url, api_key=self.api_key, timeout=self.timeout)
-        # else:
-        #     print("Warning: AsyncLLM is not running in the main thread, may cause race condition.")
+        if threading.current_thread() is threading.main_thread():
+            self.client = Auto(
+                base_url=self.base_url,
+                api_key=self.api_key,
+                timeout=self.timeout,
+                loglevel=0,
+            )
+        else:
+            logger.warning(
+                "Warning: AsyncLLM is not running in the main thread, may cause race condition."
+            )
         if history is None:
             history = []
         system, message = self.format_message(content, images, system_message)
@@ -277,7 +286,7 @@ class AsyncLLM(LLM):
             await self.client.client.models.list()
             return True
         except Exception as e:
-            print(f"Async connection test failed: {e}")
+            logger.warning("Async connection test failed: %s", e)
             return False
 
     async def gen_image(self, prompt: str, n: int = 1, **kwargs) -> str:
@@ -359,20 +368,3 @@ def get_model_abbr(llms: Union[LLM, List[LLM]]) -> str:
     except Exception:
         # Fallback: return full model names if pattern matching fails
         return "+".join(llm.model for llm in llms)
-
-
-qwen2_5 = AsyncLLM(
-    model="Qwen2.5-72B-Instruct-GPTQ-Int4", base_url="http://api.cipsup.cn/v1"
-)
-qwen_vl = AsyncLLM(
-    model="Qwen2.5-VL-72B-Instruct-AWQ", base_url="http://api.cipsup.cn/v1"
-)
-sd3_5_turbo = AsyncOpenAI(base_url="http://localhost:8001/v1")
-bge_m3 = AsyncLLM(base_url="http://api.cipsup.cn/v1", model="bge-m3")
-
-
-# Default models
-language_model = qwen2_5
-vision_model = qwen_vl
-text2image_model = sd3_5_turbo
-embedding_model = bge_m3
