@@ -1,9 +1,9 @@
-import json
+from pptagent.layout import Layout
+from test.conftest import test_config
 
-from layout import Layout
 
 def test_layout():
-    template = json.load(open("resource/test/test_ppt/induct_cache.json"))
+    template = test_config.get_slide_induction()
     layout = Layout.from_dict(template["opening:text"])
     layout.content_schema
     layout.get_old_data()

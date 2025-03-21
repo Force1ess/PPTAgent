@@ -49,58 +49,8 @@
         "purpose": "Dataset Overview",
         "description": "Present the dataset used in the experiments, including statistics on the number of characters, figures, and pages for different domains. Use the provided table (Table 1).",
         "indexs": {
-            "4 Experiment": [
-                "4.1 Dataset"
-            ]
-        }
-    },
-    {
-        "purpose": "Experimental Settings and Baseline",
-        "description": "Detail the experimental settings, baselines, and performance metrics. Use the provided tables (Table 2 and Table 3) to compare the performance of different models.",
-        "indexs": {
-            "4 Experiment": [
-                "4.2 Experimental Settings and Baseline"
-            ]
-        }
-    },
-    {
-        "purpose": "Evaluation Metrics",
-        "description": "Explain the evaluation metrics used in the experiments, including SR, PPL, FID, and PPTEval. Highlight the importance of these metrics in assessing the quality of generated presentations.",
-        "indexs": {
-            "4 Experiment": [
-                "4.3 Evaluation Metrics"
-            ]
-        }
-    },
-    {
-        "purpose": "Result and Analysis",
-        "description": "Present the results of the experiments, including the number of iterative self-corrections required to generate slides (Figure 4), the correlation between human and LLM ratings (Table 4), and the error analysis (Figure 5).",
-        "indexs": {
-            "4 Experiment": [
-                "4.4 Result & Analysis",
-                "4.5 Ablation Study",
-                "4.6 Error Analysis",
-                "4.7 Effectiveness of PPTEval"
-            ]
-        }
-    },
-    {
-        "purpose": "Related Works",
-        "description": "Discuss related works in automated presentation generation, LLM agents, and LLMs as judges. Highlight the contributions of PPTAgent in this context.",
-        "indexs": {
-            "5 Related Works": [
-                "Automated Presentation Generation",
-                "LLM Agent",
-                "LLM as a Judge"
-            ]
-        }
-    },
-    {
-        "purpose": "Conclusion",
-        "description": "Summarize the key findings and contributions of the research. Highlight the potential future directions and the impact of PPTAgent on automated presentation generation.",
-        "indexs": {
-            "Conclusion": [
-                "Conclusion"
+            "3 Experiment": [
+                "3.1 Dataset"
             ]
         }
     }

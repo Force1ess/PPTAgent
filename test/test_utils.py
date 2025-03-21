@@ -1,14 +1,14 @@
-from shutil import which
 import pytest
 import tempfile
 from bs4 import BeautifulSoup
 from markdown import markdown
 
-import utils
-from utils import get_json_from_response, split_markdown_to_chunks
+import pptagent.utils as utils
+from pptagent.utils import get_json_from_response, split_markdown_to_chunks
+from test.conftest import test_config
 
 
-def test_extract_json_from_markdown_block(self):
+def test_extract_json_from_markdown_block():
     """Test extracting JSON from a markdown code block."""
     response = """
     Here's the JSON you requested:
@@ -30,7 +30,8 @@ def test_extract_json_from_markdown_block(self):
     assert result["age"] == 30
     assert result["city"] == "New York"
 
-def test_extract_json_from_text(self):
+
+def test_extract_json_from_text():
     """Test extracting JSON directly from text."""
     response = """
     Here's the JSON:
@@ -50,7 +51,8 @@ def test_extract_json_from_text(self):
     assert result["age"] == 30
     assert result["city"] == "New York"
 
-def test_extract_json_with_repair(self):
+
+def test_extract_json_with_repair():
     """Test extracting JSON with minor syntax errors that can be repaired."""
     response = """
     Here's the JSON:
@@ -70,7 +72,8 @@ def test_extract_json_with_repair(self):
     assert result["age"] == 30
     assert result["city"] == "New York"
 
-def test_extract_nested_json(self):
+
+def test_extract_nested_json():
     """Test extracting nested JSON objects."""
     response = """
     Here's the JSON:
@@ -92,7 +95,8 @@ def test_extract_nested_json(self):
     assert result["person"]["name"] == "John"
     assert result["address"]["city"] == "New York"
 
-def test_json_not_found(self):
+
+def test_json_not_found():
     """Test that an exception is raised when JSON is not found."""
     response = "This is just plain text with no JSON."
 
@@ -101,32 +105,17 @@ def test_json_not_found(self):
 
     assert "JSON not found" in str(excinfo.value)
 
-def test_ppt_to_images_conversion(self):
+
+def test_ppt_to_images_conversion():
     """Test converting a PPTX file to images."""
-    # Skip if unoconvert is not available
-    assert (
-        which("unoconvert") is not None and which("unoserver") is not None
-    ), "executable `unoconvert` or `unoserver` not available"
-    try:
-        import subprocess
-
-        subprocess.run(
-            ["unoconvert", "--version"],
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-    except (ImportError, subprocess.CalledProcessError, FileNotFoundError):
-        pytest.skip("unoconvert not available")
-
     # Run the conversion
-    utils.UNOSERVER_RUNNING = True
-    utils.ppt_to_images("resource/test/test_ppt/test.pptx", tempfile.mkdtemp())
+    utils.ppt_to_images(test_config.ppt, tempfile.mkdtemp())
+
 
 def test_markdown_splits():
-    markdown_content = open("resource/test/test_pdf/source.md", "r").read()
+    markdown_content = open(f"{test_config.pdf}/source.md", "r").read()
     chunks = split_markdown_to_chunks(markdown_content)
-    assert len(chunks) == 8
+    assert len(chunks) == 5
     markdown_html = markdown(markdown_content, extensions=["tables"])
     soup = BeautifulSoup(markdown_html, "html.parser")
     num_medias = len(soup.find_all("img")) + len(soup.find_all("table"))

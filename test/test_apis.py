@@ -1,4 +1,4 @@
-from apis import CodeExecutor, API_TYPES
+from pptagent.apis import CodeExecutor, API_TYPES
 
 
 def test_api_docs():

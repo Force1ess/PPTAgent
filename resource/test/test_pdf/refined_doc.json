@@ -94,35 +94,10 @@
             ]
         },
         {
-            "title": "3 PPTEval",
+            "title": "3 Experiment",
             "subsections": [
                 {
-                    "title": "Introduction",
-                    "content": "To address the limitations of existing automated metrics for presentation evaluation, we introduce *PPTEval*, a comprehensive framework for assessing presentation quality from multiple perspectives. The framework provides scores on a 1-to-5 scale and offers detailed feedback to guide the improvement of future presentation generation methods. The overall evaluation process is depicted in Figure 3, with the detailed scoring criteria and examples provided in Appendix B.",
-                    "medias": []
-                },
-                {
-                    "title": "Content",
-                    "content": "The content dimension evaluates the information presented on the slides, focusing on both text and images. We assess content quality from three perspectives: the amount of information, the clarity and quality of textual content, and the support provided by visual content. High-quality textual content is characterized by clear, impactful text that conveys the proper amount of information. Additionally, images should complement and reinforce the textual content, making the information more accessible and engaging. To evaluate content quality, we employ MLLMs on slide images, as slides cannot be easily comprehended in a plain text format.",
-                    "medias": []
-                },
-                {
-                    "title": "Design",
-                    "content": "Good design not only captures attention but also enhances content delivery. We evaluate the design dimension based on three aspects: color schemes, visual elements, and overall design. Specifically, the color scheme of the slides should have clear contrast to highlight the content while maintaining harmony. The use of visual elements, such as geometric shapes, can make the slide design more expressive. Finally, good design should adhere to basic design principles, such as avoiding overlapping elements and ensuring that design does not interfere with content delivery.",
-                    "medias": []
-                },
-                {
-                    "title": "Coherence",
-                    "content": "Coherence is essential for maintaining audience engagement in a presentation. We evaluate coherence based on the logical structure and the contextual information provided. Effective coherence is achieved when the model constructs a captivating storyline, enriched with contextual information that enables the audience to follow the content seamlessly. We assess coherence by analyzing the logical structure and contextual information extracted from the presentation.",
-                    "medias": []
-                }
-            ]
-        },
-        {
-            "title": "4 Experiment",
-            "subsections": [
-                {
-                    "title": "4.1 Dataset",
+                    "title": "3.1 Dataset",
                     "content": "Existing presentation datasets have two main issues: loss of semantic information and limited diversity. To address these, we introduce *Zenodo10K*, a new dataset sourced from Zenodo, an open digital repository. We have curated 10,448 presentations from this source and made them publicly available. We sampled 50 presentations across five domains to serve as reference presentations and collected 50 documents from the same domains for input. Detailed statistics of the dataset are presented in Table 1.",
                     "medias": [
                         {
@@ -132,99 +107,6 @@
                             "caption": "Table: Dataset statistics for various domains, showing the number of characters, figures in documents, and pages in presentations."
                         }
                     ]
-                },
-                {
-                    "title": "4.2 Experimental Settings and Baseline",
-                    "content": "We evaluate our method using three state-of-the-art models: GPT-4o-2024-08-06, Qwen2.5-72B-Instruct, and Qwen2-VL-72B-Instruct. Configurations are combinations of a language model (LM) and a vision model (VM). We allow up to two iterations of self-correction per slide generation task, producing 500 presentations per configuration. We use Chen et al. and Wu et al. to compute text and image embeddings. All open-source LLMs are deployed using the VLLM framework on a cluster of 8 NVIDIA A100 GPUs, with a total computational cost of approximately 500 GPU hours. The baseline method, as described in Bandyopadhyay et al., employs a multi-staged end-to-end model to generate narrative-rich presentations. Each configuration generates 50 presentations. Detailed performance comparison is provided in Table 2.",
-                    "medias": [
-                        {
-                            "markdown_content": "| Setting Existing Metrics |  |  |  |  |  | PPTEval |  |  |\n| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n| Language Model | Vision Model | SR(%)\u2191 | PPL\u2193 | FID\u2193 | Content\u2191 | Design\u2191 | Coherence\u2191 | Avg.\u2191 |\n| Baseline |  |  |  |  |  |  |  |  |\n| GPT-4oLM | \u2013 | \u2013 | 110.6 | \u2013 | 2.98 | 2.33 | 3.24 | 2.85 |\n| Qwen2.5LM | \u2013 | \u2013 | 122.4 | \u2013 | 2.96 | 2.37 | 3.28 | 2.87 |\n| PPTAgent |  |  |  |  |  |  |  |  |\n| GPT-4oLM | GPT-4oVM | 97.8 | 459.7 | 7.48 | 3.25 | 3.24 | 4.39 | 3.62 |\n| Qwen2-VLLM | Qwen2-VLVM | 43.0 | 322.3 | 7.32 | 3.13 | 3.34 | 4.07 | 3.51 |\n| Qwen2.5LM | Qwen2-VLVM | 95.0 | 313.9 | 6.20 | 3.28 | 3.27 | 4.48 | 3.67 |\n| Ablation |  |  |  |  |  |  |  |  |\n| PPTAGENT |  | 95.0 | 313.9 | 6.20 | 3.28 | 3.27 | 4.48 | 3.67 |\n| w/o Outline |  | 91.0 | 2304.3 | 6.94 | 3.24 | 3.30 | 3.36 | 3.30 |\n| 164.8 | w/o Schema | 78.8 |  | 7.12 | 3.08 | 3.23 | 4.04 | 3.45 |\n| w/o Structure |  | 92.2 | 189.9 | 7.66 | 3.28 | 3.25 | 3.45 | 3.32 |\n| w/o CodeRender |  | 74.6 | 231.0 | 7.03 | 3.27 | 3.34 | 4.38 | 3.66 |",
-                            "markdown_caption": "Table 2: Performance comparison of the baseline, our proposed PPTAgent framework, and its ablation variants. Results are reported using existing metrics\u2014Success Rate (SR), Perplexity (PPL), and FID\u2014as well as our proposed PPTEval metrics, which assess Content, Design, Coherence, and their average score.",
-                            "path": "test_pdf/table_a773.png",
-                            "caption": "Table: Performance comparison of baseline models, PPTAgent, and its ablation variants using SR, PPL, FID, and PPTEval metrics (Content, Design, Coherence, Avg)."
-                        },
-                        {
-                            "markdown_content": "| Domain | SR (%) | PPL | FID | PPTEval |\n| --- | --- | --- | --- | --- |\n| Culture | 93.0 | 185.3 | 5.00 | 3.70 |\n| Education | 94.0 | 249.0 | 7.90 | 3.69 |\n| Science | 96.0 | 500.6 | 6.07 | 3.56 |\n| Society | 95.0 | 396.8 | 5.32 | 3.59 |\n| Tech | 97.0 | 238.7 | 6.72 | 3.74 |",
-                            "markdown_caption": "Table 3: Evaluation results under the configuration of Qwen2-VLLM+Qwen2-VLVM in different domains, using the success rate (SR), PPL, FID, and the average PPTEval score across three evaluation dimensions.",
-                            "path": "test_pdf/table_ccfc.png",
-                            "caption": "Table: Evaluation metrics (SR, PPL, FID, PPTEval) for Qwen2-VLLM+Qwen2-VLVM across various domains."
-                        },
-                        {
-                            "markdown_content": "![](_page_6_Figure_0.jpeg)",
-                            "markdown_caption": "Figure 4: The number of iterative self-corrections required to generate a single slide under different models.",
-                            "path": "test_pdf/_page_6_Figure_0.jpeg",
-                            "caption": "Chart: Horizontal bar chart comparing iterative corrections for generating slides across three models: gpt-4o, Qwen2.5, and Qwen2-VL. Bars indicate Iter-0, Iter-1, Iter-2, and Failed outcomes on a logarithmic scale."
-                        }
-                    ]
-                },
-                {
-                    "title": "4.3 Evaluation Metrics",
-                    "content": "We evaluated the presentation generation using the following metrics: Success Rate (SR) measures the robustness of the generation task. Perplexity (PPL) measures the likelihood of the language model generating the given sequence. FID measures the similarity between the generated presentation and the exemplar presentation in the feature space. PPTEval measures the comprehensive quality of presentations across three dimensions: coherence, content, and design.",
-                    "medias": []
-                },
-                {
-                    "title": "4.4 Result & Analysis",
-                    "content": "Table 2 presents the performance comparison between PPTAgent and baseline methods. PPTAgent enhances LLMs' presentation generation capabilities, achieving a remarkable success rate of \u2265 95%. This improvement is attributed to content modifying, streamlined API design, and the code interaction module. Detailed performance of Qwen2.5LM+Qwen2-VLVM across various domains, as illustrated in Table 3, underscores the robustness of our approach. PPTAgent improves overall presentation quality by adopting an edit-based paradigm, allowing elements to inherit well-designed styling attributes. Using GPT-4o, we achieved comprehensive improvements over the baseline in design, coherence, and content dimensions. Open-source LLMs, such as Qwen2.5, can rival GPT-4o in performance.",
-                    "medias": []
-                },
-                {
-                    "title": "4.5 Ablation Study",
-                    "content": "To understand the impact of each component, we performed ablation studies using four configurations: (1) randomly selecting a slide as the edit target (w/o Outline), (2) omitting structural information during outline generation (w/o Structure), (3) replacing the slide representation (w/o CodeRender), and (4) removing guidance from the slide schema (w/o Schema). Code representation significantly enhances LLMs' comprehension, as removing it leads to a significant drop in success rate. Presentation analysis, including outline and structure, is essential for maintaining logical flow and generating targeted content.",
-                    "medias": [
-                        {
-                            "markdown_content": "| Corelation Content Design Coherence Avg. |  |  |  |  |\n| --- | --- | --- | --- | --- |\n| Pearson | 0.70 | 0.90 | 0.55 | 0.71 |\n| Spearman | 0.73 | 0.88 | 0.57 | 0.74 |",
-                            "markdown_caption": "Table 4: The correlation scores between human ratings and LLM ratings under different dimensions (Coherence, Content, Design). All presented data of similarity exhibit a p-value below 0.05, indicating a statistically significant level of confidence.",
-                            "path": "test_pdf/table_7d22.png",
-                            "caption": "Table: Correlation scores (Pearson and Spearman) between human and LLM ratings across Coherence, Content, and Design dimensions, with average scores and all p-values below 0.05."
-                        }
-                    ]
-                },
-                {
-                    "title": "4.6 Error Analysis",
-                    "content": "Figure 4 illustrates the number of iterations required to generate a slide using different models. GPT-4o exhibits superior self-correction capabilities, while Qwen2.5 encounters fewer errors in the first iteration. Qwen2-VL experiences more frequent errors and has poorer self-correction capabilities. All three models successfully corrected more than half of the errors, demonstrating the effectiveness of the iterative self-correction mechanism.",
-                    "medias": [
-                        {
-                            "markdown_content": "![](_page_7_Figure_0.jpeg)",
-                            "markdown_caption": "Figure 5: Correlation heatmap between existing automated evaluation metrics and PPTEval PPT.",
-                            "path": "test_pdf/_page_7_Figure_0.jpeg",
-                            "caption": "Chart: Heatmap displaying correlation values among four variables: content, vision, ppl, and fid. Color gradient indicates strength and direction of correlations, ranging from -1 to 1. Variables show varying degrees of positive and negative relationships.\n\n"
-                        }
-                    ]
-                },
-                {
-                    "title": "4.7 Effectiveness of PPTEval",
-                    "content": "Despite Chen et al. highlighting the impressive human-like discernment of LLMs in various generation tasks, it remains crucial to assess the correlation between LLM evaluations and human evaluations in the context of presentations. The average Pearson correlation of 0.71 exceeds other evaluation methods, indicating that PPTEval aligns well with human preferences. The heatmap in Figure 5 reveals the limitations of existing metrics in capturing content and design dimensions. PPL captures text fluency but is susceptible to fragmented slide text, and FID quantifies stylistic similarity but does not indicate superior design. These findings underscore the necessity of PPTEval for comprehensive and effective presentation evaluation.",
-                    "medias": []
-                }
-            ]
-        },
-        {
-            "title": "5 Related Works",
-            "subsections": [
-                {
-                    "title": "Automated Presentation Generation",
-                    "content": "Recent proposed methods for slide generation can be categorized into rule-based and template-based based on how they handle element placement. Rule-based methods often focus on enhancing textual content but neglect the visual-centric nature of presentations, leading to outputs that lack engagement. Template-based methods rely on pre-designed templates to create visually appealing presentations, but their dependence on extensive manual effort for template annotation significantly limits scalability and flexibility.",
-                    "medias": []
-                },
-                {
-                    "title": "LLM Agent",
-                    "content": "Numerous studies have explored the potential of LLMs to act as agents assisting humans in a wide array of tasks. For example, they demonstrate the capability to accomplish tasks by generating executable actions and correcting errors based on feedback. Furthermore, an evaluation system that assesses the ability of LLMs to perform multi-turn, multimodal slide editing tasks using APIs has been introduced, which inspired the use of LLMs for complex tasks as proposed in this study.",
-                    "medias": []
-                },
-                {
-                    "title": "LLM as a Judge",
-                    "content": "LLMs have demonstrated strong capabilities in instruction following and context perception, leading to their widespread use as judges. Further research enhanced LLMs' abilities through external modules and functions, while the feasibility of using multimodal large language models (MLLMs) as judges has been validated. Additionally, a multi-dimensional evaluation framework for multi-turn conversations has been introduced, which inspired the development of the proposed *PPT Eval* PPT.",
-                    "medias": []
-                }
-            ]
-        },
-        {
-            "title": "Conclusion",
-            "subsections": [
-                {
-                    "title": "Conclusion",
-                    "content": "In this paper, we introduced PPTAgent, which conceptualizes presentation generation as a two-stage presentation editing task completed through the abilities of LLMs to understand and generate code. This approach leveraged the textual feature and layout patterns to organize slides into different functional groups. Our experiments across data from multiple domains have demonstrated the superiority of our method. Moreover, our proposed PPTEval ensured the assessability of presentations. This research provides a new paradigm for generating slides under unsupervised conditions and offers fresh insights for future work in presentation generation.",
-                    "medias": []
                 }
             ]
         }
