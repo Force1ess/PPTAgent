@@ -18,10 +18,6 @@
           </label>
           <input type="file" id="pdf-upload" @change="handleFileUpload($event, 'pdf')" accept=".pdf" />
         </div>
-        <div class="or-divider">OR</div>
-        <div class="upload-section">
-          <input type="text" v-model="topic" placeholder="或输入幻灯片主题" class="topic-textbox" />
-        </div>
       </div>
 
       <!-- Row 2: Selectors -->
@@ -55,7 +51,6 @@ export default {
       models: ['Qwen2.5-72B-Instruct'],
       selectedPages: 6,
       pagesOptions: Array.from({ length: 12 }, (_, i) => i + 3),
-      topic: '',
       isPptxEnabled:true
     }
   },
@@ -80,8 +75,8 @@ export default {
           return;
         });
 
-      if (!this.pdfFile && !this.topic) { // Updated condition to check for either PDF or topic
-        alert('Please upload a PDF file or enter a topic.');
+      if (!this.pdfFile) { // Updated condition to check for PDF
+        alert('Please upload a PDF file.');
         return;
       }
 
@@ -91,9 +86,6 @@ export default {
       }
       if (this.pdfFile) {
         formData.append('pdfFile', this.pdfFile);
-      }
-      if (this.topic) {
-        formData.append('topic', this.topic);
       }
       formData.append('numberOfPages', this.selectedPages);
       formData.append('selectedModel', this.selectedModel);
@@ -156,8 +148,8 @@ export default {
 }
 
 .upload-section {
-  margin-left: 2em;
-  margin-right: 2em;
+  margin-left: 3em;
+  margin-right: 3em;
 }
 
 .model-selection,
@@ -242,18 +234,6 @@ export default {
   .next-button {
     width: 100%;
   }
-}
-
-.topic-textbox {
-  width: 100%;
-  height: 100%;
-  border-radius: 5px;
-  border: 1px solid #ccc;
-  font-size: 16px;
-  box-sizing: border-box;
-  text-align: center;
-  display: flex;
-  align-items: center;
 }
 
 .or-divider {

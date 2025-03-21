@@ -1,19 +1,16 @@
 import asyncio
 import hashlib
 import importlib
-import itertools
 import json
 import os
 import sys
-import time
 import traceback
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict, List, Optional
 
-import PIL.Image
 import torch
 from fastapi import (
     FastAPI,
@@ -25,20 +22,25 @@ from fastapi import (
     WebSocket,
     WebSocketDisconnect,
 )
-from fastapi.logger import logger
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from jinja2 import Template
 from marker.models import create_model_dict
 
-import induct
-import llms
-import pptgen
-from model_utils import get_image_model, parse_pdf
-from multimodal import ImageLabler
-from presentation import Presentation
-from utils import Config, is_image_path, pjoin, ppt_to_images
-from document import Document
+import pptagent.induct as induct
+import pptagent.pptgen as pptgen
+from pptagent.llms import AsyncLLM
+from pptagent.model_utils import get_image_model, parse_pdf
+from pptagent.multimodal import ImageLabler
+from pptagent.presentation import Presentation
+from pptagent.utils import (
+    Config,
+    package_join,
+    pjoin,
+    ppt_to_images_async,
+    get_logger,
+)
+from pptagent.document import Document
 
 # constants
 DEBUG = True if len(sys.argv) == 1 else False
@@ -56,13 +58,19 @@ DEVICE = (
     if torch.cuda.is_available()
     else "mps" if torch.backends.mps.is_available() else "cpu"
 )
-REFINE_TEMPLATE = Template(open("prompts/document_refine.txt").read())
+REFINE_TEMPLATE = Template(package_join("prompts", "document_refine.txt"))
 
 # models
+language_model = AsyncLLM("gpt-4o")
+vision_model = AsyncLLM("gpt-4o")
+text_embedder = AsyncLLM("text-embedding-3-small")
+image_model = None
+marker_model = None
 image_model = get_image_model(device=DEVICE)
 marker_model = create_model_dict(device=DEVICE, dtype=torch.float16)
 
 # server
+logger = get_logger(__name__)
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
@@ -81,38 +89,26 @@ class ProgressManager:
         self.task_id = task_id
         self.stages = stages
         self.debug = debug
-        self.socket = active_connections.get(task_id)
+        self.task_id = task_id
         self.failed = False
         self.current_stage = 0
         self.total_stages = len(stages)
 
-    async def run_stage(self, func, *args, **kwargs):
-        if self.task_id not in active_connections:
-            self.failed = True
-        if self.failed:
-            return
-        try:
-            await self.report_progress()
-            if asyncio.iscoroutinefunction(func):
-                result = await func(*args, **kwargs)
-            else:
-                result = func(*args, **kwargs)
-            return result
-        except Exception as e:
-            await self.fail_stage(str(e))
-
     async def report_progress(self):
+        assert (
+            self.task_id in active_connections
+        ), "WebSocket connection is already closed"
         self.current_stage += 1
         progress = int((self.current_stage / self.total_stages) * 100)
         await send_progress(
-            self.socket,
+            active_connections[self.task_id],
             f"Stage: {self.stages[self.current_stage - 1]}",
             progress,
         )
 
     async def fail_stage(self, error_message: str):
         await send_progress(
-            self.socket,
+            active_connections[self.task_id],
             f"{self.stages[self.current_stage]} Error: {error_message}",
             100,
         )
@@ -166,7 +162,7 @@ async def create_task(
     return {"task_id": task_id.replace("/", "|")}
 
 
-async def send_progress(websocket: WebSocket, status: str, progress: int):
+async def send_progress(websocket: Optional[WebSocket], status: str, progress: int):
     if websocket is None:
         logger.info(f"websocket is None, status: {status}, progress: {progress}")
         return
@@ -185,53 +181,12 @@ async def websocket_endpoint(websocket: WebSocket, task_id: str):
         while True:
             data = await websocket.receive_text()
     except WebSocketDisconnect:
-        logger.info("websocket disconnected", task_id)
+        logger.info("websocket disconnected: %s", task_id)
         active_connections.pop(task_id, None)
 
 
-async def topic_generate(topic: str):
-    prompt = (
-        "Please generate a detailed presentation planning document about "
-        + topic
-        + ", detail to 1000 words."
-        + "Follow the format of the example output.\n"
-        + """
-{
-    "title": "title of document",
-    "sections": [
-        {
-            "title": "title of section1",
-            "subsections": [
-                {
-                    "title": "title of subsection1.1",
-                    "content": "content of subsection1.1"
-                },
-                {
-                    "title": "title of subsection1.2",
-                    "content": "content of subsection1.2"
-                }
-            ]
-        },
-        {
-            "title": "title of section2",
-            "subsections": [
-                {
-                    "title": "title of subsection2.1",
-                    "content": "content of subsection2.1"
-                }
-            ]
-        }
-    ]
-}
-"""
-    )
-    text = await llms.language_model(prompt, return_json=True)
-    assert isinstance(text, dict), "Text is not in JSON format"
-    return text
-
-
 @app.get("/api/download")
-def download(task_id: str):
+async def download(task_id: str):
     task_id = task_id.replace("|", "/")
     if not os.path.exists(pjoin(RUNS_DIR, task_id)):
         raise HTTPException(status_code=404, detail="Task not created yet")
@@ -257,7 +212,7 @@ async def feedback(request: Request):
 
 
 @app.get("/")
-def hello():
+async def hello():
     return {"message": "Hello, World!"}
 
 
@@ -285,16 +240,6 @@ async def ppt_gen(task_id: str, rerun=False):
     generation_config = Config(pjoin(RUNS_DIR, task_id))
     pptx_config = Config(pjoin(RUNS_DIR, "pptx", pptx_md5))
     json.dump(task, open(pjoin(generation_config.RUN_DIR, "task.json"), "w"))
-
-    if len(pdf_md5) != 32:
-        pdf_dir = pjoin(RUNS_DIR, "pdf", pdf_md5)
-        if not os.path.exists(pdf_dir + "/refined_doc.json"):
-            os.makedirs(pdf_dir, exist_ok=True)
-            json.dump(
-                await topic_generate(task["pdf"]),
-                open(pjoin(pdf_dir, "refined_doc.json"), "w"),
-            )
-
     progress = ProgressManager(task_id, STAGES)
     parsedpdf_dir = pjoin(RUNS_DIR, "pdf", pdf_md5)
     ppt_image_folder = pjoin(pptx_config.RUN_DIR, "slide_images")
@@ -311,7 +256,9 @@ async def ppt_gen(task_id: str, rerun=False):
         if not os.path.exists(ppt_image_folder) or len(
             os.listdir(ppt_image_folder)
         ) != len(presentation):
-            ppt_to_images(pjoin(pptx_config.RUN_DIR, "source.pptx"), ppt_image_folder)
+            await ppt_to_images_async(
+                pjoin(pptx_config.RUN_DIR, "source.pptx"), ppt_image_folder
+            )
             assert len(os.listdir(ppt_image_folder)) == len(presentation) + len(
                 presentation.error_history
             ), "Number of parsed slides and images do not match"
@@ -326,85 +273,79 @@ async def ppt_gen(task_id: str, rerun=False):
                 )
 
         labler = ImageLabler(presentation, pptx_config)
-        await progress.run_stage(labler.caption_images)
+        if os.path.exists(pjoin(pptx_config.RUN_DIR, "image_stats.json")):
+            image_stats = json.load(
+                open(pjoin(pptx_config.RUN_DIR, "image_stats.json"))
+            )
+            labler.apply_stats(image_stats)
+        else:
+            await labler.caption_images_async(vision_model)
+            json.dump(
+                labler.image_stats,
+                open(pjoin(pptx_config.RUN_DIR, "image_stats.json"), "w"),
+            )
+        await progress.report_progress()
 
         # pdf parsing
-        if not os.path.exists(pjoin(parsedpdf_dir, "source.md")) and not os.path.exists(
-            pjoin(parsedpdf_dir, "refined_doc.json")
-        ):
-            text_content = await progress.run_stage(
-                parse_pdf,
+        if not os.path.exists(pjoin(parsedpdf_dir, "source.md")):
+            text_content = parse_pdf(
                 pjoin(RUNS_DIR, "pdf", pdf_md5, "source.pdf"),
                 parsedpdf_dir,
                 marker_model,
             )
         else:
-            if not os.path.exists(pjoin(parsedpdf_dir, "refined_doc.json")):
-                text_content = open(pjoin(parsedpdf_dir, "source.md")).read()
-            await progress.report_progress()
+            text_content = open(pjoin(parsedpdf_dir, "source.md")).read()
+        await progress.report_progress()
 
-        # doc refine and caption
-        if not os.path.exists(pjoin(parsedpdf_dir, "image_caption.json")):
-            caption_prompt = open("prompts/caption.txt").read()
-            images = {}
-            for k in os.listdir(parsedpdf_dir):
-                if is_image_path(k):
-                    try:
-                        images[pjoin(parsedpdf_dir, k)] = [
-                            await llms.vision_model(
-                                caption_prompt, [pjoin(parsedpdf_dir, k)]
-                            ),
-                            PIL.Image.open(pjoin(parsedpdf_dir, k)).size,
-                        ]
-                    except Exception as e:
-                        logger.error(f"Error captioning image {k}: {e}")
-            json.dump(
-                images,
-                open(pjoin(parsedpdf_dir, "image_caption.json"), "w"),
-                ensure_ascii=False,
-                indent=4,
-            )
-        else:
-            images = json.load(open(pjoin(parsedpdf_dir, "image_caption.json")))
-
+        # document refine
         if not os.path.exists(pjoin(parsedpdf_dir, "refined_doc.json")):
-            doc_json = await llms.language_model(
-                REFINE_TEMPLATE.render(markdown_document=text_content), return_json=True
+            source_doc = await Document.from_markdown_async(
+                text_content,
+                language_model,
+                vision_model,
+                parsedpdf_dir,
             )
-            json.dump(doc_json, open(pjoin(parsedpdf_dir, "refined_doc.json"), "w"))
+            json.dump(
+                source_doc.to_dict(),
+                open(pjoin(parsedpdf_dir, "refined_doc.json"), "w"),
+            )
         else:
-            doc_json = json.load(open(pjoin(parsedpdf_dir, "refined_doc.json")))
-
+            source_doc = json.load(open(pjoin(parsedpdf_dir, "refined_doc.json")))
+            source_doc = Document.from_dict(source_doc, parsedpdf_dir)
         await progress.report_progress()
 
         # Slide Induction
-        if not os.path.exists(pptx_config.RUN_DIR + "/template_images") or len(
-            os.listdir(pptx_config.RUN_DIR + "/template_images")
-        ) != len(presentation):
+        if not os.path.exists(pjoin(pptx_config.RUN_DIR, "slide_induction.json")):
             deepcopy(presentation).save(
                 pjoin(pptx_config.RUN_DIR, "template.pptx"), layout_only=True
             )
-            ppt_to_images(
+            await ppt_to_images_async(
                 pjoin(pptx_config.RUN_DIR, "template.pptx"),
                 pjoin(pptx_config.RUN_DIR, "template_images"),
             )
-
-        slide_inducter = induct.SlideInducter(
-            presentation,
-            ppt_image_folder,
-            pjoin(pptx_config.RUN_DIR, "template_images"),
-            pptx_config,
-            image_model,
-            "backend",
-        )
-        slide_induction = slide_inducter.content_induct()
-
-        # Create source document
-        source_doc = Document(doc_json, images, parsedpdf_dir)
+            slide_inducter = induct.SlideInducterAsync(
+                presentation,
+                ppt_image_folder,
+                pjoin(pptx_config.RUN_DIR, "template_images"),
+                pptx_config,
+                image_model,
+                language_model,
+                vision_model,
+            )
+            slide_induction = await slide_inducter.content_induct()
+            json.dump(
+                slide_induction,
+                open(pjoin(pptx_config.RUN_DIR, "slide_induction.json"), "w"),
+            )
+        else:
+            slide_induction = json.load(
+                open(pjoin(pptx_config.RUN_DIR, "slide_induction.json"))
+            )
+        await progress.report_progress()
 
         # PPT Generation with PPTAgentAsync
         ppt_agent = pptgen.PPTAgentAsync(
-            llms.embedding_model, error_exit=False, retry_times=5
+            text_embedder, language_model, vision_model, error_exit=False, retry_times=5
         )
         ppt_agent.set_reference(
             config=generation_config,
@@ -412,8 +353,7 @@ async def ppt_gen(task_id: str, rerun=False):
             presentation=presentation,
         )
 
-        await progress.run_stage(
-            ppt_agent.generate_pres,
+        await ppt_agent.generate_pres(
             source_doc=source_doc,
             num_slides=task["numberOfPages"],
         )
@@ -425,39 +365,22 @@ async def ppt_gen(task_id: str, rerun=False):
         traceback.print_exc()
 
 
-async def setup_models():
-    if os.path.exists("serve.json"):
-        serve_config = json.load(open("serve.json"))
-        llms.language_model = llms.LLM(
-            serve_config["language"]["model"], serve_config["language"]["url"]
-        )
-        llms.vision_model = llms.LLM(
-            serve_config["vision"]["model"], serve_config["vision"]["url"]
-        )
-
-    if (
-        await llms.language_model.test_connection()
-        and await llms.vision_model.test_connection()
-    ):
-        logger.info("Primary models connected successfully")
-        return
-
-    if await llms.gpt4o.test_connection():
-        logger.warn("Switching to OpenAI GPT-4o models as fallback")
-        llms.language_model = llms.gpt4o
-        llms.vision_model = llms.gpt4o
-        return
-
-    raise RuntimeError(
-        "No working model connections available. Please check OpenAI API keys and connections."
-    )
+async def test_connection(*models: AsyncLLM):
+    for model in models:
+        try:
+            await model.test_connection()
+        except Exception as e:
+            logger.error(f"Error testing connection for {model}: {e}")
+            return False
+    logger.info("All models connected successfully")
+    return True
 
 
 if __name__ == "__main__":
     import uvicorn
 
-    # Run setup_models in an event loop
-    asyncio.run(setup_models())
+    api_base = "http://api.cipsup.cn/v1"
 
+    asyncio.run(test_connection(language_model, vision_model, text_embedder))
     ip = "0.0.0.0"
     uvicorn.run(app, host=ip, port=9297)
