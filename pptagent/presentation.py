@@ -1,4 +1,5 @@
 import traceback
+from packaging.version import Version
 from typing import List, Optional, Tuple, Type, Generator
 
 from pptx import Presentation as PPTXPre
@@ -17,8 +18,9 @@ from pptagent.shapes import (
     StyleArg,
 )
 
+PPTXVersion, Mark = PPTXVersion.split("+")
 assert (
-    PPTXVersion == "1.0.3+PPTAgent"
+    Version(PPTXVersion) >= Version("1.0.3") and Mark == "PPTAgent"
 ), "You should install the version of `python-pptx` maintained specifically for this project."
 
 # Type variable for ShapeElement subclasses
