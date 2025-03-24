@@ -13,7 +13,7 @@ import logging
 from html2image import Html2Image
 import json_repair
 import Levenshtein
-from markdown import markdown
+from mistune import html as markdown
 from PIL import Image as PILImage
 from shutil import which
 from pdf2image import convert_from_path
@@ -26,7 +26,7 @@ from pptx.parts.image import Image
 from tenacity import RetryCallState, retry, stop_after_attempt, wait_fixed
 
 
-def get_logger(name="pptagent", level=logging.INFO):
+def get_logger(name="pptagent", level=None):
     """
     Get a logger with the specified name and level.
 
@@ -37,6 +37,9 @@ def get_logger(name="pptagent", level=logging.INFO):
     Returns:
         logging.Logger: A configured logger instance.
     """
+    if level is None:
+        level = os.environ.get("LOG_LEVEL", logging.INFO)
+
     logger = logging.getLogger(name)
     logger.setLevel(level)
 

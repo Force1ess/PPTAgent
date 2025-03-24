@@ -6,7 +6,7 @@ from typing import Any, List, Optional, Dict
 from uuid import uuid4
 import asyncio
 
-from markdown import markdown
+from mistune import html as markdown
 from bs4 import BeautifulSoup
 from jinja2 import Environment, StrictUndefined
 
@@ -290,7 +290,7 @@ class Document:
         for chunk in split_markdown_to_chunks(markdown_content):
             if chunk["header"] is not None:
                 chunk["content"] = chunk["header"] + "\n" + chunk["content"]
-            markdown_html = markdown(chunk["content"], extensions=["tables"])
+            markdown_html = markdown(chunk["content"])
             soup = BeautifulSoup(markdown_html, "html.parser")
             num_medias = len(soup.find_all("img")) + len(soup.find_all("table"))
             _metadata, _section = cls._parse_chunk(
@@ -336,7 +336,7 @@ class Document:
         for chunk in split_markdown_to_chunks(markdown_content):
             if chunk["header"] is not None:
                 chunk["content"] = chunk["header"] + "\n" + chunk["content"]
-            markdown_html = markdown(chunk["content"], extensions=["tables"])
+            markdown_html = markdown(chunk["content"])
             soup = BeautifulSoup(markdown_html, "html.parser")
             num_medias = len(soup.find_all("img")) + len(soup.find_all("table"))
 

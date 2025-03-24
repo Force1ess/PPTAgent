@@ -9,14 +9,24 @@ from functools import partial
 from typing import Union
 
 import PIL
+from bs4 import BeautifulSoup
+from mistune import html as markdown
 from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 from pptx.oxml import parse_xml
 from pptx.shapes.base import BaseShape
 from pptx.util import Pt
-
+from pptx.text.text import _Run
 from pptagent.shapes import Closure, Picture, ShapeElement
 from pptagent.presentation import SlidePage
-from pptagent.utils import runs_merge
+from pptagent.utils import runs_merge, get_logger
+
+logger = get_logger(__name__)
+
+class SlideEditError(Exception):
+    """
+    Exception raised when an edit operation fails.
+    """
+    pass
 
 
 @dataclass
@@ -118,11 +128,11 @@ class CodeExecutor:
         for line_idx, line in enumerate(api_calls):
             try:
                 if line_idx == len(api_calls) - 1 and not found_code:
-                    raise ValueError(
+                    raise SlideEditError(
                         "No code block found in the output, please output the api calls without any prefix."
                     )
                 if line.startswith("def"):
-                    raise PermissionError("The function definition were not allowed.")
+                    raise SlideEditError("The function definition were not allowed.")
                 if line.startswith("#"):
                     if len(self.command_history) != 0:
                         self.command_history[-1][0] = HistoryMark.COMMENT_CORRECT
@@ -133,7 +143,7 @@ class CodeExecutor:
                 found_code = True
                 func = line.split("(")[0]
                 if func not in self.registered_functions:
-                    raise NameError(f"The function {func} is not defined.")
+                    raise SlideEditError(f"The function {func} is not defined.")
                 # only one of clone and del can be used in a row
                 if func.startswith("clone") or func.startswith("del"):
                     tag = func.split("_")[0]
@@ -143,7 +153,7 @@ class CodeExecutor:
                     ):
                         self.command_history[-1][-1] = tag
                     else:
-                        raise ValueError(
+                        raise SlideEditError(
                             "Invalid command: Both 'clone_paragraph' and 'del_paragraph'/'del_image' are used within a single command. "
                             "Each command must only perform one of these operations based on the quantity_change."
                         )
@@ -151,7 +161,12 @@ class CodeExecutor:
                 partial_func = partial(self.registered_functions[func], edit_slide)
                 eval(line, {}, {func: partial_func})
                 self.code_history[-1][0] = HistoryMark.CODE_RUN_CORRECT
-            except:
+            except Exception as e:
+                if isinstance(e, SlideEditError):
+                    logger.info(f"Encountered SlideEditError: {e}")
+                else:
+                    logger.warning(f"Encountered unknown error: {e}")
+
                 trace_msg = traceback.format_exc()
                 if len(self.code_history) != 0:
                     self.code_history[-1][-1] = trace_msg
@@ -185,12 +200,72 @@ def element_index(slide: SlidePage, element_id: int) -> ShapeElement:
         ShapeElement: The shape corresponding to the element ID.
 
     Raises:
-        IndexError: If the element is not found.
+        SlideEditError: If the element is not found.
     """
     for shape in slide:
         if shape.shape_idx == element_id:
             return shape
-    raise IndexError(f"Cannot find element {element_id}, is it deleted or not exist?")
+    raise SlideEditError(f"Cannot find element {element_id}, is it deleted or not exist?")
+
+
+@dataclass
+class TextBlock:
+    text: str
+    bold: bool = False
+    italic: bool = False
+    code: bool = False
+    strikethrough: bool = False
+    href: str = None
+
+    def build_run(self, run: _Run):
+        if self.bold:
+            run.font.bold = True
+        if self.italic:
+            run.font.italic = True
+        if self.code:
+            run.font.name = "Consolas"
+        if self.strikethrough:
+            run.font.strikethrough = True
+        if self.href is not None:
+            run.hyperlink.address = self.href
+
+        run.text = self.text
+
+
+MARKDOWN_STYLES = {
+    "strong": "bold",
+    "em": "italic",
+    "code": "code",
+    "del": "strikethrough",
+}
+
+
+def process_element(element, styles=None) -> list[TextBlock]:
+    if styles is None:
+        styles = {}
+
+    result = []
+
+    if isinstance(element, str):
+        result.append(TextBlock(element, **styles))
+    else:
+        if element.name == "a":
+            new_styles = styles.copy()
+            for child in element.children:
+                blocks = process_element(child, new_styles)
+                for block in blocks:
+                    block.href = element.get("href")
+                result.extend(blocks)
+        elif MARKDOWN_STYLES.get(element.name):
+            new_styles = styles.copy()
+            new_styles[MARKDOWN_STYLES[element.name]] = True
+            for child in element.children:
+                result.extend(process_element(child, new_styles))
+        else:
+            for child in element.children:
+                result.extend(process_element(child, styles))
+
+    return result
 
 
 def replace_para(paragraph_id: int, new_text: str, shape: BaseShape):
@@ -198,7 +273,19 @@ def replace_para(paragraph_id: int, new_text: str, shape: BaseShape):
     Replace the text of a paragraph in a shape.
     """
     para = shape.text_frame.paragraphs[paragraph_id]
-    runs_merge(para).text = new_text
+    html = markdown(new_text)  # 添加 'extra' 扩展以支持更多格式
+    soup = BeautifulSoup(html, "html.parser")
+    blocks = process_element(soup)
+
+    empty_run = runs_merge(para)
+    empty_run.text = ""
+    runs = [
+        empty_run._r.addnext(parse_xml(empty_run._r.xml))
+        for _ in range(len(blocks) - 1)
+    ]
+    for block, run in zip(blocks, runs):
+        block.build_run(run)
+
 
 
 def clone_para(paragraph_id: int, shape: BaseShape):
@@ -228,7 +315,7 @@ def del_paragraph(slide: SlidePage, div_id: int, paragraph_id: int):
         paragraph_id (int): The ID of the paragraph to delete.
 
     Raises:
-        IndexError: If the paragraph is not found.
+        SlideEditError: If the paragraph is not found.
     """
     shape = element_index(slide, div_id)
     assert (
@@ -242,7 +329,7 @@ def del_paragraph(slide: SlidePage, div_id: int, paragraph_id: int):
             )
             return
     else:
-        raise IndexError(
+        raise SlideEditError(
             f"Cannot find the paragraph {paragraph_id} of the element {div_id},"
             "may refer to a non-existed paragraph or you haven't cloned enough paragraphs beforehand."
         )
@@ -272,7 +359,7 @@ def replace_paragraph(slide: SlidePage, div_id: int, paragraph_id: int, text: st
         text (str): The new text to replace with.
 
     Raises:
-        IndexError: If the paragraph is not found.
+        SlideEditError: If the paragraph is not found.
     """
     shape = element_index(slide, div_id)
     assert (
@@ -289,7 +376,7 @@ def replace_paragraph(slide: SlidePage, div_id: int, paragraph_id: int, text: st
             )
             return
     else:
-        raise IndexError(
+        raise SlideEditError(
             f"Cannot find the paragraph {paragraph_id} of the element {div_id},"
             "Please: "
             "1. check if you refer to a non-existed paragraph."
@@ -307,10 +394,10 @@ def replace_image(slide: SlidePage, img_id: int, image_path: str):
         image_path (str): The path to the new image.
 
     Raises:
-        ValueError: If the image path does not exist.
+        SlideEditError: If the image path does not exist.
     """
     if not os.path.exists(image_path):
-        raise ValueError(
+        raise SlideEditError(
             f"The image {image_path} does not exist, consider use del_image if image_path in the given command is faked"
         )
     shape = element_index(slide, img_id)
@@ -334,7 +421,7 @@ def clone_paragraph(slide: SlidePage, div_id: int, paragraph_id: int):
         paragraph_id (int): The ID of the paragraph to clone.
 
     Raises:
-        IndexError: If the paragraph is not found.
+        SlideEditError: If the paragraph is not found.
 
     Mention: the cloned paragraph will have a paragraph_id one greater than the current maximum in the parent element.
     """
@@ -356,7 +443,7 @@ def clone_paragraph(slide: SlidePage, div_id: int, paragraph_id: int):
             )
         )
         return
-    raise IndexError(
+    raise SlideEditError(
         f"Cannot find the paragraph {paragraph_id} of the element {div_id}, may refer to a non-existed paragraph."
     )
 
