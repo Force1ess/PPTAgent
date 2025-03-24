@@ -279,11 +279,9 @@ def replace_para(paragraph_id: int, new_text: str, shape: BaseShape):
 
     empty_run = runs_merge(para)
     empty_run.text = ""
-    runs = [
+    for _ in range(len(blocks) - 1):
         empty_run._r.addnext(parse_xml(empty_run._r.xml))
-        for _ in range(len(blocks) - 1)
-    ]
-    for block, run in zip(blocks, runs):
+    for block, run in zip(blocks, para.runs):
         block.build_run(run)
 
 

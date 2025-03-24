@@ -3,9 +3,9 @@ from test.conftest import test_config
 
 
 async def test_document_async():
-    with open(f"{test_config.pdf}/source.md", "r") as f:
+    with open(f"{test_config.document}/source.md", "r") as f:
         markdown_content = f.read()
-    image_dir = test_config.pdf
+    image_dir = test_config.document
     doc = await Document.from_markdown_async(
         markdown_content,
         test_config.language_model,
@@ -19,7 +19,7 @@ async def test_document_async():
 def test_document_from_dict():
     document = Document.from_dict(
         test_config.get_document_json(),
-        test_config.pdf,
+        test_config.document,
         False,
     )
     document.overview
@@ -35,7 +35,7 @@ def test_document_from_dict():
 def test_document_retrieve():
     document = Document.from_dict(
         test_config.get_document_json(),
-        test_config.pdf,
+        test_config.document,
         False,
     )
     outline = test_config.get_outline()
