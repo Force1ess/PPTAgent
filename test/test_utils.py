@@ -113,7 +113,7 @@ def test_ppt_to_images_conversion():
 
 
 def test_markdown_splits():
-    markdown_content = open(f"{test_config.pdf}/source.md", "r").read()
+    markdown_content = open(f"{test_config.document}/source.md", "r").read()
     chunks = split_markdown_to_chunks(markdown_content)
     assert len(chunks) == 5
     markdown_html = markdown(markdown_content, extensions=["tables"])

@@ -2,6 +2,10 @@
 
 This documentation provides an overview of the project structure, setup instructions, usage guidelines, and steps for reproducing experiments.
 
+<p align="center">
+  <img src="resource/EN-PPTAgent.drawio.pdf" alt="PPTAgent Workflow">
+</p>
+
 Table of Contents
 =================
 - [Documentation 📝](#documentation-)
@@ -102,7 +106,7 @@ pip install git+https://github.com/Force1ess/python-pptx
 
 ##### Generate Via Code
 
-For detailed information on programmatic generation, please refer to the `pptagent_ui/backend.py:ppt_gen` function.
+For detailed information on programmatic generation, please refer to the `pptagent_ui/backend.py:ppt_gen` and `test/test_pptgen.py`.
 
 ## Project Structure 📂
 

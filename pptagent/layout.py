@@ -104,7 +104,7 @@ class Layout:
         for el in self.elements:
             if el.variable_length is not None:
                 old_data[el.el_name] = el.variable_data[
-                    str(len(editor_output[el.el_name]["data"]))
+                    len(editor_output[el.el_name]["data"])
                 ]
             else:
                 old_data[el.el_name] = el.content

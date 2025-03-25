@@ -8,7 +8,7 @@ from pptagent.utils import Config, pjoin
 class TestConfig:
     def __init__(self):
         self.template = "resource/test/test_template"
-        self.pdf = "resource/test/test_pdf"
+        self.document = "resource/test/test_pdf"
         self.ppt = "resource/test/test.pptx"
         self.api_base = "http://api.cipsup.cn/v1"
 
@@ -28,11 +28,11 @@ class TestConfig:
 
     def get_document_json(self):
         """Load document JSON"""
-        return json.load(open(f"{self.pdf}/refined_doc.json", "r"))
+        return json.load(open(f"{self.document}/refined_doc.json", "r"))
 
     def get_outline(self):
         """Load outline data"""
-        return json.load(open(f"{self.pdf}/outline.json"))
+        return json.load(open(f"{self.document}/outline.json"))
 
 
 # Create a global instance

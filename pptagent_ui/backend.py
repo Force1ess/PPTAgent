@@ -377,6 +377,14 @@ async def test_connection(*models: AsyncLLM):
 if __name__ == "__main__":
     import uvicorn
 
+    api_base = os.environ.get("API_BASE", None)
+    language = os.environ.get("LANGUAGE", "gpt-4o")
+    vision = os.environ.get("VISION", "gpt-4o")
+    text = os.environ.get("TEXT", "text-embedding-3-small")
+    language_model = AsyncLLM(language, api_base)
+    vision_model = AsyncLLM(vision, api_base)
+    text_embedder = AsyncLLM(text, api_base)
+
     asyncio.run(test_connection(language_model, vision_model, text_embedder))
     ip = "0.0.0.0"
     uvicorn.run(app, host=ip, port=9297)

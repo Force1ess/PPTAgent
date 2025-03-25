@@ -4,6 +4,7 @@ from pptagent.presentation import Presentation
 from pptagent.utils import pjoin
 from test.conftest import test_config
 
+
 async def test_pptgen():
     pptgen = PPTAgent(
         test_config.text_embedder.to_sync(),
@@ -17,7 +18,7 @@ async def test_pptgen():
         slide_induction=test_config.get_slide_induction(),
     )
     document = Document.from_dict(
-        test_config.get_document_json(), test_config.pdf, False
+        test_config.get_document_json(), test_config.document, False
     )
     outline = test_config.get_outline()
     outline = [OutlineItem(**outline[2])]
@@ -38,7 +39,7 @@ async def test_pptgen_async():
     )
 
     document = Document.from_dict(
-        test_config.get_document_json(), test_config.pdf, False
+        test_config.get_document_json(), test_config.document, False
     )
     outline = test_config.get_outline()
     outline = [OutlineItem(**outline[2])]

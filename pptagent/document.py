@@ -6,7 +6,7 @@ from typing import Any, List, Optional, Dict
 from uuid import uuid4
 import asyncio
 
-from markdown import markdown
+from mistune import html as markdown
 from bs4 import BeautifulSoup
 from jinja2 import Environment, StrictUndefined
 
@@ -176,6 +176,9 @@ class Document:
         assert (
             "metadata" in data
         ), f"'metadata' key is required in data dictionary but was not found. Input keys: {list(data.keys())}"
+        assert (
+            pexists(image_dir)
+        ), f"image directory is not found: {image_dir}"
         document = cls(
             image_dir=image_dir,
             sections=[Section.from_dict(section) for section in data["sections"]],
@@ -217,6 +220,7 @@ class Document:
             )
             if retry < 3:
                 new_section = extractor.retry(str(e), traceback.format_exc(), retry + 1)
+                logger.info("Retry section with error: %s", str(e))
                 return cls._parse_chunk(
                     extractor, metadata, new_section, image_dir, num_medias, retry + 1
                 )
@@ -290,7 +294,7 @@ class Document:
         for chunk in split_markdown_to_chunks(markdown_content):
             if chunk["header"] is not None:
                 chunk["content"] = chunk["header"] + "\n" + chunk["content"]
-            markdown_html = markdown(chunk["content"], extensions=["tables"])
+            markdown_html = markdown(chunk["content"])
             soup = BeautifulSoup(markdown_html, "html.parser")
             num_medias = len(soup.find_all("img")) + len(soup.find_all("table"))
             _metadata, _section = cls._parse_chunk(
@@ -336,7 +340,7 @@ class Document:
         for chunk in split_markdown_to_chunks(markdown_content):
             if chunk["header"] is not None:
                 chunk["content"] = chunk["header"] + "\n" + chunk["content"]
-            markdown_html = markdown(chunk["content"], extensions=["tables"])
+            markdown_html = markdown(chunk["content"])
             soup = BeautifulSoup(markdown_html, "html.parser")
             num_medias = len(soup.find_all("img")) + len(soup.find_all("table"))
 

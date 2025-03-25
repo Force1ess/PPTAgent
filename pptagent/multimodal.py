@@ -99,13 +99,15 @@ class ImageLabler:
         for slide_index, slide in enumerate(self.presentation.slides):
             for shape in slide.shape_filter(Picture):
                 image_path = pbasename(shape.data[0])
+                if image_path != "pic_placeholder.png":
+                    size = PIL.Image.open(pjoin(self.config.IMAGE_DIR, image_path)).size
+                else:
+                    size = (400, 400)
                 self.image_stats[image_path] = {
                     "appear_times": 0,
                     "slide_numbers": set(),
                     "relative_area": shape.area / self.slide_area * 100,
-                    "size": PIL.Image.open(
-                        pjoin(self.config.IMAGE_DIR, image_path)
-                    ).size,
+                    "size": size,
                 }
                 self.image_stats[image_path]["appear_times"] += 1
                 self.image_stats[image_path]["slide_numbers"].add(slide_index + 1)
