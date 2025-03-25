@@ -1,6 +1,7 @@
 __pycache__
 olddata
 data
+tmp
 *ipynb
 .vscode
 oaib.txt

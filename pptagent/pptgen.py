@@ -127,10 +127,10 @@ class PPTGen(ABC):
                 generated_slides.append(slide)
                 code_executors.append(code_executor)
             except Exception as e:
-                logger.error(
-                    "Failed to generate slide, error_exit=%s",
+                logger.warning(
+                    "Failed to generate slide, error_exit=%s, error: %s",
                     self.error_exit,
-                    exc_info=e,
+                    str(e),
                 )
                 if self.error_exit:
                     succ_flag = False
@@ -188,11 +188,11 @@ class PPTGen(ABC):
                 source_doc.index(outline_item.indexs)
             return outline_items
         except Exception as e:
-            logger.error(
-                "Failed to generate outline, tried %d times, error_exit=%s",
+            logger.info(
+                "Failed to generate outline, tried %d/%d times, error: %s",
                 retry,
-                self.error_exit,
-                exc_info=e,
+                self.retry_times,
+                str(e),
             )
             if retry < self.retry_times:
                 new_outline = self.staffs["planner"].retry(
@@ -331,6 +331,12 @@ class PPTAgent(PPTGen):
                 self.presentation.slides[template_id - 1]
             )
             feedback = code_executor.execute_actions(edit_actions, edited_slide)
+            logger.info(
+                "Failed to generate slide, tried %d/%d times, error: %s",
+                error_idx + 1,
+                self.retry_times,
+                str(feedback),
+            )
             if feedback is None:
                 break
             if error_idx == self.retry_times:
@@ -476,10 +482,10 @@ class PPTAgentAsync(PPTGen):
         code_executors = []
         for result in slide_results:
             if isinstance(result, Exception):
-                logger.error(
-                    "Failed to generate slide, error_exit=%s",
+                logger.warning(
+                    "Failed to generate slide, error_exit=%s, error: %s",
                     self.error_exit,
-                    exc_info=result,
+                    str(result),
                 )
                 if self.error_exit:
                     succ_flag = False
@@ -538,11 +544,11 @@ class PPTAgentAsync(PPTGen):
                 source_doc.index(outline_item.indexs)
             return outline_items
         except Exception as e:
-            logger.error(
-                "Failed to generate outline, tried %d times, error_exit=%s",
+            logger.info(
+                "Failed to generate outline, tried %d/%d times, error: %s",
                 retry,
-                self.error_exit,
-                exc_info=e,
+                self.retry_times,
+                str(e),
             )
             if retry < self.retry_times:
                 new_outline = await self.staffs["planner"].retry(
@@ -624,6 +630,12 @@ class PPTAgentAsync(PPTGen):
                 self.presentation.slides[template_id - 1]
             )
             feedback = code_executor.execute_actions(edit_actions, edited_slide)
+            logger.info(
+                "Failed to generate slide, tried %d/%d times, error: %s",
+                error_idx + 1,
+                self.retry_times,
+                str(feedback),
+            )
             if feedback is None:
                 break
             if error_idx == self.retry_times:

@@ -37,7 +37,7 @@ dependencies = [
     "json_repair",
     "jsonlines",
     "lxml",
-    "markdown",
+    "mistune",
     "marker-pdf==1.1.0",
     "numpy",
     "oaib",

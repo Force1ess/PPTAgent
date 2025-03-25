@@ -176,6 +176,9 @@ class Document:
         assert (
             "metadata" in data
         ), f"'metadata' key is required in data dictionary but was not found. Input keys: {list(data.keys())}"
+        assert (
+            pexists(image_dir)
+        ), f"image directory is not found: {image_dir}"
         document = cls(
             image_dir=image_dir,
             sections=[Section.from_dict(section) for section in data["sections"]],
@@ -217,6 +220,7 @@ class Document:
             )
             if retry < 3:
                 new_section = extractor.retry(str(e), traceback.format_exc(), retry + 1)
+                logger.info("Retry section with error: %s", str(e))
                 return cls._parse_chunk(
                     extractor, metadata, new_section, image_dir, num_medias, retry + 1
                 )

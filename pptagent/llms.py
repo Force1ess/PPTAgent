@@ -266,12 +266,10 @@ class AsyncLLM(LLM):
             **client_kwargs,
         )
         completion = await self.client.run()
-        response = completion["result"][0]["choices"][0]["message"]["content"]
         assert (
             len(completion["result"]) == 1
-        ), "The length of completion result should be 1, but got {}.\nRacing condition may happened.".format(
-            len(completion["result"])
-        )
+        ), f"The length of completion result should be 1, but got {len(completion['result'])}.\nRace condition may have occurred if multiple values are returned.\nOr, there was an error in the LLM call, use the synchronous version to check."
+        response = completion["result"][0]["choices"][0]["message"]["content"]
         message.append({"role": "assistant", "content": response})
         return self.__post_process__(response, message, return_json, return_message)
 
