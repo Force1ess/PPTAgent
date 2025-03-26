@@ -159,7 +159,6 @@ class SlidePage:
                     closure.apply(build_shape)
                 except Exception as e:
                     raise ValueError(f"Failed to apply closures to slides: {e}")
-
         return slide
 
     def shape_filter(

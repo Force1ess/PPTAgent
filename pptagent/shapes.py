@@ -20,7 +20,7 @@ from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.enum.dml import MSO_FILL_TYPE
 from pptx.dml.fill import FillFormat
 from pptx.dml.line import LineFormat
-from pptagent.utils import (
+from utils import (
     IMAGE_EXTENSIONS,
     Config,
     dict_to_object,
@@ -395,7 +395,7 @@ class ShapeElement:
         self.style = style
         self.data = data
         self.text_frame = text_frame
-        self._closure_keys = ["clone", "replace", "delete", "style"]
+        self._closure_keys = ["clone", "replace", "delete", "style", "merge"]
         self._closures: Dict[str, List[Closure]] = {
             key: [] for key in self._closure_keys
         }
@@ -537,6 +537,7 @@ class ShapeElement:
         closures.extend(sorted(self._closures["clone"]))
         closures.extend(self._closures["replace"] + self._closures["style"])
         closures.extend(sorted(self._closures["delete"], reverse=True))
+        closures.extend(self._closures['merge'])
         return closures
 
     @property
@@ -815,7 +816,7 @@ class Picture(ShapeElement):
             slide_idx,
             shape_idx,
             style,
-            [img_path, shape.name, None],  # [img_path, name, caption]
+            [img_path, shape.name, None, None, None],  # [img_path, name, caption]
             text_frame,
             slide_area,
             level=level,
@@ -833,6 +834,9 @@ class Picture(ShapeElement):
             PPTXPicture: The built picture.
         """
         # Add picture to slide
+        if self.row and self.col:
+            return self.build_table(slide)
+        
         shape = slide.shapes.add_picture(
             self.img_path,
             **self.style["shape_bounds"],
@@ -848,6 +852,27 @@ class Picture(ShapeElement):
             shape.rotation = self.style["rotation"]
 
         return shape
+
+    def build_table(self, slide: PPTXSlide) -> PPTXPicture:
+        shape = slide.shapes.add_table(self.row, self.col, **self.style["shape_bounds"])
+        return shape
+        
+
+    @property
+    def row(self) -> int:
+        return self.data[3]
+    
+    @row.setter
+    def row(self, row_num: int):
+        self.data[3] = row_num
+
+    @property
+    def col(self) -> int:
+        return self.data[4]
+    
+    @col.setter
+    def col(self, col_num: int):
+        self.data[4] = col_num
 
     @property
     def img_path(self) -> str:

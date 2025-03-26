@@ -6,7 +6,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from enum import Enum
 from functools import partial
-from typing import Union
+from typing import Union, List, Tuple
 
 import PIL
 from bs4 import BeautifulSoup
@@ -16,6 +16,7 @@ from pptx.oxml import parse_xml
 from pptx.shapes.base import BaseShape
 from pptx.util import Pt
 from pptx.text.text import _Run
+from pptx.table import Table
 from pptagent.shapes import Closure, Picture, ShapeElement
 from pptagent.presentation import SlidePage
 from pptagent.utils import runs_merge, get_logger
@@ -285,7 +286,6 @@ def replace_para(paragraph_id: int, new_text: str, shape: BaseShape):
         block.build_run(run)
 
 
-
 def clone_para(paragraph_id: int, shape: BaseShape):
     """
     Clone a paragraph in a shape.
@@ -301,6 +301,16 @@ def del_para(paragraph_id: int, shape: BaseShape):
     para = shape.text_frame.paragraphs[paragraph_id]
     para._element.getparent().remove(para._element)
 
+def fill_data(table_data: List[List[int]], shape: BaseShape):
+    rows = len(table_data)
+    cols = len(table_data[0])
+    for i in range(rows):
+        for j in range(cols):
+            shape.table.cell(i, j).text = table_data[i][j]
+            
+def merge_cell(merge_area: List[int], shape: BaseShape):
+    min_row, min_col, max_row, max_col = merge_area
+    shape.table.cell(min_row, min_col).merge(shape.table.cell(max_row, max_col))
 
 # api functions
 def del_paragraph(slide: SlidePage, div_id: int, paragraph_id: int):
@@ -444,7 +454,41 @@ def clone_paragraph(slide: SlidePage, div_id: int, paragraph_id: int):
     raise SlideEditError(
         f"Cannot find the paragraph {paragraph_id} of the element {div_id}, may refer to a non-existed paragraph."
     )
+    
+def replace_image_with_table(slide, shape_idx, table_data):
+    shape = element_index(slide, shape_idx)
+    assert isinstance(shape, Picture), "The element is not a Picture."
+    
+    if not table_data or not all(isinstance(row, list) for row in table_data):
+        raise SlideEditError("Invalid table data")
+    rows, cols = len(table_data), len(table_data[0])
+    if rows == 0 or not all(len(row) == cols for row in table_data):
+        raise SlideEditError("Table data is empty or rows have inconsistent lengths")
+    
+    shape._closures['replace'].append(
+        Closure(partial(fill_data, table_data))
+        )
+    shape.col = cols
+    shape.row = rows
+    return 
 
+def merge_cells(slide, shape_idx, merge_cells):
+    shape = element_index(slide, shape_idx)
+
+    if not merge_cells or not all(isinstance(cell, tuple) and len(cell) == 2 for cell in merge_cells):
+        raise SlideEditError("Invalid merge_cells format, expected list of (row, col) tuples")
+
+    min_row = min(cell[0] for cell in merge_cells)
+    max_row = max(cell[0] for cell in merge_cells)
+    min_col = min(cell[1] for cell in merge_cells)
+    max_col = max(cell[1] for cell in merge_cells)
+    merge_area = [min_row, min_col, max_row, max_col]
+    
+    shape._closures['merge'].append(
+        Closure(partial(merge_cell, merge_area))
+    )
+    
+    return 
 
 class API_TYPES(Enum):
     Agent = [
