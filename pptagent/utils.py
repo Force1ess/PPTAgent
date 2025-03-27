@@ -301,7 +301,7 @@ def split_markdown_by_level(text: str, level: int = 1):
 
 
 def split_markdown_to_chunks(
-    markdown_text: str, max_length: int = 16384, max_level: int = 3
+    markdown_text: str, max_length: int = 32768, max_level: int = 3
 ) -> list[dict[str, str]]:
     """
     Split a markdown document into chunks of a maximum length.
@@ -361,7 +361,7 @@ def markdown_table_to_image(markdown_text: str, output_path: str):
     Returns:
     str: The path of the generated image
     """
-    html = markdown(markdown_text, extensions=["tables"])
+    html = markdown(markdown_text)
     assert "table" in html, "Failed to find table in markdown"
 
     parent_dir, basename = os.path.split(output_path)
