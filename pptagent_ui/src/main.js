@@ -5,7 +5,6 @@ import axios from 'axios'
 
 const app = createApp(App)
 
-axios.defaults.baseURL = '/api/'
 app.config.globalProperties.$axios = axios
 app.use(router)
 app.mount('#app')
