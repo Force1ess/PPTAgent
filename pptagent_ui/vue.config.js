@@ -10,5 +10,10 @@ module.exports = defineConfig({
       },
     },
     port: 8088
+  },
+  css: {
+    loaderOptions: {
+      postcss: { postcssOptions: { config: false } }
+    }
   }
 })
