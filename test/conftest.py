@@ -34,6 +34,10 @@ class TestConfig:
         """Load outline data"""
         return json.load(open(f"{self.document}/outline.json"))
 
+    def get_image_stats(self):
+        """Load captions data"""
+        return json.load(open(f"{self.template}/image_stats.json"))
+
 
 # Create a global instance
 test_config = TestConfig()

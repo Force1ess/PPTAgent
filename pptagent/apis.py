@@ -13,14 +13,17 @@ from bs4 import BeautifulSoup
 from mistune import html as markdown
 from pptx.oxml import parse_xml
 from pptx.shapes.base import BaseShape
+from pptx.shapes.graphfrm import GraphicFrame as PPTXGraphicFrame
 from pptx.text.text import _Run
 from pptx.util import Pt
 
+from pptagent.document import Document
 from pptagent.presentation import SlidePage
 from pptagent.shapes import Closure, Picture, ShapeElement
 from pptagent.utils import get_logger, runs_merge
 
 logger = get_logger(__name__)
+TABLE_REGEX = re.compile(r".*table_[0-9a-fA-F]{4}\.png$")
 
 
 class SlideEditError(Exception):
@@ -81,7 +84,7 @@ class CodeExecutor:
             str: The formatted API documentation.
         """
         if ignore_keys is None:
-            ignore_keys = {"slide", "self"}
+            ignore_keys = {"slide", "self", "doc"}
         api_doc = []
         for func in funcs:
             sig = inspect.signature(func)
@@ -107,7 +110,11 @@ class CodeExecutor:
         return "\n".join(api_doc)
 
     def execute_actions(
-        self, actions: str, edit_slide: SlidePage, found_code: bool = False
+        self,
+        actions: str,
+        edit_slide: SlidePage,
+        doc: Document,
+        found_code: bool = False,
     ) -> Union[tuple[str, str], None]:
         """
         Execute a series of actions on a slide.
@@ -159,6 +166,8 @@ class CodeExecutor:
                         )
                 self.code_history.append([HistoryMark.CODE_RUN_ERROR, line, None])
                 partial_func = partial(self.registered_functions[func], edit_slide)
+                if func == "replace_image":
+                    partial_func = partial(partial_func, doc)
                 eval(line, {}, {func: partial_func})
                 self.code_history[-1][0] = HistoryMark.CODE_RUN_CORRECT
             except Exception as e:
@@ -303,17 +312,17 @@ def del_para(paragraph_id: int, shape: BaseShape):
     para._element.getparent().remove(para._element)
 
 
-def fill_data(table_data: list[list[int]], shape: BaseShape):
+def add_table(table_data: list[list[str]], table: PPTXGraphicFrame):
     rows = len(table_data)
     cols = len(table_data[0])
     for i in range(rows):
         for j in range(cols):
-            shape.table.cell(i, j).text = table_data[i][j]
+            table.table.cell(i, j).text = table_data[i][j]
 
 
-def merge_cell(merge_area: list[int], shape: BaseShape):
-    min_row, min_col, max_row, max_col = merge_area
-    shape.table.cell(min_row, min_col).merge(shape.table.cell(max_row, max_col))
+def merge_cells(merge_area: list[list[int, int, int, int]], table: PPTXGraphicFrame):
+    for y1, x1, y2, x2 in merge_area:
+        table.table.cell(x1, y1).merge(table.table.cell(x2, y2))
 
 
 # api functions
@@ -396,7 +405,7 @@ def replace_paragraph(slide: SlidePage, div_id: int, paragraph_id: int, text: st
         )
 
 
-def replace_image(slide: SlidePage, img_id: int, image_path: str):
+def replace_image(slide: SlidePage, doc: Document, img_id: int, image_path: str):
     """
     Replace an image in a slide.
 
@@ -414,6 +423,15 @@ def replace_image(slide: SlidePage, img_id: int, image_path: str):
         )
     shape = element_index(slide, img_id)
     assert isinstance(shape, Picture), "The element is not a Picture."
+
+    try:
+        if TABLE_REGEX.match(image_path):
+            return replace_image_with_table(shape, doc, image_path)
+    except Exception as e:
+        logger.warning(
+            f"Failed to replace image with table element: {e}, fallback to use image directly."
+        )
+
     img_size = PIL.Image.open(image_path).size
     r = min(shape.width / img_size[0], shape.height / img_size[1])
     new_width = int(img_size[0] * r)
@@ -460,40 +478,12 @@ def clone_paragraph(slide: SlidePage, div_id: int, paragraph_id: int):
     )
 
 
-def replace_image_with_table(slide, shape_idx, table_data):
-    shape = element_index(slide, shape_idx)
-    assert isinstance(shape, Picture), "The element is not a Picture."
-
-    if not table_data or not all(isinstance(row, list) for row in table_data):
-        raise SlideEditError("Invalid table data")
-    rows, cols = len(table_data), len(table_data[0])
-    if rows == 0 or not all(len(row) == cols for row in table_data):
-        raise SlideEditError("Table data is empty or rows have inconsistent lengths")
-
-    shape._closures["replace"].append(Closure(partial(fill_data, table_data)))
-    shape.col = cols
-    shape.row = rows
-    return
-
-
-def merge_cells(slide, shape_idx, merge_cells):
-    shape = element_index(slide, shape_idx)
-
-    if not merge_cells or not all(
-        isinstance(cell, tuple) and len(cell) == 2 for cell in merge_cells
-    ):
-        raise SlideEditError(
-            "Invalid merge_cells format, expected list of (row, col) tuples"
-        )
-
-    min_row = min(cell[0] for cell in merge_cells)
-    max_row = max(cell[0] for cell in merge_cells)
-    min_col = min(cell[1] for cell in merge_cells)
-    max_col = max(cell[1] for cell in merge_cells)
-    merge_area = [min_row, min_col, max_row, max_col]
-
-    shape._closures["merge"].append(Closure(partial(merge_cell, merge_area)))
-
+def replace_image_with_table(shape: Picture, doc: Document, image_path: str):
+    table = doc.get_table(image_path)
+    shape.is_table = True
+    shape.grid = (len(table.cells), len(table.cells[0]))
+    shape._closures["replace"].append(Closure(partial(add_table, table.cells)))
+    shape._closures["merge"].append(Closure(partial(merge_cells, table.merge_area)))
     return
 
 

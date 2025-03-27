@@ -6,7 +6,7 @@ from pptagent.presentation import Presentation
 from pptagent.utils import pjoin
 
 
-async def test_pptgen():
+def test_pptgen():
     pptgen = PPTAgent(
         test_config.text_embedder.to_sync(),
         language_model=test_config.language_model.to_sync(),
@@ -43,5 +43,5 @@ async def test_pptgen_async():
         test_config.get_document_json(), test_config.document, False
     )
     outline = test_config.get_outline()
-    outline = [OutlineItem(**outline[2])]
+    outline = [OutlineItem(**outline[3])]
     await pptgen.generate_pres(document, outline=outline)

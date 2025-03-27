@@ -813,7 +813,7 @@ class Picture(ShapeElement):
             slide_idx,
             shape_idx,
             style,
-            [img_path, shape.name, None, None, None],  # [img_path, name, caption]
+            [img_path, shape.name, None],  # [img_path, name, caption]
             text_frame,
             slide_area,
             level=level,
@@ -831,8 +831,10 @@ class Picture(ShapeElement):
             PPTXPicture: The built picture.
         """
         # Add picture to slide
-        if self.row and self.col:
-            return self.build_table(slide)
+        if self.is_table:
+            return slide.shapes.add_table(
+                self.row, self.col, **self.style["shape_bounds"]
+            )
 
         shape = slide.shapes.add_picture(
             self.img_path,
@@ -850,25 +852,23 @@ class Picture(ShapeElement):
 
         return shape
 
-    def build_table(self, slide: PPTXSlide) -> PPTXPicture:
-        shape = slide.shapes.add_table(self.row, self.col, **self.style["shape_bounds"])
-        return shape
+    @property
+    def is_table(self) -> bool:
+        return self.style.get("is_table", False)
+
+    @is_table.setter
+    def is_table(self, value: bool) -> None:
+        self.style["is_table"] = value
 
     @property
-    def row(self) -> int:
-        return self.data[3]
+    def grid(self) -> tuple[int, int]:
+        assert self.is_table, "The shape is not a table."
+        return self.row, self.col
 
-    @row.setter
-    def row(self, row_num: int):
-        self.data[3] = row_num
-
-    @property
-    def col(self) -> int:
-        return self.data[4]
-
-    @col.setter
-    def col(self, col_num: int):
-        self.data[4] = col_num
+    @grid.setter
+    def grid(self, value: tuple[int, int]) -> None:
+        assert self.is_table, "The shape is not a table."
+        self.row, self.col = value
 
     @property
     def img_path(self) -> str:

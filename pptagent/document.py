@@ -3,8 +3,8 @@ import re
 import traceback
 from dataclasses import asdict, dataclass
 from datetime import datetime
+from hashlib import md5
 from typing import Any, Optional
-from uuid import uuid4
 
 import PIL
 from bs4 import BeautifulSoup
@@ -22,7 +22,6 @@ from pptagent.utils import (
     pexists,
     pjoin,
     split_markdown_to_chunks,
-    tenacity,
 )
 
 logger = get_logger(__name__)
@@ -37,6 +36,7 @@ MERGE_METADATA_PROMPT = env.from_string(
     open(package_join("prompts", "merge_metadata.txt")).read()
 )
 HEADING_ADJUST_PROMPT = env.from_string(open("./prompts/heading_adjust.txt").read())
+TABLE_PARSING_PROMPT = env.from_string(open("./prompts/table_parsing.txt").read())
 
 
 @dataclass
@@ -66,10 +66,56 @@ class Media:
         return PIL.Image.open(self.path).size
 
 
+@dataclass
 class Table(Media):
+    cells: Optional[list[list[str]]] = None
+    merge_area: Optional[list[tuple[int, int, int, int]]] = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]):
+        return cls(
+            markdown_content=data["markdown_content"],
+            markdown_caption=data["markdown_caption"],
+            path=data["path"],
+            caption=data["caption"],
+            cells=data["cells"],
+            merge_area=data["merge_area"],
+        )
+
+    def parse_table(self, language_model: LLM):
+        result = language_model(
+            TABLE_PARSING_PROMPT.render(markdown_table=self.markdown_content),
+            return_json=True,
+        )
+        self.cells = result["table_data"]
+        self.merge_area = result["merge_area"]
+
+    async def parse_table_async(self, language_model: AsyncLLM):
+        result = await language_model(
+            TABLE_PARSING_PROMPT.render(markdown_table=self.markdown_content),
+            return_json=True,
+        )
+        table_data = result["table_data"]
+        try:
+            assert set(result.keys()) == {
+                "table_data",
+                "merge_area",
+            }, "Invalid table parsing result, keys should be 'table_data' and 'merge_area', but got: {[key for key in result.keys()]}"
+            assert all(
+                len(row) == len(table_data[0]) for row in table_data
+            ), "Invalid table data, the number of columns in each row should be the same, but got: {[len(row) for row in table_data]}"
+            self.cells = table_data
+            self.merge_area = result["merge_area"]
+        except Exception as e:
+            logger.error("Failed to parse table, error: %s", str(e))
+            raise e
+
     def to_image(self, image_dir: str):
         if self.path is None:
-            self.path = pjoin(image_dir, f"table_{str(uuid4())[:4]}.png")
+            self.path = pjoin(
+                image_dir,
+                f"table_{md5(self.markdown_content.encode()).hexdigest()[:4]}.png",
+            )
         markdown_table_to_image(self.markdown_content, self.path)
         return self.path
 
@@ -85,11 +131,14 @@ class SubSection:
         assert (
             "title" in data and "content" in data
         ), f"'title' and 'content' keys are required in data dictionary but were not found. Input keys: {list(data.keys())}"
-        medias_chunks = data.get("medias", None)
+        medias_chunks: Optional[list[dict]] = data.get("medias", None)
         medias = []
         if medias_chunks is not None:
             for chunk in medias_chunks:
-                if chunk.get("path", None) is None:
+                if (
+                    chunk.get("path", None) is None
+                    or chunk.get("cells", None) is not None
+                ):
                     medias.append(Table.from_dict(chunk))
                 else:
                     medias.append(Media.from_dict(chunk))
@@ -171,6 +220,12 @@ class Document:
     def iter_medias(self):
         for section in self.sections:
             yield from section.iter_medias()
+
+    def get_table(self, image_path: str):
+        for media in self.iter_medias():
+            if media.path == image_path and isinstance(media, Table):
+                return media
+        raise ValueError(f"table not found: {image_path}")
 
     @classmethod
     def from_dict(
@@ -318,6 +373,7 @@ class Document:
                         markdown_caption=media.markdown_caption,
                     )
                 )
+                media.parse_table(language_model)
             else:
                 media.caption = vision_model(
                     IMAGE_CAPTION_PROMPT.render(
@@ -327,7 +383,6 @@ class Document:
                 )
         return document
 
-    @tenacity
     @classmethod
     async def from_markdown_async(
         cls,
@@ -343,7 +398,7 @@ class Document:
 
         parse_tasks = []
         headings = re.findall(r"^#+\s+.*", markdown_content, re.MULTILINE)
-        adjusted_headings = language_model(
+        adjusted_headings = await language_model(
             HEADING_ADJUST_PROMPT.render(headings=headings), return_json=True
         )
         assert len(headings) == len(
@@ -382,6 +437,7 @@ class Document:
                         markdown_caption=media.markdown_caption,
                     )
                 )
+                await media.parse_table_async(language_model)
             else:
                 task = vision_model(
                     IMAGE_CAPTION_PROMPT.render(

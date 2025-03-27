@@ -327,25 +327,25 @@ class PPTAgent(PPTGen):
             command_list="\n".join([str(i) for i in command_list]),
         )
         for error_idx in range(self.retry_times):
-            edited_slide: SlidePage = deepcopy(
-                self.presentation.slides[template_id - 1]
+            edit_slide: SlidePage = deepcopy(self.presentation.slides[template_id - 1])
+            feedback = code_executor.execute_actions(
+                edit_actions, edit_slide, self.source_doc
             )
-            feedback = code_executor.execute_actions(edit_actions, edited_slide)
+            if feedback is None:
+                break
             logger.info(
                 "Failed to generate slide, tried %d/%d times, error: %s",
                 error_idx + 1,
                 self.retry_times,
                 str(feedback),
             )
-            if feedback is None:
-                break
             if error_idx == self.retry_times:
                 raise Exception(
                     f"Failed to generate slide, tried too many times at editing\ntraceback: {feedback[1]}"
                 )
             edit_actions = self.staffs["coder"].retry(*feedback, error_idx + 1)
-        self.empty_prs.build_slide(edited_slide)
-        return edited_slide, code_executor
+        self.empty_prs.build_slide(edit_slide)
+        return edit_slide, code_executor
 
     def _generate_commands(self, editor_output: dict, layout: Layout, retry: int = 0):
         """
@@ -626,25 +626,26 @@ class PPTAgentAsync(PPTGen):
             command_list="\n".join([str(i) for i in command_list]),
         )
         for error_idx in range(self.retry_times):
-            edited_slide: SlidePage = deepcopy(
-                self.presentation.slides[template_id - 1]
+            edit_slide: SlidePage = deepcopy(self.presentation.slides[template_id - 1])
+            feedback = code_executor.execute_actions(
+                edit_actions, edit_slide, self.source_doc
             )
-            feedback = code_executor.execute_actions(edit_actions, edited_slide)
+            if feedback is None:
+                break
             logger.info(
                 "Failed to generate slide, tried %d/%d times, error: %s",
                 error_idx + 1,
                 self.retry_times,
                 str(feedback),
             )
-            if feedback is None:
-                break
+
             if error_idx == self.retry_times:
                 raise Exception(
                     f"Failed to generate slide, tried too many times at editing\ntraceback: {feedback[1]}"
                 )
             edit_actions = await self.staffs["coder"].retry(*feedback, error_idx + 1)
-        self.empty_prs.build_slide(edited_slide)
-        return edited_slide, code_executor
+        self.empty_prs.build_slide(edit_slide)
+        return edit_slide, code_executor
 
     async def _generate_commands(
         self, editor_output: dict, layout: Layout, retry: int = 0
