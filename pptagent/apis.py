@@ -11,6 +11,7 @@ from typing import Optional, Union
 import PIL
 from bs4 import BeautifulSoup
 from mistune import html as markdown
+from pptx.enum.text import PP_ALIGN
 from pptx.oxml import parse_xml
 from pptx.shapes.base import BaseShape
 from pptx.shapes.graphfrm import GraphicFrame as PPTXGraphicFrame
@@ -315,14 +316,30 @@ def del_para(paragraph_id: int, shape: BaseShape):
 def add_table(table_data: list[list[str]], table: PPTXGraphicFrame):
     rows = len(table_data)
     cols = len(table_data[0])
+
+    max_lengths = [max(len(row[j]) for row in table_data) for j in range(cols)]
+    total_length = sum(max_lengths)
+    for j in range(cols):
+        col_width = int((max_lengths[j] / total_length) * table.width)
+        table.table.columns[j].width = col_width
+
     for i in range(rows):
         for j in range(cols):
             table.table.cell(i, j).text = table_data[i][j]
 
 
-def merge_cells(merge_area: list[list[int, int, int, int]], table: PPTXGraphicFrame):
+def merge_cells(merge_area: list[tuple[int, int, int, int]], table: PPTXGraphicFrame):
+    if merge_area is None or len(merge_area) == 0:
+        return
     for y1, x1, y2, x2 in merge_area:
-        table.table.cell(x1, y1).merge(table.table.cell(x2, y2))
+        try:
+            table.table.cell(x1, y1).merge(table.table.cell(x2, y2))
+            for x, y in zip(range(x1, x2 + 1), range(y1, y2 + 1)):
+                tf = table.table.cell(x, y).text_frame
+                for p in tf.paragraphs:
+                    p.alignment = PP_ALIGN.CENTER
+        except Exception as e:
+            logger.warning(f"Failed to merge cells: {e}")
 
 
 # api functions
