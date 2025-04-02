@@ -275,7 +275,12 @@ class PPTAgent(PPTGen):
         available_layouts = "\n".join(
             [layout.overview for layout in self.layouts.values()]
         )
-        _, key_points = self.staffs["content_organizer"](content_source=content_source)
+        if len(content_source) == 0:
+            key_points = []
+        else:
+            _, key_points = self.staffs["content_organizer"](
+                content_source=content_source
+            )
         slide_content = json.dumps(key_points, indent=2, ensure_ascii=False)
         if len(images) > 0:
             slide_content += "\nImages:\n" + "\n".join(images)
@@ -586,9 +591,12 @@ class PPTAgentAsync(PPTGen):
         available_layouts = "\n".join(
             [layout.overview for layout in self.layouts.values()]
         )
-        _, key_points = await self.staffs["content_organizer"](
-            content_source=content_source
-        )
+        if len(content_source) == 0:
+            key_points = []
+        else:
+            _, key_points = await self.staffs["content_organizer"](
+                content_source=content_source
+            )
         slide_content = json.dumps(key_points, indent=2, ensure_ascii=False)
         if len(images) > 0:
             slide_content += "\nImages:\n" + "\n".join(images)
