@@ -320,7 +320,7 @@ class SlideInducterAsync(SlideInducter):
                         raise ValueError(f"Missing data field in {key}\n{schema[key]}")
                     if not schema[key]["data"]:
                         logger.warning("Removing empty schema: %s", key)
-                        del schema[key]
+                        schema.pop(key)
                 
                 if not schema:
                     raise ValueError(f"Empty schema generated for layout {layout_name}")
