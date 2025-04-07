@@ -1,3 +1,4 @@
+import asyncio
 import os
 from collections import defaultdict
 
@@ -297,22 +298,34 @@ class SlideInducterAsync(SlideInducter):
         content_induct_prompt = Template(
             open(package_join("prompts", "content_induct.txt")).read()
         )
+        
+        tasks = {}
         for layout_name, cluster in layout_induction.items():
             if "template_id" in cluster and "content_schema" not in cluster:
-                schema = await self.language_model(
-                    content_induct_prompt.render(
-                        slide=self.prs.slides[cluster["template_id"] - 1].to_html(
-                            element_id=False, paragraph_id=False
-                        )
-                    ),
-                    return_json=True,
+                slide = self.prs.slides[cluster["template_id"] - 1].to_html(
+                    element_id=False, paragraph_id=False
                 )
-                for k in list(schema.keys()):
-                    if "data" not in schema[k]:
-                        raise ValueError(f"Cannot find `data` in {k}\n{schema[k]}")
-                    if len(schema[k]["data"]) == 0:
-                        logger.warning("Empty content schema: %s", schema[k])
-                        schema.pop(k)
-                assert len(schema) > 0, "No content schema generated"
+                task = self.language_model(
+                    content_induct_prompt.render(slide=slide),
+                    return_json=True
+                )
+                tasks[layout_name] = task
+
+        if tasks:
+            results = await asyncio.gather(*tasks.values())
+            for layout_name, schema in zip(tasks.keys(), results):
+                # Validate schema structure
+                for key in list(schema.keys()):
+                    if "data" not in schema[key]:
+                        raise ValueError(f"Missing data field in {key}\n{schema[key]}")
+                    if not schema[key]["data"]:
+                        logger.warning("Removing empty schema: %s", key)
+                        del schema[key]
+                
+                if not schema:
+                    raise ValueError(f"Empty schema generated for layout {layout_name}")
+                
                 layout_induction[layout_name]["content_schema"] = schema
+                logger.debug("Updated content schema for %s", layout_name)
+
         return layout_induction
