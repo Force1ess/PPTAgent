@@ -4,6 +4,7 @@ This documentation provides an overview of the project structure, setup instruct
 
 <p align="center">
   <img src="resource/PPTAgent-workflow.jpg" alt="PPTAgent Workflow">
+  <b>Figure: Workflow Illustration of PPTAgent:v0.0.1</b>
 </p>
 
 Table of Contents
@@ -54,6 +55,9 @@ For a quick test, use the example in `resource/test/test_(pdf|template)` to save
 </table>
 
 ### Docker 🐳
+
+> [!CAUTION]
+> As we cannot update the Docker image promptly, we recommend building your own Docker image instead.
 
 > [!NOTE]
 > When using a remote server, ensure both ports `8088` and `9297` are forwarded.
@@ -123,14 +127,15 @@ For detailed information on programmatic generation, please refer to the `pptage
 
 ```
 PPTAgent/
+├── presentation/                   # Parse PowerPoint files
+├── document/                       # Organize markdown document
 ├── pptagent/
 │   ├── apis.py                     # API and CodeExecutor
-│   ├── llms.py                     # LLM services initialization
-│   ├── presentation.py & shapes.py # Parse PowerPoint files
+│   ├── agent.py                    # Defines the `Agent` and `AsyncAgent`
+│   ├── llms.py                     # Defines the `LLM` and `AsyncLLM`
 │   ├── induct.py                   # Presentation analysis (Stage Ⅰ)
 │   ├── pptgen.py                   # Presentation generation (Stage Ⅱ)
 │   ├── layout.py                   # Definition of the layout in pptxs
-│   ├── document.py                 # Parse and organize markdown document
 ├── pptagent_ui/                    # UI for PPTAgent
 |   ├── src/                        # Frontend source code
 │   ├── backend.py                  # Backend server
