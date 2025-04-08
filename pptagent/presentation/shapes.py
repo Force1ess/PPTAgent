@@ -1,5 +1,6 @@
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from enum import Enum, auto
 from typing import Callable, Optional, TypeVar, Union
 
 from lxml import etree
@@ -36,6 +37,21 @@ from pptagent.utils import (
 
 INDENT = "\t"
 T = TypeVar("T", bound="ShapeElement")
+
+
+class ClosureKeys(Enum):
+    CLONE = auto()
+    REPLACE = auto()
+    DELETE = auto()
+    STYLE = auto()
+    MERGE = auto()
+
+    def __str__(self):
+        return self.name.lower()
+
+    @classmethod
+    def to_default_dict(cls):
+        return {key: [] for key in cls}
 
 
 @dataclass
@@ -371,45 +387,30 @@ class TextFrame:
         return len(self.text)
 
 
+@dataclass
 class ShapeElement:
     """
     Base class for shape elements in a presentation.
     """
 
-    def __init__(
-        self,
-        slide_idx: int,
-        shape_idx: int,
-        style: dict,
-        data: list,
-        text_frame: TextFrame,
-        slide_area: float,
-        level: int,
-    ):
-        """
-        Initialize a ShapeElement.
+    slide_idx: int
+    shape_idx: int
+    style: dict
+    data: list
+    text_frame: TextFrame
+    slide_area: float
+    level: int
+    _closures: dict[ClosureKeys, list[Closure]] = field(
+        default_factory=ClosureKeys.to_default_dict
+    )
+    xml: Optional[str] = None
+    fill: Optional[Fill] = None
+    line: Optional[Line] = None
 
-        Args:
-            slide_idx (int): The index of the slide.
-            shape_idx (int): The index of the shape.
-            style (Dict): The style of the shape.
-            data (List): The data of the shape.
-            text_frame (TextFrame): The text frame of the shape.
-            slide_area (float): The area of the slide.
-            level (int): The indentation level.
-        """
-        self.slide_idx = slide_idx
-        self.shape_idx = shape_idx
-        self.style = style
-        self.data = data
-        self.text_frame = text_frame
-        self._closure_keys = ["clone", "replace", "delete", "style", "merge"]
-        self._closures: dict[str, list[Closure]] = {
-            key: [] for key in self._closure_keys
-        }
-        self.slide_area = slide_area
-        self.level = level
-        self.xml = None  # Will be set in from_shape
+    def post_init(self, shape: BaseShape, config: Config):
+        self.xml = shape._element.xml
+        self.fill = Fill.from_shape(getattr(shape, "fill", None), shape.part, config)
+        self.line = Line.from_shape(getattr(shape, "line", None), shape.part, config)
 
     @classmethod
     def from_shape(
@@ -479,11 +480,8 @@ class ShapeElement:
             slide_area,
             level,
         )
+        obj.post_init(shape, config)
 
-        # Store XML for later use
-        obj.xml = shape._element.xml
-        obj.fill = Fill.from_shape(getattr(shape, "fill", None), shape.part, config)
-        obj.line = Line.from_shape(getattr(shape, "line", None), shape.part, config)
         # ? This is for debug use, mask to enable pickling
         # obj.shape = shape
         return obj
@@ -542,10 +540,12 @@ class ShapeElement:
             List[Closure]: A list of closures.
         """
         closures = []
-        closures.extend(sorted(self._closures["clone"]))
-        closures.extend(self._closures["replace"] + self._closures["style"])
-        closures.extend(sorted(self._closures["delete"], reverse=True))
-        closures.extend(self._closures["merge"])
+        closures.extend(sorted(self._closures[ClosureKeys.CLONE]))
+        closures.extend(
+            self._closures[ClosureKeys.REPLACE] + self._closures[ClosureKeys.STYLE]
+        )
+        closures.extend(sorted(self._closures[ClosureKeys.DELETE], reverse=True))
+        closures.extend(self._closures[ClosureKeys.MERGE])
         return closures
 
     @property
