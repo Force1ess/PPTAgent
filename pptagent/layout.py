@@ -160,9 +160,13 @@ class Layout:
                         LENGTHY_REWRITE_PROMPT.render(
                             el_name=el_name,
                             content=el_data["data"],
-                            suggested_characters=self[el_name].suggested_characters,
-                        )
+                            suggested_characters=f"{self[el_name].suggested_characters} characters",
+                        ),
+                        return_json=True,
                     )
+                    assert isinstance(
+                        el_data["data"], list
+                    ), f"Generated data is lengthy, expect {self[el_name].suggested_characters} characters, but got {len(el_data['data'])} characters for element {el_name}"
 
     async def validate_length_async(
         self, editor_output: dict, length_factor: float, language_model: AsyncLLM
@@ -181,16 +185,18 @@ class Layout:
                                 LENGTHY_REWRITE_PROMPT.render(
                                     el_name=el_name,
                                     content=el_data["data"],
-                                    suggested_characters=self[
-                                        el_name
-                                    ].suggested_characters,
-                                )
+                                    suggested_characters=f"{self[el_name].suggested_characters} characters",
+                                ),
+                                return_json=True,
                             )
                         )
                         tasks[el_name] = task
 
             for el_name, task in tasks.items():
                 editor_output[el_name]["data"] = await task
+                assert isinstance(
+                    editor_output[el_name]["data"], list
+                ), f"Generated data is lengthy, expect {self[el_name].suggested_characters} characters, but got {len(editor_output[el_name]['data'])} characters for element {el_name}"
 
     @property
     def content_schema(self):

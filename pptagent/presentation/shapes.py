@@ -62,6 +62,7 @@ class StyleArg:
     geometry: bool = False
     show_name: bool = False
     show_image: bool = True
+    show_empty: bool = False
     show_content: bool = True
     show_semantic_name: bool = False
 
@@ -578,6 +579,15 @@ class ShapeElement:
             f"to_html not implemented for {self.__class__.__name__}"
         )
 
+    @property
+    def text(self) -> str:
+        """
+        Get the text of the shape element.
+        """
+        if self.text_frame.is_textframe:
+            return self.text_frame.text
+        return ""
+
     def __getstate__(self) -> object:
         state = self.__dict__.copy()
         state["shape"] = None
@@ -804,6 +814,8 @@ class TextBox(ShapeElement):
         content = self.text_frame.to_html(style_args)
         if not style_args.show_content:
             content = ""
+        if not content and not style_args.show_empty:
+            return ""
         return (
             f"{self.indent}<div{self.get_inline_style(style_args)}>\n"
             + content
@@ -1095,10 +1107,12 @@ class FreeShape(ShapeElement):
         Returns:
             str: The HTML representation of the free shape.
         """
-        textframe = self.text_frame.to_html(style_args)
+        content = self.text_frame.to_html(style_args)
+        if not content and not style_args.show_empty:
+            return ""
         return (
             f"{self.indent}<div {self.get_inline_style(style_args)}>"
-            + f"\n{textframe}"
+            + f"\n{content}"
             + f"\n{self.indent}</div>"
         )
 

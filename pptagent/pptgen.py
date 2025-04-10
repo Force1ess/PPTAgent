@@ -204,6 +204,7 @@ class PPTGen(ABC):
                 self.retry_times,
                 str(e),
             )
+            logger.debug(traceback.format_exc())
             if retry < self.retry_times:
                 new_outline = self.staffs["planner"].retry(
                     str(e), traceback.format_exc(), turn_id, retry + 1
@@ -392,6 +393,7 @@ class PPTGenAsync(PPTGen):
                 self.retry_times,
                 str(e),
             )
+            logger.debug(traceback.format_exc())
             if retry < self.retry_times:
                 new_outline = await self.staffs["planner"].retry(
                     str(e), traceback.format_exc(), turn_id, retry + 1
@@ -460,13 +462,15 @@ class PPTAgent(PPTGen):
         slide_content = json.dumps(key_points, indent=2, ensure_ascii=False)
         if len(images) > 0 and target_slide.get_content_type() == "image":
             slide_content += "\nImages:\n" + "\n".join(images)
-        _, copilot_output = self.staffs["copilot"](
+        turn_id, copilot_output = self.staffs["copilot"](
             query=query,
             retr_chunks=slide_content,
             schema=layout.content_schema,
             slide_content=target_slide.to_html(),
         )
-        command_list, template_id = self._generate_commands(copilot_output, layout)
+        command_list, template_id = self._generate_commands(
+            copilot_output, layout, turn_id
+        )
         return self._edit_slide(command_list, template_id)
 
     def _select_layout(
@@ -529,21 +533,23 @@ class PPTAgent(PPTGen):
         Returns:
             tuple[list, int]: The generated command list and template id.
         """
-        _, editor_output = self.staffs["editor"](
+        turn_id, editor_output = self.staffs["editor"](
             outline=self.simple_outline,
             slide_description=slide_description,
             metadata=self.source_doc.metainfo,
             slide_content=slide_content,
             schema=layout.content_schema,
         )
-        command_list, template_id = self._generate_commands(editor_output, layout)
+        command_list, template_id = self._generate_commands(
+            editor_output, layout, turn_id
+        )
         return command_list, template_id
 
     def _edit_slide(
         self, command_list: list, template_id: int
     ) -> tuple[SlidePage, CodeExecutor]:
         code_executor = CodeExecutor(self.retry_times)
-        coder_turn_id, edit_actions = self.staffs["coder"](
+        turn_id, edit_actions = self.staffs["coder"](
             api_docs=code_executor.get_apis_docs(API_TYPES.Agent.value),
             edit_target=self.presentation.slides[template_id - 1].to_html(),
             command_list="\n".join([str(i) for i in command_list]),
@@ -561,17 +567,20 @@ class PPTAgent(PPTGen):
                 self.retry_times,
                 str(feedback[1]),
             )
+            logger.debug(traceback.format_exc())
             if error_idx == self.retry_times:
                 raise Exception(
                     f"Failed to generate slide, tried too many times at editing\ntraceback: {feedback[1]}"
                 )
             edit_actions = self.staffs["coder"].retry(
-                feedback[0], feedback[1], coder_turn_id, error_idx + 1
+                feedback[0], feedback[1], turn_id, error_idx + 1
             )
         self.empty_prs.build_slide(edit_slide)
         return edit_slide, code_executor
 
-    def _generate_commands(self, editor_output: dict, layout: Layout, retry: int = 0):
+    def _generate_commands(
+        self, editor_output: dict, layout: Layout, turn_id: int, retry: int = 0
+    ):
         """
         Generate commands for editing the slide content.
 
@@ -599,9 +608,10 @@ class PPTAgent(PPTGen):
                 new_output = self.staffs["editor"].retry(
                     e,
                     traceback.format_exc(),
+                    turn_id,
                     retry + 1,
                 )
-                return self._generate_commands(new_output, layout, retry + 1)
+                return self._generate_commands(new_output, layout, turn_id, retry + 1)
             elif retry > self.retry_times:
                 logger.error("Buggy condition, retry times > max_retry_times")
                 raise Exception(
@@ -694,14 +704,14 @@ class PPTAgentAsync(PPTGenAsync):
         if len(images) > 0 and target_slide.get_content_type() == "image":
             slide_content += "\nImages:\n" + "\n".join(images)
 
-        _, copilot_output = await self.staffs["copilot"](
+        turn_id, copilot_output = await self.staffs["copilot"](
             query=query,
             retr_chunks=slide_content,
             schema=layout.content_schema,
             slide_content=target_slide.to_html(),
         )
         command_list, template_id = await self._generate_commands(
-            copilot_output, layout, 0
+            copilot_output, layout, turn_id
         )
         return await self._edit_slide(command_list, template_id)
 
@@ -758,7 +768,7 @@ class PPTAgentAsync(PPTGenAsync):
         """
         Asynchronously generate content for the slide.
         """
-        editor_turn_id, editor_output = await self.staffs["editor"](
+        turn_id, editor_output = await self.staffs["editor"](
             outline=self.simple_outline,
             slide_description=slide_description,
             metadata=self.source_doc.metainfo,
@@ -766,7 +776,7 @@ class PPTAgentAsync(PPTGenAsync):
             schema=layout.content_schema,
         )
         command_list, template_id = await self._generate_commands(
-            editor_output, layout, editor_turn_id
+            editor_output, layout, turn_id
         )
         return command_list, template_id
 
@@ -777,7 +787,7 @@ class PPTAgentAsync(PPTGenAsync):
         Asynchronously edit the slide.
         """
         code_executor = CodeExecutor(self.retry_times)
-        coder_turn_id, edit_actions = await self.staffs["coder"](
+        turn_id, edit_actions = await self.staffs["coder"](
             api_docs=code_executor.get_apis_docs(API_TYPES.Agent.value),
             edit_target=self.presentation.slides[template_id - 1].to_html(),
             command_list="\n".join([str(i) for i in command_list]),
@@ -796,12 +806,13 @@ class PPTAgentAsync(PPTGenAsync):
                 self.retry_times,
                 str(feedback[1]),
             )
+            logger.debug(traceback.format_exc())
             if error_idx == self.retry_times:
                 raise Exception(
                     f"Failed to generate slide, tried too many times at editing\ntraceback: {feedback[1]}"
                 )
             edit_actions = await self.staffs["coder"].retry(
-                feedback[0], feedback[1], coder_turn_id, error_idx + 1
+                feedback[0], feedback[1], turn_id, error_idx + 1
             )
         self.empty_prs.build_slide(edit_slide)
         return edit_slide, code_executor
