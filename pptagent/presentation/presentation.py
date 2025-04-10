@@ -202,12 +202,14 @@ class SlidePage:
         """
         if style_args is None:
             style_args = StyleArg(**kwargs)
+        shapes_html = [shape.to_html(style_args) for shape in self.shapes]
+        shapes_html = [html for html in shapes_html if html]
         return "".join(
             [
                 "<!DOCTYPE html>\n<html>\n",
                 (f"<title>{self.slide_title}</title>\n" if self.slide_title else ""),
                 f'<body style="width:{self.slide_width}pt; height:{self.slide_height}pt;">\n',
-                "\n".join([shape.to_html(style_args) for shape in self.shapes]),
+                "\n".join(shapes_html),
                 "</body>\n</html>\n",
             ]
         )

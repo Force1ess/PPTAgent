@@ -37,7 +37,7 @@ def get_logger(name="pptagent", level=None):
         logging.Logger: A configured logger instance.
     """
     if level is None:
-        level = os.environ.get("LOG_LEVEL", logging.INFO)
+        level = int(os.environ.get("LOG_LEVEL", logging.INFO))
 
     logger = logging.getLogger(name)
     logger.setLevel(level)
@@ -201,6 +201,11 @@ def get_json_from_response(response: str) -> dict[str, Any]:
         Exception: If JSON cannot be extracted from the response.
     """
     response = response.strip()
+
+    try:
+        return json_repair.loads(response)
+    except Exception:
+        pass
 
     # Try to extract JSON from markdown code blocks
     l, r = response.rfind("```json"), response.rfind("```")
