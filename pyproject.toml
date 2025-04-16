@@ -30,6 +30,7 @@ dependencies = [
     "beautifulsoup4",
     "einops",
     "func_argparse",
+    "html2image",
     "jinja2",
     "json_repair",
     "jsonlines",
@@ -50,6 +51,7 @@ dependencies = [
     "sentencepiece",
     "socksio",
     "tenacity",
+    "tiktoken",
     "timm",
     "transformers",
 ]
