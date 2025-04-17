@@ -433,3 +433,12 @@ class Presentation:
         Get the number of slides in the presentation.
         """
         return len(self.slides)
+
+    def __getstate__(self) -> object:
+        state = self.__dict__.copy()
+        state["prs"] = None
+        return state
+
+    def __setstate__(self, state: object):
+        self.__dict__.update(state)
+        self.prs = load_prs(self.source_file)

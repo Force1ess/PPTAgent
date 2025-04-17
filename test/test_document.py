@@ -3,6 +3,22 @@ from test.conftest import test_config
 from pptagent.document import Document, OutlineItem, Table
 
 
+def test_document():
+    with open(f"{test_config.document}/source.md") as f:
+        markdown_content = f.read()
+    image_dir = test_config.document
+    doc = Document.from_markdown(
+        markdown_content,
+        test_config.language_model.to_sync(),
+        test_config.vision_model.to_sync(),
+        image_dir,
+    )
+    doc.overview
+    doc.metainfo
+    assert len(list(doc.iter_medias())) == 3
+    assert sum(isinstance(media, Table) for media in doc.iter_medias()) == 1
+
+
 async def test_document_async():
     with open(f"{test_config.document}/source.md") as f:
         markdown_content = f.read()
