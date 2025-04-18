@@ -46,7 +46,6 @@ dependencies = [
     "peft",
     "pillow",
     "PyPDF2",
-    "pytest-asyncio",
     "python-Levenshtein",
     "python-multipart",
     "python-pptx @ git+https://github.com/Force1ess/python-pptx@219513d7d81a61961fc541578c1857d08b43aa2a",
@@ -70,3 +69,6 @@ include-package-data = true
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "llm: mark test as using LLM (requires OPENAI_API_KEY)",
+]

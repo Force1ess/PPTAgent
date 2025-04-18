@@ -417,7 +417,7 @@ class Presentation:
         return "\n----\n".join(
             [
                 (
-                    f"Slide {slide.slide_idx} of {len(self.prs.slides)}\n"
+                    f"Slide {slide.slide_idx} of {len(self.slides)}\n"
                     + (f"Title:{slide.slide_title}\n" if slide.slide_title else "")
                     + slide.to_text(show_image)
                 )
@@ -437,8 +437,10 @@ class Presentation:
     def __getstate__(self) -> object:
         state = self.__dict__.copy()
         state["prs"] = None
+        state["layout_mapping"] = None
         return state
 
     def __setstate__(self, state: object):
         self.__dict__.update(state)
         self.prs = load_prs(self.source_file)
+        self.layout_mapping = {layout.name: layout for layout in self.prs.slide_layouts}
