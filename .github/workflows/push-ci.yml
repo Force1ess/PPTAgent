@@ -6,6 +6,7 @@ on:
 
 jobs:
   test:
+    if: github.repository == 'icip-cas/pptagent'
     runs-on: ubuntu-latest
 
     env:
