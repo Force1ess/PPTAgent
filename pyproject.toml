@@ -68,7 +68,7 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["pptagent"]
+include = ["pptagent*"]
 exclude = ["pptagent_ui"]
 
 [tool.setuptools.package-data]
