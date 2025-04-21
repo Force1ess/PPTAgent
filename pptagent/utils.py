@@ -532,7 +532,7 @@ def package_join(*paths: str) -> str:
     Returns:
         str: The joined path.
     """
-    _dir = pdirname(pdirname(__file__))
+    _dir = pdirname(__file__)
     return pjoin(_dir, *paths)
 
 

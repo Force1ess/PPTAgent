@@ -1,8 +1,10 @@
+import traceback
 from collections.abc import Generator
 from copy import deepcopy
 from typing import Literal, Optional
 
 from pptx import Presentation as load_prs
+from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.shapes.base import BaseShape
 from pptx.shapes.group import GroupShape as PPTXGroupShape
 from pptx.slide import Slide as PPTXSlide
@@ -16,7 +18,6 @@ from .shapes import (
     Picture,
     ShapeElement,
     StyleArg,
-    T,
 )
 
 # Type variable for ShapeElement subclasses
@@ -84,6 +85,7 @@ class SlidePage:
         slide_width: int,
         slide_height: int,
         config: Config,
+        shape_cast: Optional[dict[MSO_SHAPE_TYPE, type[ShapeElement]]] = None,
     ) -> "SlidePage":
         """
         Create a SlidePage from a PPTXSlide.
@@ -95,18 +97,23 @@ class SlidePage:
             slide_width (int): The width of the slide.
             slide_height (int): The height of the slide.
             config (Config): The configuration object.
-
+            shape_cast (dict[MSO_SHAPE_TYPE, type[ShapeElement]] | None): Optional mapping of shape types to their corresponding ShapeElement classes.
+            Set the value to None for any MSO_SHAPE_TYPE to exclude that shape type from processing.
         Returns:
             SlidePage: The created SlidePage.
         """
         backgrounds = [Background.from_slide(slide, config)]
-        shapes = [
-            ShapeElement.from_shape(
-                slide_idx, i, shape, config, slide_width * slide_height
+        shapes = []
+        for i, shape in enumerate(slide.shapes):
+            if not shape.visible:
+                continue
+            if shape_cast is not None and shape_cast.get(shape.shape_type, -1) is None:
+                continue
+            shapes.append(
+                ShapeElement.from_shape(
+                    slide_idx, i, shape, config, slide_width * slide_height, shape_cast
+                )
             )
-            for i, shape in enumerate(slide.shapes)
-            if shape.visible
-        ]
         for i, s in enumerate(shapes):
             if isinstance(s, Picture) and s.area / s.slide_area > 0.95:
                 backgrounds.append(shapes.pop(i))
@@ -165,19 +172,22 @@ class SlidePage:
 
     def shape_filter(
         self,
-        shape_type: type[T],
+        shape_type: type[ShapeElement],
         from_groupshape: bool = True,
         return_father: bool = False,
-    ) -> Generator[T, None, None] | Generator[tuple["SlidePage", T], None, None]:
+    ) -> (
+        Generator[ShapeElement, None, None]
+        | Generator[tuple["SlidePage", ShapeElement], None, None]
+    ):
         """
         Filter shapes in the slide by type.
 
         Args:
-            shape_type (Type[T]): The type of shapes to filter.
+            shape_type (Type[ShapeElement]): The type of shapes to filter.
             shapes (Optional[List[ShapeElement]]): The shapes to filter.
 
         Yields:
-            T: The filtered shapes.
+            ShapeElement: The filtered shapes.
         """
         for shape in self.shapes:
             if isinstance(shape, shape_type):
@@ -305,14 +315,20 @@ class Presentation:
         self.prs.core_properties.last_modified_by = "PPTAgent"
 
     @classmethod
-    def from_file(cls, file_path: str, config: Config) -> "Presentation":
+    def from_file(
+        cls,
+        file_path: str,
+        config: Config,
+        shape_cast: Optional[dict[MSO_SHAPE_TYPE, type[ShapeElement]]] = None,
+    ) -> "Presentation":
         """
         Parse a Presentation from a file.
 
         Args:
             file_path (str): The path to the presentation file.
             config (Config): The configuration object.
-
+            shape_cast (dict[MSO_SHAPE_TYPE, type[ShapeElement]] | None): Optional mapping of shape types to their corresponding ShapeElement classes.
+            Set the value to None for any MSO_SHAPE_TYPE to exclude that shape type from processing.
         Returns:
             Presentation: The parsed Presentation.
         """
@@ -344,6 +360,7 @@ class Presentation:
                         slide_width.pt,
                         slide_height.pt,
                         config,
+                        shape_cast,
                     )
                 )
             except Exception as e:
@@ -354,6 +371,7 @@ class Presentation:
                     file_path,
                     e,
                 )
+                logger.warning(traceback.format_exc())
 
         return cls(
             slides, error_history, slide_width, slide_height, file_path, num_pages

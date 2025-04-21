@@ -1,0 +1,2 @@
+recursive-include pptagent/prompts *.txt
+recursive-include pptagent/roles *.yaml

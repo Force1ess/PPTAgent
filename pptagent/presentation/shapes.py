@@ -1,7 +1,7 @@
 import re
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Callable, Optional, TypeVar, Union
+from typing import Callable, Optional, Union
 
 from lxml import etree
 from pptx.dml.fill import FillFormat
@@ -29,7 +29,6 @@ from pptagent.utils import (
 )
 
 INDENT = "\t"
-T = TypeVar("T", bound="ShapeElement")
 
 
 def shape_normalize(shape: BaseShape):
@@ -229,7 +228,7 @@ class Closure:
     A class to represent a closure that can be applied to a shape.
     """
 
-    closure: Callable
+    closure: Callable[[BaseShape], None]
     paragraph_id: int = -1
 
     def apply(self, shape: BaseShape) -> None:
@@ -480,14 +479,15 @@ class ShapeElement:
 
     @classmethod
     def from_shape(
-        cls: type[T],
+        cls: type["ShapeElement"],
         slide_idx: int,
         shape_idx: int,
         shape: BaseShape,
         config: Config,
         slide_area: float,
+        shape_cast: Optional[dict[MSO_SHAPE_TYPE, type["ShapeElement"] | None]],
         level: int = 0,
-    ) -> T:
+    ) -> "ShapeElement":
         """
         Create a ShapeElement from a BaseShape.
 
@@ -498,9 +498,10 @@ class ShapeElement:
             config (Config): The configuration object.
             slide_area (float): The area of the slide.
             level (int): The indentation level.
-
+            shape_cast (dict[MSO_SHAPE_TYPE, type[ShapeElement]] | None): Optional mapping of shape types to their corresponding ShapeElement classes.
+            Set the value to None for any MSO_SHAPE_TYPE to exclude that shape type from processing.
         Returns:
-            T: The created ShapeElement.
+            ShapeElement: The created ShapeElement.
 
         Raises:
             ValueError: If nested group shapes are not allowed.
@@ -537,7 +538,12 @@ class ShapeElement:
         text_frame = TextFrame(shape, level + 1)
 
         # Create appropriate shape element based on shape type
-        shape_class = SHAPECAST.get(shape.shape_type, UnsupportedShape)
+        if shape_cast is not None:
+            shape_class = shape_cast.get(shape.shape_type, UnsupportedShape)
+            if shape_class is UnsupportedShape:
+                shape_class = SHAPECAST.get(shape.shape_type, UnsupportedShape)
+        else:
+            shape_class = SHAPECAST.get(shape.shape_type, UnsupportedShape)
         if shape_class == Placeholder:
             shape_class = Placeholder.from_shape
         return shape_class(
@@ -795,6 +801,7 @@ class ShapeElement:
         return id_str
 
 
+@dataclass
 class UnsupportedShape(ShapeElement):
     def __post_init__(self) -> None:
         """
@@ -1020,7 +1027,9 @@ class GroupShape(ShapeElement):
             shape.build(slide)
         return slide
 
-    def shape_filter(self, shape_type: type[T], return_father: bool = False):
+    def shape_filter(
+        self, shape_type: type["ShapeElement"], return_father: bool = False
+    ):
         """
         Iterate over all shapes in the group.
 
@@ -1214,9 +1223,8 @@ class Placeholder:
 SHAPECAST = {
     MSO_SHAPE_TYPE.AUTO_SHAPE: FreeShape,
     MSO_SHAPE_TYPE.LINE: FreeShape,
-    MSO_SHAPE_TYPE.FREEFORM: FreeShape,
     MSO_SHAPE_TYPE.PICTURE: Picture,
-    MSO_SHAPE_TYPE.LINKED_PICTURE: Picture,
+    MSO_SHAPE_TYPE.LINKED_PICTURE: SemanticPicture,
     MSO_SHAPE_TYPE.PLACEHOLDER: Placeholder,
     MSO_SHAPE_TYPE.GROUP: GroupShape,
     MSO_SHAPE_TYPE.TEXT_BOX: TextBox,

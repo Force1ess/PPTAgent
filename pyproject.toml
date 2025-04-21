@@ -9,11 +9,11 @@ authors = [{ name = "Hao Zheng", email = "wszh712811@gmail.com" }]
 description = "PPTAgent, a tool for utilizing LLMs to generate PowerPoint presentations from documents."
 readme = "README.md"
 requires-python = ">=3.11"
+license = "MIT"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Topic :: Office/Business :: Office Suites",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
@@ -28,6 +28,7 @@ keywords = [
 ]
 dependencies = [
     "beautifulsoup4",
+    "fastapi",
     "einops",
     "func_argparse",
     "html2image",
@@ -63,8 +64,15 @@ dependencies = [
 "Bug Tracker" = "https://github.com/icip-cas/PPTAgent/issues"
 
 [tool.setuptools]
-packages = ["pptagent"]
 include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pptagent"]
+exclude = ["pptagent_ui"]
+
+[tool.setuptools.package-data]
+"pptagent" = ["prompts/*.txt", "roles/*.yaml"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

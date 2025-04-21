@@ -49,7 +49,7 @@ models = ModelManager()
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    assert asyncio.run(models.test_connections()), "Model connection test failed"
+    assert await models.test_connections(), "Model connection test failed"
     yield
 
 

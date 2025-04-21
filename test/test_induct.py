@@ -7,7 +7,6 @@ import pytest
 from pptagent.induct import SlideInducter, SlideInducterAsync
 from pptagent.multimodal import ImageLabler
 from pptagent.presentation import Presentation
-from pptagent.utils import package_join
 
 CUTOFF = 8
 
@@ -33,7 +32,7 @@ def prepare_slides(prs: Presentation):
 @pytest.mark.llm
 def test_layout_induct():
     prs = Presentation.from_file(
-        package_join(test_config.template, "source.pptx"), test_config.config
+        pjoin(test_config.template, "source.pptx"), test_config.config
     )
     labler = ImageLabler(prs, test_config.config)
     labler.apply_stats(test_config.get_image_stats())
@@ -55,7 +54,7 @@ def test_layout_induct():
 @pytest.mark.llm
 async def test_layout_induct_async():
     prs = Presentation.from_file(
-        package_join(test_config.template, "source.pptx"), test_config.config
+        pjoin(test_config.template, "source.pptx"), test_config.config
     )
     labler = ImageLabler(prs, test_config.config)
     labler.apply_stats(test_config.get_image_stats())
@@ -79,7 +78,7 @@ async def test_layout_induct_async():
 @pytest.mark.llm
 def test_content_induct():
     prs = Presentation.from_file(
-        package_join(test_config.template, "source.pptx"), test_config.config
+        pjoin(test_config.template, "source.pptx"), test_config.config
     )
     labler = ImageLabler(prs, test_config.config)
     labler.apply_stats(test_config.get_image_stats())
@@ -107,7 +106,7 @@ def test_content_induct():
 @pytest.mark.llm
 async def test_content_induct_async():
     prs = Presentation.from_file(
-        package_join(test_config.template, "source.pptx"), test_config.config
+        pjoin(test_config.template, "source.pptx"), test_config.config
     )
     labler = ImageLabler(prs, test_config.config)
     labler.apply_stats(test_config.get_image_stats())
