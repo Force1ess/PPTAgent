@@ -6,7 +6,8 @@ from typing import Optional, Union
 
 import torch
 from oaib import Auto
-from openai import OpenAI
+from openai import AsyncOpenAI, OpenAI
+from openai.types.chat import ChatCompletion
 
 from pptagent.utils import get_json_from_response, get_logger, tenacity_decorator
 
@@ -208,7 +209,9 @@ class LLM:
         )
 
 
+@dataclass
 class AsyncLLM(LLM):
+    use_batch: bool = False
     """
     Asynchronous wrapper class for language model interaction.
     """
@@ -222,7 +225,12 @@ class AsyncLLM(LLM):
             base_url (str): The base URL for the API.
             api_key (str): API key for authentication. Defaults to environment variable.
         """
-        self.client = Auto(
+        self.client = AsyncOpenAI(
+            base_url=self.base_url,
+            api_key=self.api_key,
+            timeout=self.timeout,
+        )
+        self.batch = Auto(
             base_url=self.base_url,
             api_key=self.api_key,
             timeout=self.timeout,
@@ -255,14 +263,14 @@ class AsyncLLM(LLM):
         Returns:
             Union[str, Dict, List, Tuple]: The response from the model.
         """
-        if threading.current_thread() is threading.main_thread():
-            self.client = Auto(
+        if self.use_batch and threading.current_thread() is threading.main_thread():
+            self.batch = Auto(
                 base_url=self.base_url,
                 api_key=self.api_key,
                 timeout=self.timeout,
                 loglevel=0,
             )
-        else:
+        elif self.use_batch:
             logger.warning(
                 "Warning: AsyncLLM is not running in the main thread, may cause race condition."
             )
@@ -270,32 +278,47 @@ class AsyncLLM(LLM):
             history = []
         system, message = self.format_message(content, images, system_message)
         try:
-            await self.client.add(
-                "chat.completions.create",
-                model=self.model,
-                messages=system + history + message,
-                **client_kwargs,
-            )
-            completion = await self.client.run()
-            if "result" not in completion or len(completion["result"]) != 1:
-                raise ValueError(
-                    f"The length of completion result should be 1, but got {completion}.\nRace condition may have occurred if multiple values are returned.\nOr, there was an error in the LLM call, use the synchronous version to check."
+            if self.use_batch:
+                await self.batch.add(
+                    "chat.completions.create",
+                    model=self.model,
+                    messages=system + history + message,
+                    **client_kwargs,
                 )
+                completion = await self.batch.run()
+                if "result" not in completion or len(completion["result"]) != 1:
+                    raise ValueError(
+                        f"The length of completion result should be 1, but got {completion}.\nRace condition may have occurred if multiple values are returned.\nOr, there was an error in the LLM call, use the synchronous version to check."
+                    )
+                completion = ChatCompletion(**completion["result"][0])
+            else:
+                completion = await self.client.chat.completions.create(
+                    model=self.model,
+                    messages=system + history + message,
+                    **client_kwargs,
+                )
+
         except Exception as e:
             logger.warning("Error in AsyncLLM call: %s", e)
             raise e
-        response = completion["result"][0]["choices"][0]["message"]["content"]
+        response = completion.choices[0].message.content
         message.append({"role": "assistant", "content": response})
         return self.__post_process__(response, message, return_json, return_message)
 
     def __getstate__(self):
         state = self.__dict__.copy()
         state["client"] = None
+        state["batch"] = None
         return state
 
     def __setstate__(self, state: dict):
         self.__dict__.update(state)
-        self.client = Auto(
+        self.client = AsyncOpenAI(
+            base_url=self.base_url,
+            api_key=self.api_key,
+            timeout=self.timeout,
+        )
+        self.batch = Auto(
             base_url=self.base_url,
             api_key=self.api_key,
             timeout=self.timeout,
@@ -310,7 +333,7 @@ class AsyncLLM(LLM):
             bool: True if connection is successful, False otherwise.
         """
         try:
-            await self.client.client.models.list()
+            await self.client.models.list()
             return True
         except Exception as e:
             logger.warning(
@@ -334,16 +357,14 @@ class AsyncLLM(LLM):
         Returns:
             str: Base64-encoded image data.
         """
-        await self.client.add(
-            "images.generate", model=self.model, prompt=prompt, n=n, **kwargs
+        response = await self.client.images.generate(
+            model=self.model, prompt=prompt, n=n, response_format="b64_json", **kwargs
         )
-        result = await self.client.run()
-        return result["result"][0]["data"][0]["b64_json"]
+        return response.data[0].b64_json
 
     async def get_embedding(
         self,
         text: str,
-        encoding_format: str = "float",
         to_tensor: bool = True,
         **kwargs,
     ) -> torch.Tensor | list[float]:
@@ -352,24 +373,18 @@ class AsyncLLM(LLM):
 
         Args:
             text (str): The text to get embeddings for.
-            encoding_format (str): The format of the embeddings.
             **kwargs: Additional keyword arguments.
 
         Returns:
             List[float]: The embedding vector.
         """
-        await self.client.add(
-            "embeddings.create",
+        response = await self.client.embeddings.create(
             model=self.model,
             input=text,
-            encoding_format=encoding_format,
+            encoding_format="float",
             **kwargs,
         )
-        result = await self.client.run()
-        assert (
-            len(result["result"]) == 1
-        ), "The length of result should be 1, but got {}.".format(len(result["result"]))
-        embeddings = [embedding.embedding for embedding in result["result"][0]["data"]]
+        embeddings = [embedding.embedding for embedding in response.data]
         if to_tensor:
             embeddings = torch.tensor(embeddings)
         return embeddings

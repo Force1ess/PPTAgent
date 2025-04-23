@@ -85,7 +85,7 @@ class SlidePage:
         slide_width: int,
         slide_height: int,
         config: Config,
-        shape_cast: Optional[dict[MSO_SHAPE_TYPE, type[ShapeElement]]] = None,
+        shape_cast: dict[MSO_SHAPE_TYPE, type[ShapeElement] | None],
     ) -> "SlidePage":
         """
         Create a SlidePage from a PPTXSlide.
@@ -97,7 +97,7 @@ class SlidePage:
             slide_width (int): The width of the slide.
             slide_height (int): The height of the slide.
             config (Config): The configuration object.
-            shape_cast (dict[MSO_SHAPE_TYPE, type[ShapeElement]] | None): Optional mapping of shape types to their corresponding ShapeElement classes.
+            shape_cast (dict[MSO_SHAPE_TYPE, type[ShapeElement] | None]): Mapping of shape types to their corresponding ShapeElement classes.
             Set the value to None for any MSO_SHAPE_TYPE to exclude that shape type from processing.
         Returns:
             SlidePage: The created SlidePage.
@@ -107,7 +107,7 @@ class SlidePage:
         for i, shape in enumerate(slide.shapes):
             if not shape.visible:
                 continue
-            if shape_cast is not None and shape_cast.get(shape.shape_type, -1) is None:
+            if shape_cast.get(shape.shape_type, -1) is None:
                 continue
             shapes.append(
                 ShapeElement.from_shape(
@@ -247,9 +247,13 @@ class SlidePage:
         Raises:
             ValueError: If an image caption is not found.
         """
-        text_content = "\n".join(
-            [para.text for para in self.iter_paragraphs() if para.text]
-        )
+        text_content = ""
+        for para in self.iter_paragraphs():
+            if not para.text:
+                continue
+            if para.bullet:
+                text_content += para.bullet
+            text_content += para.text + "\n"
         if show_image:
             for image in self.shape_filter(Picture):
                 text_content += "\n" + "Image: " + image.caption
@@ -340,6 +344,9 @@ class Presentation:
         slide_idx = 0
         layouts = [layout.name for layout in prs.slide_layouts]
         num_pages = len(prs.slides)
+
+        if shape_cast is None:
+            shape_cast = {}
 
         for slide in prs.slides:
             # Skip slides that won't be printed to PDF, as they are invisible

@@ -1,7 +1,8 @@
 import re
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Callable, Optional, Union
+from types import MappingProxyType
+from typing import Callable, ClassVar, Optional, Union
 
 from lxml import etree
 from pptx.dml.fill import FillFormat
@@ -485,7 +486,7 @@ class ShapeElement:
         shape: BaseShape,
         config: Config,
         slide_area: float,
-        shape_cast: Optional[dict[MSO_SHAPE_TYPE, type["ShapeElement"] | None]],
+        shape_cast: dict[MSO_SHAPE_TYPE, type["ShapeElement"] | None],
         level: int = 0,
     ) -> "ShapeElement":
         """
@@ -538,14 +539,16 @@ class ShapeElement:
         text_frame = TextFrame(shape, level + 1)
 
         # Create appropriate shape element based on shape type
-        if shape_cast is not None:
-            shape_class = shape_cast.get(shape.shape_type, UnsupportedShape)
-            if shape_class is UnsupportedShape:
-                shape_class = SHAPECAST.get(shape.shape_type, UnsupportedShape)
-        else:
+        shape_class = shape_cast.get(shape.shape_type, UnsupportedShape)
+        if shape_class is UnsupportedShape:
             shape_class = SHAPECAST.get(shape.shape_type, UnsupportedShape)
+
         if shape_class == Placeholder:
             shape_class = Placeholder.from_shape
+
+        if shape_class == GroupShape:
+            shape_class = GroupShape.with_shape_cast(shape_cast)
+
         return shape_class(
             config=config,
             slide_idx=slide_idx,
@@ -992,6 +995,17 @@ class GroupShape(ShapeElement):
     A class to represent a group shape.
     """
 
+    shape_cast: ClassVar[dict[MSO_SHAPE_TYPE, type[ShapeElement]]] = {}
+
+    @classmethod
+    def with_shape_cast(cls, shape_cast: dict[MSO_SHAPE_TYPE, type[ShapeElement]]):
+        """
+        Dynamically create a subclass of GroupShape with an isolated shape_cast.
+        """
+        new_cls = type(f"{cls.__name__}_Isolated_{id(shape_cast)}", (cls,), {})
+        new_cls.shape_cast = MappingProxyType(shape_cast)
+        return new_cls
+
     def __post_init__(self) -> None:
         """
         Initialize a GroupShape.
@@ -1004,13 +1018,20 @@ class GroupShape(ShapeElement):
                 sub_shape,
                 self.config,
                 self.slide_area,
+                self.shape_cast,
                 level=self.level + 1,
             )
             for i, sub_shape in enumerate(self.shape.shapes)
+            if self.shape_cast.get(sub_shape.shape_type, -1) is not None
+            and sub_shape.visible
         ]
 
         # Apply shape bounds to each shape in the group
         for idx, shape_bounds in enumerate(parse_groupshape(self.shape)):
+            if not self.shape.shapes[idx].visible:
+                continue
+            if self.shape_cast.get(self.shape.shapes[idx].shape_type, -1) is None:
+                continue
             self.data[idx].style["shape_bounds"] = shape_bounds
 
     def build(self, slide: PPTXSlide) -> PPTXSlide:
@@ -1224,13 +1245,13 @@ SHAPECAST = {
     MSO_SHAPE_TYPE.AUTO_SHAPE: FreeShape,
     MSO_SHAPE_TYPE.LINE: FreeShape,
     MSO_SHAPE_TYPE.PICTURE: Picture,
-    MSO_SHAPE_TYPE.LINKED_PICTURE: SemanticPicture,
     MSO_SHAPE_TYPE.PLACEHOLDER: Placeholder,
     MSO_SHAPE_TYPE.GROUP: GroupShape,
     MSO_SHAPE_TYPE.TEXT_BOX: TextBox,
     MSO_SHAPE_TYPE.MEDIA: SemanticPicture,
     MSO_SHAPE_TYPE.TABLE: SemanticPicture,
     MSO_SHAPE_TYPE.CHART: SemanticPicture,
+    MSO_SHAPE_TYPE.LINKED_PICTURE: SemanticPicture,
     MSO_SHAPE_TYPE.EMBEDDED_OLE_OBJECT: SemanticPicture,
     MSO_SHAPE_TYPE.LINKED_OLE_OBJECT: SemanticPicture,
     MSO_SHAPE_TYPE.DIAGRAM: SemanticPicture,
