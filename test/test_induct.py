@@ -69,9 +69,6 @@ async def test_layout_induct_async():
         test_config.language_model,
         test_config.vision_model,
     )
-    inducter.prs.slides = inducter.prs.slides[:8]
-    for i, sld in enumerate(inducter.prs.slides):
-        sld.slide_idx = i + 1
     await inducter.layout_induct()
 
 
