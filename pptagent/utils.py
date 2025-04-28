@@ -516,10 +516,7 @@ def dict_to_object(
 
     for key, value in dict_obj.items():
         if key not in exclude and value is not None:
-            try:
-                setattr(obj, key, value)
-            except Exception as e:
-                logger.error("Error setting attribute %s: %s", key, e)
+            setattr(obj, key, value)
 
 
 def package_join(*paths: str) -> str:

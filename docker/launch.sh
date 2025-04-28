@@ -7,11 +7,14 @@ if [ -z "$OPENAI_API_KEY" ]; then
   exit 1
 fi
 
+if [ "$PULL" = "True" ]; then
+  echo "Pulling latest changes from the repository..."
+  git pull
+fi
+
+cd pptagent_ui
 # Launch Backend Server
-cd /PPTAgent
-python3 pptagent_ui/backend.py &
+python3 backend.py &
 
 # Launch Frontend Server
-cd pptagent_ui
-npm install
 npm run serve

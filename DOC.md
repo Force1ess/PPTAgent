@@ -53,7 +53,7 @@ For a quick test, use the example in `runs/pdf(pptx)/*/source.pdf(pptx)` to save
       <td>Minimum 8GB RAM, recommended with CUDA or MPS support for faster presentation analysis.</td>
     </tr>
     <tr>
-      <td><b>Required dependencies:</b> Python 3.11+, LibreOffice, Chrome, poppler-utils (conda: poppler), NodeJS, and other system dependencies listed in <a href="https://github.com/icip-cas/PPTAgent/blob/docker/install.sh">install.sh</a>.</td>
+      <td><b>Required dependencies:</b> Python 3.11+, LibreOffice, Chrome, poppler-utils (conda: poppler), NodeJS, and other system dependencies listed in our <a href="https://github.com/icip-cas/PPTAgent/blob/docker/pptagent.dockerfile">dockerfile</a>.</td>
     </tr>
   </tbody>
 </table>
@@ -72,6 +72,9 @@ docker run -dt --gpus all --ipc=host --name pptagent \
   -p 8088:8088 \
   -v $HOME:/root \
   forceless/pptagent
+
+# set -e PULL=True to pull latest changes from the repository
+# append /bin/fish to override the default command
 ```
 
 It should automatically running [launch.sh](docker/launch.sh) to start the backend server.
