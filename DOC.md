@@ -60,27 +60,25 @@ For a quick test, use the example in `runs/pdf(pptx)/*/source.pdf(pptx)` to save
 
 ### Docker 🐳
 
-> [!CAUTION]
-> This image is outdated and heavy, you could refer to the [Docker](docker) to build your own image.
-
 ```bash
-docker pull forceless/pptagent
+# use docker proxy if you are in China
+# docker pull dockerproxy.net/forceless/pptagent:latest
+docker pull forceless/pptagent:latest
+
+# mapping home directory to /root to allow caching of models
 docker run -dt --gpus all --ipc=host --name pptagent \
-  -e OPENAI_API_KEY='your_key' \
+  -e OPENAI_API_KEY=$OPENAI_API_KEY \
   -p 9297:9297 \
   -p 8088:8088 \
   -v $HOME:/root \
   forceless/pptagent
 ```
 
+It should automatically running [launch.sh](docker/launch.sh) to start the backend server.
+
+See docker log for more running details:
 ```bash
-docker exec -it pptagent bash
-# serve backend
-cd pptagent_ui
-python3 backend.py &
-# serve frontend
-npm install
-npm run serve
+docker logs -f pptagent
 ```
 
 ### Running Locally 🛠
