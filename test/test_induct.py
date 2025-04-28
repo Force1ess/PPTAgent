@@ -19,10 +19,10 @@ def prepare_slides(prs: Presentation):
         if i < CUTOFF:
             slides.append(sld)
         else:
-            Path(pjoin(slide_image_folder, f"slide_{i:04d}.jpg")).unlink(
+            Path(pjoin(slide_image_folder, f"slide_{i+1:04d}.jpg")).unlink(
                 missing_ok=True
             )
-            Path(pjoin(template_image_folder, f"slide_{i:04d}.jpg")).unlink(
+            Path(pjoin(template_image_folder, f"slide_{i+1:04d}.jpg")).unlink(
                 missing_ok=True
             )
     prs.slides = slides
