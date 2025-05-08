@@ -42,14 +42,14 @@ For a quick test, use the example in `runs/pdf(pptx)/*/source.pdf(pptx)` to save
   </thead>
   <tbody>
     <tr>
-      <td rowspan="2"><b>LLM Recommendations</b></td>
-      <td>Language Model: 70B+ parameters (Qwen2.5-72B-Instruct, reasoning models are not recommended), for generation tasks.</td>
+      <td rowspan="3"><b>LLM Recommendations</b></td>
+      <td>Language Model: 70B+ parameters (Qwen2.5-72B-Instruct, reasoning models are not recommended)</td>
     </tr>
     <tr>
-      <td>Vision Model: 7B+ parameters (Qwen2-VL-7B-Instruct), for visual tasks.</td>
+      <td>Vision Model: 7B+ parameters (Qwen2-VL-7B-Instruct)</td>
     </tr>
     <tr>
-      <td>Text Embedding Model: 7B+ parameters (text-embedding-3-small/bge-m3), for text embedding tasks.</td>
+      <td>Text Embedding Model: 7B+ parameters (text-embedding-3-small/bge-m3)</td>
     </tr>
     <tr>
       <td rowspan="3"><b>System Requirements</b></td>
