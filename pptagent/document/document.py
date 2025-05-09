@@ -33,7 +33,10 @@ MARKDOWN_TABLE_REGEX = re.compile(r"\|.*\|")
 
 
 def split_markdown_by_headings(
-    markdown_content: str, headings: list[str], adjusted_headings: list[str]
+    markdown_content: str,
+    headings: list[str],
+    adjusted_headings: list[str],
+    min_chunk_size: int = 64,
 ) -> list[str]:
     """
     Split markdown content using headings as separators without regex.
@@ -61,6 +64,16 @@ def split_markdown_by_headings(
 
     if len(current_section) != 0:
         sections.append("\n".join(current_section).strip())
+
+    # if an chunk is too small, merge it with the previous chunk
+    for i in reversed(range(1, len(sections))):
+        if len(sections[i]) < min_chunk_size:
+            sections[i - 1] += sections[i]
+            sections.pop(i)
+
+    if len(sections[0]) < min_chunk_size:
+        sections[0] += sections[1]
+        sections.pop(1)
 
     return sections
 

@@ -209,17 +209,6 @@ class PPTGen(ABC):
         """
         raise NotImplementedError("Subclass must implement this method")
 
-    @abstractmethod
-    def interact(
-        self,
-        target_slide: SlidePage,
-        slide_idx: int,
-        outline_item: OutlineItem,
-        source_doc: Document,
-        query: str,
-    ) -> tuple[SlidePage, CodeExecutor]:
-        raise NotImplementedError("Subclass must implement this method")
-
     def _add_functional_layouts(self, outline: list[OutlineItem]):
         """
         Add functional layouts to the outline.
@@ -472,20 +461,6 @@ class PPTGenAsync(PPTGen):
         """
         raise NotImplementedError("Subclass must implement this method")
 
-    @abstractmethod
-    async def interact(
-        self,
-        target_slide: SlidePage,
-        slide_idx: int,
-        outline_item: OutlineItem,
-        source_doc: Document,
-        query: str,
-    ) -> tuple[SlidePage, CodeExecutor]:
-        """
-        Asynchronously interact with the user on a specific slide.
-        """
-        raise NotImplementedError("Subclass must implement this method")
-
     async def _fix_outline(
         self, outline: list[dict], source_doc: Document, turn_id: int, retry: int = 0
     ) -> list[OutlineItem]:
@@ -570,48 +545,6 @@ class PPTAgent(PPTGen):
         )
         slide, code_executor = self._edit_slide(command_list, template_id)
         return slide, code_executor
-
-    def interact(
-        self,
-        target_slide: SlidePage,
-        slide_idx: int,
-        outline_item: OutlineItem,
-        source_doc: Document,
-        query: str,
-    ) -> tuple[SlidePage, CodeExecutor]:
-        """
-        Interact with the user on a specific slide.
-        """
-        self.source_doc = source_doc
-        for layout in self.layouts.values():
-            if (
-                target_slide.slide_idx in layout.slides
-            ):  # this slide_idx is the index of the slide in the original presentation, instead of the index of the slide in the outline
-                break
-        else:
-            raise ValueError(f"Slide {target_slide.slide_idx} not found in any layout")
-        header, content_source, images = outline_item.retrieve(
-            slide_idx, self.source_doc
-        )
-        if len(content_source) == 0:
-            key_points = []
-        else:
-            _, key_points = self.staffs["content_organizer"](
-                content_source=content_source
-            )
-        slide_content = json.dumps(key_points, indent=2, ensure_ascii=False)
-        if len(images) > 0 and target_slide.get_content_type() == "image":
-            slide_content += "\nImages:\n" + "\n".join(images)
-        turn_id, copilot_output = self.staffs["copilot"](
-            query=query,
-            retr_chunks=slide_content,
-            schema=layout.content_schema,
-            slide_content=target_slide.to_html(),
-        )
-        command_list, template_id = self._generate_commands(
-            copilot_output, layout, turn_id
-        )
-        return self._edit_slide(command_list, template_id)
 
     @tenacity_decorator
     def _select_layout(
@@ -824,48 +757,6 @@ class PPTAgentAsync(PPTGenAsync):
             traceback.print_exc()
             raise e
         return slide, code_executor
-
-    async def interact(
-        self,
-        target_slide: SlidePage,
-        slide_idx: int,
-        outline_item: OutlineItem,
-        source_doc: Document,
-        query: str,
-    ) -> tuple[SlidePage, CodeExecutor]:
-        """
-        Asynchronously interact with the user on a specific slide.
-        """
-        self.source_doc = source_doc
-        for layout in self.layouts.values():
-            if target_slide.slide_idx in layout.slides:
-                break
-        else:
-            raise ValueError(f"Slide {target_slide.slide_idx} not found in any layout")
-
-        header, content_source, images = outline_item.retrieve(
-            slide_idx, self.source_doc
-        )
-        if len(content_source) == 0:
-            key_points = []
-        else:
-            _, key_points = await self.staffs["content_organizer"](
-                content_source=content_source
-            )
-        slide_content = json.dumps(key_points, indent=2, ensure_ascii=False)
-        if len(images) > 0 and target_slide.get_content_type() == "image":
-            slide_content += "\nImages:\n" + "\n".join(images)
-
-        turn_id, copilot_output = await self.staffs["copilot"](
-            query=query,
-            retr_chunks=slide_content,
-            schema=layout.content_schema,
-            slide_content=target_slide.to_html(),
-        )
-        command_list, template_id = await self._generate_commands(
-            copilot_output, layout, turn_id
-        )
-        return await self._edit_slide(command_list, template_id)
 
     @tenacity_decorator
     async def _select_layout(

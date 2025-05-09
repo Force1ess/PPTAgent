@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.11", "3.13"]
 
     steps:
       - name: Check out Git repository
@@ -42,4 +42,5 @@ jobs:
 
       - name: Run tests
         run: |
+          rm -rf pptagent
           OPENAI_API_KEY=sk-mockey pytest -v -m "not llm" test
