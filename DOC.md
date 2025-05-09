@@ -64,6 +64,8 @@ For a quick test, use the example in `runs/pdf(pptx)/*/source.pdf(pptx)` to save
   </tbody>
 </table>
 
+Some recommended templates are available in the [templates](resource/templates/) directory, and you can also refer to [Best Practice](BESTPRACTICE.md) for more details.
+
 ### Docker 🐳
 
 ```bash
