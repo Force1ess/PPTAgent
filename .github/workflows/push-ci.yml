@@ -18,7 +18,7 @@ jobs:
 
     strategy:
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.11", "3.13"]
 
     steps:
       - name: Check out Git repository
@@ -51,4 +51,5 @@ jobs:
 
       - name: Run tests
         run: |
+          rm -rf pptagent
           pytest -v -n 8 test

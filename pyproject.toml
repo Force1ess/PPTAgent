@@ -72,7 +72,7 @@ include = ["pptagent*"]
 exclude = ["pptagent_ui"]
 
 [tool.setuptools.package-data]
-"pptagent" = ["prompts/*.txt", "roles/*.yaml"]
+"pptagent" = ["prompts/*.txt", "roles/*.yaml", "resource/*.png"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

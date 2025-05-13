@@ -1,9 +1,17 @@
+import os
 import tempfile
 from test.conftest import test_config
 
 import pytest
 
-from pptagent.utils import get_json_from_response, ppt_to_images
+from pptagent.utils import get_json_from_response, package_join, ppt_to_images
+
+
+def test_package_data():
+    """Test package data."""
+    assert len(os.listdir(package_join("resource"))) == 1
+    assert len(os.listdir(package_join("prompts"))) > 0
+    assert len(os.listdir(package_join("roles"))) > 0
 
 
 def test_extract_json_from_markdown_block():

@@ -6,6 +6,8 @@ However, the complexity of real-world slides may affect its applicability and th
 
 This document details, from three aspects: **[Parsing Limitations](#1-parsing-limitations-)**, **[Reference Slide Design Guidelines](#2-reference-slide-design-guidelines-)**, and **[Parameter Settings](#3-parameter-settings-and-parsing-)**, how to provide high-quality reference slides to maximize PPTAgent's generation effectiveness.
 
+You can find some recommended reference presentations in the [templates](resource/templates/) directory.
+
 Lastly, we recommend using documents such as academic papers that contain rich images. This is because our rag mechanism is simplistic and does not include retrieval from the network.
 -----
 
@@ -92,3 +94,15 @@ PPTAgent provides the following parameters to control slide generation behavior:
 
       - **Function**: Whether to exit when a slide failed to generate.
       - **Value Range**: `[True, False]`, default value is `False`.
+
+## Acknowledgements
+
+PPTAgent incorporates slide resources from the following open-source projects:
+
+- Zenodo: https://zenodo.org/
+- UCAS-PPT: https://github.com/ShimonWang/UCAS-PPT
+- HIT-PPT-Theme: https://github.com/huyingjiao/HIT-PPT-Theme
+- THU-PPT-Theme: https://github.com/atomiechen/THU-PPT-Theme
+- Beamer Theme: https://github.com/wzpan/BeamerStyleSlides
+
+We extend our sincere gratitude to these projects and their contributors for making their resources available to the community.
