@@ -1,8 +1,8 @@
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum, auto
 from types import MappingProxyType
-from typing import Callable, ClassVar, Optional, Union
+from typing import Any, Callable, ClassVar, Optional, Union
 
 from lxml import etree
 from pptx.dml.fill import FillFormat
@@ -18,7 +18,6 @@ from pptx.shapes.placeholder import PlaceholderPicture, SlidePlaceholder
 from pptx.slide import Slide as PPTXSlide
 from pptx.slide import _Background
 from pptx.text.text import _Paragraph
-from pptx.util import Length
 
 from pptagent.utils import (
     Config,
@@ -94,27 +93,17 @@ class StyleArg:
         )
 
 
+@dataclass
 class Fill:
-    """
-    A class to represent a fill.
-    """
-
-    def __init__(
-        self,
-        fill_type: MSO_FILL_TYPE,
-        fill_str: str,
-        fill_xml: str,
-        image_path: Optional[str] = None,
-    ):
-        self.fill_type = fill_type
-        self.fill_str = fill_str
-        self.fill_xml = fill_xml
-        self.image_path = image_path
+    fill_type: MSO_FILL_TYPE
+    fill_str: Optional[str] = None
+    fill_xml: Optional[str] = None
+    image_path: Optional[str] = None
 
     @classmethod
     def from_shape(cls, fill: Optional[FillFormat], part: SlidePart, config: Config):
         if fill is None or fill.type is None or fill.type == MSO_FILL_TYPE.BACKGROUND:
-            return cls(MSO_FILL_TYPE.BACKGROUND, "", None)
+            return cls(MSO_FILL_TYPE.BACKGROUND)
 
         fill_str = "Fill: " + str(fill.value)
         fill_xml = fill._xPr.xml
@@ -153,21 +142,17 @@ class Fill:
         """
 
 
+@dataclass
 class Line:
-    """
-    A class to represent a line.
-    """
-
-    def __init__(self, fill: Fill, line_width: float, line_dash_style: str):
-        self.fill = fill
-        self.line_width = line_width
-        self.line_dash_style = line_dash_style
+    fill: Fill
+    line_width: float
+    line_dash_style: Optional[str]
 
     @classmethod
     def from_shape(cls, line: Optional[LineFormat], part: SlidePart, config: Config):
         line_fill = getattr(line, "fill", None)
         if line_fill is None:
-            return cls(Fill(MSO_FILL_TYPE.BACKGROUND, "", None), 0, "")
+            return cls(Fill(MSO_FILL_TYPE.BACKGROUND, "", None), 0, None)
         fill = Fill.from_shape(line_fill, part, config)
         line_width = line.width
         line_dash_style = line.dash_style
@@ -184,11 +169,8 @@ class Line:
         line.dash_style = self.line_dash_style
 
 
+@dataclass
 class Background(Fill):
-    """
-    A class to represent a slide background.
-    """
-
     shape_idx: int = -1
 
     @classmethod
@@ -262,13 +244,13 @@ class Closure:
 
 @dataclass
 class Font:
-    name: str
-    color: str
-    size: Length
-    bold: bool
-    italic: bool
-    underline: bool
-    strikethrough: bool
+    name: Optional[str]
+    color: Optional[str]
+    size: Optional[int]
+    bold: Optional[bool]
+    italic: Optional[bool]
+    underline: Optional[bool]
+    strikethrough: Optional[bool]
 
     def update(self, other: "Font"):
         """
@@ -328,29 +310,31 @@ class Font:
         return "; ".join(styles)
 
 
+@dataclass
 class Paragraph:
-    """
-    A class to represent a paragraph in a text frame.
-    """
+    idx: int
+    real_idx: int
+    bullet: Any
+    font: Font
+    text: str
 
-    def __init__(self, paragraph: _Paragraph, idx: int):
-        """
-        Initialize a Paragraph.
-
-        Args:
-            paragraph (_Paragraph): The paragraph object.
-            idx (int): The index of the paragraph.
-        """
+    @classmethod
+    def from_paragraph(cls, paragraph: _Paragraph, idx: int) -> "Paragraph":
         run = runs_merge(paragraph)
-        self.idx = idx
-        self.real_idx = idx
-        self.bullet = paragraph.bullet
+        real_idx = idx
+        bullet = paragraph.bullet
         if run is None:
-            self.idx = -1
-            return
-        self.font = Font(**paragraph.font.get_attrs())
-        self.font.override(Font(**run.font.get_attrs()))
-        self.text = re.sub(r"(_x000B_|\\x0b)", " ", paragraph.text)
+            return cls(
+                idx=-1,
+                real_idx=real_idx,
+                bullet=bullet,
+                font=Font("", "", None, False, False, False, False),
+                text="",
+            )
+        font = Font(**paragraph.font.get_attrs())
+        font.override(Font(**run.font.get_attrs()))
+        text = re.sub(r"(_x000B_|\\x0b)", " ", paragraph.text)
+        return cls(idx=idx, real_idx=real_idx, bullet=bullet, font=font, text=text)
 
     def to_html(self, style_args: StyleArg) -> str:
         """
@@ -387,41 +371,43 @@ class Paragraph:
         return f"Paragraph-{self.idx}: {self.text}"
 
 
+@dataclass
 class TextFrame:
-    """
-    A class to represent a text frame in a shape.
-    """
+    paragraphs: list[Paragraph] = field(default_factory=list)
+    level: int = 0
+    text: str = ""
+    is_textframe: bool = False
+    extents: Any = None
+    font: Optional[Font] = None
 
-    def __init__(self, shape: BaseShape, level: int):
-        """
-        Initialize a TextFrame.
-
-        Args:
-            shape (BaseShape): The shape containing the text frame.
-            level (int): The indentation level.
-        """
+    @classmethod
+    def from_shape(cls, shape: BaseShape, level: int) -> "TextFrame":
         if not shape.has_text_frame:
-            self.is_textframe = False
-            return
-        self.paragraphs = [
-            Paragraph(paragraph, idx)
+            return cls(is_textframe=False)
+        paragraphs = [
+            Paragraph.from_paragraph(paragraph, idx)
             for idx, paragraph in enumerate(shape.text_frame.paragraphs)
         ]
         para_offset = 0
-        for para in self.paragraphs:
+        for para in paragraphs:
             if para.idx == -1:
                 para_offset += 1
             else:
                 para.idx = para.idx - para_offset
-        if len(self.paragraphs) == 0:
-            self.is_textframe = False
-            return
-        self.level = level
-        self.text = shape.text
-        self.is_textframe = True
-        self.extents = shape.text_frame._extents
-        self.font = Font(**shape.text_frame.font.get_attrs())
-        self.font.unify([para.font for para in self.paragraphs if para.idx != -1])
+        if len(paragraphs) == 0:
+            return cls(is_textframe=False)
+        text = shape.text
+        extents = shape.text_frame._extents
+        font = Font(**shape.text_frame.font.get_attrs())
+        font.unify([para.font for para in paragraphs if para.idx != -1])
+        return cls(
+            paragraphs=paragraphs,
+            level=level,
+            text=text,
+            is_textframe=True,
+            extents=extents,
+            font=font,
+        )
 
     def to_html(self, style_args: StyleArg) -> str:
         """
@@ -441,23 +427,11 @@ class TextFrame:
         return "\n".join([INDENT * self.level + repr for repr in repr_list])
 
     def __repr__(self) -> str:
-        """
-        Get a string representation of the text frame.
-
-        Returns:
-            str: A string representation of the text frame.
-        """
         if not self.is_textframe:
             return "TextFrame: null"
         return f"TextFrame: {self.paragraphs}"
 
     def __len__(self) -> int:
-        """
-        Get the length of the text in the text frame.
-
-        Returns:
-            int: The length of the text.
-        """
         if not self.is_textframe:
             return 0
         return len(self.text)
@@ -465,10 +439,6 @@ class TextFrame:
 
 @dataclass
 class ShapeElement:
-    """
-    Base class for shape elements in a presentation.
-    """
-
     config: Config
     slide_idx: int
     shape_idx: int
@@ -480,7 +450,7 @@ class ShapeElement:
     xml: str
     fill: Fill
     line: Line
-    shape: BaseShape
+    shape: Optional[BaseShape]
     _closures: dict[ClosureType, list[Closure]]
 
     @classmethod
@@ -541,7 +511,7 @@ class ShapeElement:
             style["semantic_name"] = str(shape.shape_type).split("(")[0].lower().strip()
 
         # Create text frame
-        text_frame = TextFrame(shape, level + 1)
+        text_frame = TextFrame.from_shape(shape, level + 1)
 
         # Create appropriate shape element based on shape type
         shape_class = shape_cast.get(shape.shape_type, UnsupportedShape)
@@ -822,10 +792,6 @@ class UnsupportedShape(ShapeElement):
 
 
 class TextBox(ShapeElement):
-    """
-    A class to represent a text box shape.
-    """
-
     def to_html(self, style_args: StyleArg) -> str:
         """
         Convert the text box to HTML.
@@ -1146,10 +1112,6 @@ class GroupShape(ShapeElement):
 
 
 class FreeShape(ShapeElement):
-    """
-    A class to represent a free shape.
-    """
-
     def to_html(self, style_args: StyleArg) -> str:
         """
         Convert the free shape to HTML.
