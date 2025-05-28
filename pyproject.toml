@@ -47,7 +47,7 @@ dependencies = [
     "peft",
     "pillow",
     "PyPDF2",
-    "pydantic",
+    "pydantic>=2.10.0",
     "PyYAML",
     "python-Levenshtein",
     "python-multipart",
@@ -81,6 +81,4 @@ exclude = ["pptagent_ui"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-markers = [
-    "llm: mark test as using LLM (requires OPENAI_API_KEY)",
-]
+markers = ["llm: mark test as using LLM (requires OPENAI_API_KEY)"]

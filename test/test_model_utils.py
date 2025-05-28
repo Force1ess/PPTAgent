@@ -14,13 +14,13 @@ def test_prs_dedup():
         pjoin(test_config.template, "source.pptx"), test_config.config
     )
     prs.slides = [prs.slides[0]] * 2
-    prs = prs_dedup(prs, test_config.text_model.to_sync())
+    prs = prs_dedup(prs, test_config.embed_model.to_sync())
     assert len(prs) == 1
 
 
-@pytest.mark.llm
-def test_parse_pdf():
-    parse_pdf(
+@pytest.mark.asyncio
+async def test_parse_pdf():
+    await parse_pdf(
         pjoin(test_config.template, "source.pdf"),
         pjoin(test_config.template, "pdf_out"),
     )

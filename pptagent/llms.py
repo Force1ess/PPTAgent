@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from pptagent.utils import get_json_from_response, get_logger, tenacity_decorator
 
 logger = get_logger(__name__)
+MAX_CONTEXT_SIZE = 32768
 
 
 class ThinkMode(Enum):
@@ -174,6 +175,8 @@ class LLM:
         """
         if isinstance(images, str):
             images = [images]
+        if len(content) > MAX_CONTEXT_SIZE:
+            logger.info(f"Input sequence might be too long: {len(content)}")
         if system_message is None:
             if content.startswith("You are"):
                 system_message, content = content.split("\n", 1)

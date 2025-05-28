@@ -5,7 +5,7 @@ from typing import Literal, Optional
 from jinja2 import StrictUndefined, Template
 
 from pptagent.llms import LLM, AsyncLLM
-from pptagent.utils import get_logger, package_join, pbasename, pexists, pjoin
+from pptagent.utils import Language, get_logger, package_join, pbasename, pexists, pjoin
 
 logger = get_logger(__name__)
 
@@ -19,7 +19,6 @@ LENGTHY_REWRITE_PROMPT = Template(
 class Element:
     el_name: str
     content: list[str]
-    description: str
     el_type: Literal["text", "image"]
     suggested_characters: int | None
     variable_length: tuple[int, int] | None
@@ -27,9 +26,7 @@ class Element:
 
     def get_schema(self):
         schema = f"Element: {self.el_name}\n"
-        base_attrs = ["description", "el_type"]
-        for attr in base_attrs:
-            schema += f"\t{attr}: {getattr(self, attr)}\n"
+        schema += f"\tel_type: {self.el_type}\n"
         if self.el_type == "text":
             schema += f"\tsuggested_characters: {self.suggested_characters}\n"
         if self.variable_length is not None:
@@ -49,7 +46,6 @@ class Element:
             el_name=el_name,
             el_type=data["type"],
             content=data["data"],
-            description=data["description"],
             variable_length=data.get("variableLength", None),
             variable_data=data.get("variableData", None),
             suggested_characters=suggested_characters,
@@ -62,6 +58,7 @@ class Layout:
     template_id: int
     slides: list[int]
     elements: list[Element]
+    language: Language
     vary_mapping: dict[int, int] | None  # mapping for variable elements
 
     @classmethod
@@ -79,6 +76,7 @@ class Layout:
             slides=data["slides"],
             elements=elements,
             vary_mapping=data.get("vary_mapping", None),
+            language=data["language"],
         )
 
     def get_slide_id(self, data: dict):

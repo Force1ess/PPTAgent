@@ -5,22 +5,6 @@ import pytest
 from pptagent.document import Document, OutlineItem
 
 
-@pytest.mark.llm
-def test_document():
-    with open(f"{test_config.document}/source.md") as f:
-        markdown_content = f.read()
-    cutoff = markdown_content.find("## When (and when not) to use agents")
-    image_dir = test_config.document
-    doc = Document.from_markdown(
-        markdown_content[:cutoff],
-        test_config.language_model.to_sync(),
-        test_config.vision_model.to_sync(),
-        image_dir,
-    )
-    doc.get_overview(include_summary=True)
-    doc.metainfo
-
-
 @pytest.mark.asyncio
 @pytest.mark.llm
 async def test_document_async():
@@ -28,7 +12,7 @@ async def test_document_async():
         markdown_content = f.read()
     cutoff = markdown_content.find("## When (and when not) to use agents")
     image_dir = test_config.document
-    await Document.from_markdown_async(
+    await Document.from_markdown(
         markdown_content[:cutoff],
         test_config.language_model,
         test_config.vision_model,
