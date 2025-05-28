@@ -24,7 +24,21 @@ from pptx.parts.image import Image
 from pptx.shapes.group import GroupShape
 from pptx.text.text import _Paragraph, _Run
 from pptx.util import Length, Pt
+from pydantic import BaseModel
 from tenacity import RetryCallState, retry, stop_after_attempt, wait_fixed
+
+
+class Language(BaseModel):
+    lid: str
+
+    # mark the character set
+    @property
+    def latin(self) -> bool:
+        return not self.cjk
+
+    @property
+    def cjk(self) -> bool:
+        return self.lid in ["zh", "ja", "ko"]
 
 
 def get_logger(name="pptagent", level=None):

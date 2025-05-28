@@ -2,6 +2,7 @@ import asyncio
 import os
 import zipfile
 from copy import deepcopy
+from glob import glob
 from io import BytesIO
 from typing import Optional
 
@@ -10,15 +11,35 @@ import aiohttp
 import numpy as np
 import torch
 import torchvision.transforms as T
+from fasttext import load_model
+from huggingface_hub import hf_hub_download
+from huggingface_hub.constants import HUGGINGFACE_HUB_CACHE
 from PIL import Image
 from transformers import AutoModel, AutoProcessor
 
 from pptagent.llms import LLM, AsyncLLM
 from pptagent.presentation import Presentation, SlidePage
-from pptagent.utils import get_logger, is_image_path, pjoin
+from pptagent.utils import Language, get_logger, is_image_path, pjoin
 
 logger = get_logger(__name__)
-mineru_api = os.environ.get("MINERU_API", None)
+
+LID_PATTERN = pjoin(
+    HUGGINGFACE_HUB_CACHE, "models--julien-c--fasttext-language-id", "*/*/lid.176.bin"
+)
+LID_FILES = glob(LID_PATTERN)
+if LID_FILES:
+    LID_MODEL = load_model(LID_FILES[0])
+else:
+    LID_MODEL = load_model(
+        hf_hub_download(
+            repo_id="julien-c/fasttext-language-id",
+            filename="lid.176.bin",
+        )
+    )
+
+MINERU_API = os.environ.get("MINERU_API", None)
+if MINERU_API is None:
+    logger.warning("MINERU_API is not set, PDF parsing is not available")
 
 
 class ModelManager:
@@ -47,7 +68,7 @@ class ModelManager:
 
         self.language_model = AsyncLLM(language_model_name, api_base)
         self.vision_model = AsyncLLM(vision_model_name, api_base)
-        self.text_model = AsyncLLM(text_model_name, api_base)
+        self.embed_model = AsyncLLM(text_model_name, api_base)
 
     @property
     def image_model(self):
@@ -64,10 +85,18 @@ class ModelManager:
         try:
             assert await self.language_model.test_connection()
             assert await self.vision_model.test_connection()
-            assert await self.text_model.test_connection()
+            assert await self.embed_model.test_connection()
         except:
             return False
         return True
+
+
+def language_id(text: str) -> Language:
+    return Language(
+        lid=LID_MODEL.predict(text[:1024].replace("\n", ""))[0][0].replace(
+            "__label__", ""
+        )
+    )
 
 
 def prs_dedup(
@@ -147,7 +176,7 @@ async def parse_pdf(pdf_path: str, output_path: str):
             content_type="application/pdf",
         )
 
-        async with session.post(mineru_api, data=form_data) as response:
+        async with session.post(MINERU_API, data=form_data) as response:
             if response.status != 200:
                 raise Exception(f"HTTP Error: {response.status}")
 
