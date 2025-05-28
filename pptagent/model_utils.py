@@ -1,23 +1,42 @@
 import json
 import os
 from copy import deepcopy
+from glob import glob
+from io import BytesIO
 from typing import Optional
 
 import numpy as np
 import torch
 import torchvision.transforms as T
-from marker.config.parser import ConfigParser
-from marker.converters.pdf import PdfConverter
-from marker.models import create_model_dict
-from marker.output import text_from_rendered
+from fasttext import load_model
+from huggingface_hub import hf_hub_download
+from huggingface_hub.constants import HUGGINGFACE_HUB_CACHE
 from PIL import Image
 from transformers import AutoModel, AutoProcessor
 
 from pptagent.llms import LLM, AsyncLLM
 from pptagent.presentation import Presentation, SlidePage
-from pptagent.utils import get_logger, is_image_path, pjoin
+from pptagent.utils import Language, get_logger, is_image_path, pjoin
 
 logger = get_logger(__name__)
+
+LID_PATTERN = pjoin(
+    HUGGINGFACE_HUB_CACHE, "models--julien-c--fasttext-language-id", "*/*/lid.176.bin"
+)
+LID_FILES = glob(LID_PATTERN)
+if LID_FILES:
+    LID_MODEL = load_model(LID_FILES[0])
+else:
+    LID_MODEL = load_model(
+        hf_hub_download(
+            repo_id="julien-c/fasttext-language-id",
+            filename="lid.176.bin",
+        )
+    )
+
+MINERU_API = os.environ.get("MINERU_API", None)
+if MINERU_API is None:
+    logger.warning("MINERU_API is not set, PDF parsing is not available")
 
 
 class ModelManager:
@@ -47,7 +66,7 @@ class ModelManager:
 
         self.language_model = AsyncLLM(language_model_name, api_base)
         self.vision_model = AsyncLLM(vision_model_name, api_base)
-        self.text_model = AsyncLLM(text_model_name, api_base)
+        self.embed_model = AsyncLLM(text_model_name, api_base)
 
     @property
     def image_model(self):
@@ -72,10 +91,18 @@ class ModelManager:
         try:
             assert await self.language_model.test_connection()
             assert await self.vision_model.test_connection()
-            assert await self.text_model.test_connection()
+            assert await self.embed_model.test_connection()
         except:
             return False
         return True
+
+
+def language_id(text: str) -> Language:
+    return Language(
+        lid=LID_MODEL.predict(text[:1024].replace("\n", ""))[0][0].replace(
+            "__label__", ""
+        )
+    )
 
 
 def prs_dedup(
@@ -151,28 +178,30 @@ def parse_pdf(
         str: The full text extracted from the PDF.
     """
     os.makedirs(output_path, exist_ok=True)
-    config_parser = ConfigParser(
-        {
-            "output_format": "markdown",
-        }
-    )
-    converter = PdfConverter(
-        config=config_parser.generate_config_dict(),
-        artifact_dict=model_lst,
-        processor_list=config_parser.get_processors(),
-        renderer=config_parser.get_renderer(),
-    )
-    rendered = converter(pdf_path)
-    full_text, _, images = text_from_rendered(rendered)
-    with open(pjoin(output_path, "source.md"), "w+", encoding="utf-8") as f:
-        f.write(full_text)
-    for filename, image in images.items():
-        image_filepath = os.path.join(output_path, filename)
-        image.save(image_filepath, "JPEG")
-    with open(pjoin(output_path, "meta.json"), "w+", encoding="utf-8") as f:
-        f.write(json.dumps(rendered.metadata, indent=4))
+    async with aiofiles.open(pdf_path, "rb") as f:
+        pdf_data = await f.read()
 
-    return full_text
+    async with aiohttp.ClientSession() as session:
+        form_data = aiohttp.FormData()
+        form_data.add_field(
+            name="pdf",
+            value=pdf_data,
+            filename=os.path.basename(pdf_path),
+            content_type="application/pdf",
+        )
+
+        async with session.post(MINERU_API, data=form_data) as response:
+            if response.status != 200:
+                raise Exception(f"HTTP Error: {response.status}")
+
+            zip_data = await response.read()
+
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, lambda: extract_zip(zip_data, output_path))
+
+    def extract_zip(zip_content, output_path):
+        with zipfile.ZipFile(BytesIO(zip_content)) as zip_ref:
+            zip_ref.extractall(output_path)
 
 
 def get_image_embedding(

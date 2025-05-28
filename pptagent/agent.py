@@ -7,12 +7,22 @@ import tiktoken
 import yaml
 from jinja2 import Environment, StrictUndefined, Template
 from PIL import Image
+from pydantic import BaseModel
 from torch import Tensor, cosine_similarity
 
-from pptagent.llms import LLM, AsyncLLM
+from pptagent.llms import AsyncLLM, ThinkMode
 from pptagent.utils import get_json_from_response, package_join
 
 ENCODING = tiktoken.encoding_for_model("gpt-4o")
+RETRY_TEMPLATE = Template(
+    """The previous output is invalid, please carefully analyze the traceback and feedback information, correct errors happened before.
+            feedback:
+            {{feedback}}
+            traceback:
+            {{traceback}}
+            Give your corrected output in the same format without including the previous output:
+            """
+)
 
 
 @dataclass
@@ -55,8 +65,8 @@ class Agent:
     def __init__(
         self,
         name: str,
-        llm_mapping: dict[str, LLM | AsyncLLM],
-        text_model: Optional[LLM | AsyncLLM] = None,
+        llm_mapping: dict[str, AsyncLLM],
+        text_model: Optional[AsyncLLM] = None,
         record_cost: bool = False,
         config: Optional[dict] = None,
         env: Optional[Environment] = None,
@@ -90,15 +100,6 @@ class Agent:
         if self.env is None:
             self.env = Environment(undefined=StrictUndefined)
         self.template = self.env.from_string(self.config["template"])
-        self.retry_template = Template(
-            """The previous output is invalid, please carefully analyze the traceback and feedback information, correct errors happened before.
-            feedback:
-            {{feedback}}
-            traceback:
-            {{traceback}}
-            Give your corrected output in the same format without including the previous output:
-            """
-        )
         self.input_tokens = 0
         self.output_tokens = 0
         self._history: list[Turn] = []
@@ -117,73 +118,6 @@ class Agent:
         self.output_tokens += turns[-1].output_tokens
         self.input_tokens += self.system_tokens
 
-    def get_history(self, similar: int, recent: int, prompt: str):
-        """
-        Get the conversation history.
-        """
-        history = self._history[-recent:] if recent > 0 else []
-        if similar > 0:
-            assert isinstance(self.text_model, LLM), "text_model must be a LLM"
-            embedding = self.text_model.get_embedding(prompt)
-            history.sort(key=lambda x: cosine_similarity(embedding, x.embedding))
-            for turn in history:
-                if len(history) > similar + recent:
-                    break
-                if turn not in history:
-                    history.append(turn)
-        history.sort(key=lambda x: x.id)
-        return history
-
-    def retry(self, feedback: str, traceback: str, turn_id: int, error_idx: int):
-        """
-        Retry a failed turn with feedback and traceback.
-        """
-        assert error_idx > 0, "error_idx must be greater than 0"
-        prompt = self.retry_template.render(feedback=feedback, traceback=traceback)
-        history = [t for t in self._history if t.id == turn_id]
-        history_msg = []
-        for turn in history:
-            history_msg.extend(turn.message)
-        response, message = self.llm(
-            prompt,
-            history=history_msg,
-            return_message=True,
-        )
-        turn = Turn(
-            id=turn_id,
-            prompt=prompt,
-            response=response,
-            message=message,
-            retry=error_idx,
-        )
-        return self.__post_process__(response, history, turn)
-
-    def to_sync(self):
-        """
-        Convert the agent to a synchronous agent.
-        """
-        return Agent(
-            self.name,
-            self.llm_mapping,
-            self.text_model,
-            self.record_cost,
-            self.config,
-            self.env,
-        )
-
-    def to_async(self):
-        """
-        Convert the agent to an asynchronous agent.
-        """
-        return AsyncAgent(
-            self.name,
-            self.llm_mapping,
-            self.text_model,
-            self.record_cost,
-            self.config,
-            self.env,
-        )
-
     @property
     def next_turn_id(self):
         if len(self._history) == 0:
@@ -197,92 +131,12 @@ class Agent:
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(name={self.name}, model={self.model})"
 
-    def __call__(
-        self,
-        images: list[str] = None,
-        recent: int = 0,
-        similar: int = 0,
-        **jinja_args,
-    ):
-        """
-        Call the agent with prompt arguments.
-
-        Args:
-            images (list[str]): A list of image file paths.
-            recent (int): The number of recent turns to include.
-            similar (int): The number of similar turns to include.
-            **jinja_args: Additional arguments for the Jinja2 template.
-
-        Returns:
-            The response from the role.
-        """
-        if isinstance(images, str):
-            images = [images]
-        assert self.prompt_args == set(
-            jinja_args.keys()
-        ), f"Invalid arguments, expected: {self.prompt_args}, got: {jinja_args.keys()}"
-        prompt = self.template.render(**jinja_args)
-        history = self.get_history(similar, recent, prompt)
-        history_msg = []
-        for turn in history:
-            history_msg.extend(turn.message)
-
-        response, message = self.llm(
-            prompt,
-            system_message=self.system_message,
-            history=history_msg,
-            images=images,
-            return_message=True,
-        )
-        turn = Turn(
-            id=self.next_turn_id,
-            prompt=prompt,
-            response=response,
-            message=message,
-            images=images,
-        )
-        return turn.id, self.__post_process__(response, history, turn, similar)
-
-    def __post_process__(
-        self, response: str, history: list[Turn], turn: Turn, similar: int = 0
-    ) -> str | dict:
-        """
-        Post-process the response from the agent.
-        """
-        self._history.append(turn)
-        if similar > 0:
-            turn.embedding = self.text_model.get_embedding(turn.prompt)
-        if self.record_cost:
-            turn.calc_token()
-            self.calc_cost(history + [turn])
-        if self.return_json:
-            response = get_json_from_response(response)
-        return response
-
-
-class AsyncAgent(Agent):
-    """
-    An agent, defined by its instruction template and model.
-    """
-
-    def __init__(
-        self,
-        name: str,
-        llm_mapping: dict[str, AsyncLLM],
-        text_model: Optional[AsyncLLM] = None,
-        record_cost: bool = False,
-        config: Optional[dict] = None,
-        env: Optional[Environment] = None,
-    ):
-        super().__init__(name, llm_mapping, text_model, record_cost, config, env)
-        self.llm = self.llm.to_async()
-
     async def retry(self, feedback: str, traceback: str, turn_id: int, error_idx: int):
         """
         Retry a failed turn with feedback and traceback.
         """
         assert error_idx > 0, "error_idx must be greater than 0"
-        prompt = self.retry_template.render(feedback=feedback, traceback=traceback)
+        prompt = RETRY_TEMPLATE.render(feedback=feedback, traceback=traceback)
         history = [t for t in self._history if t.id == turn_id]
         history_msg = []
         for turn in history:
@@ -303,9 +157,12 @@ class AsyncAgent(Agent):
 
     async def __call__(
         self,
+        think_mode: ThinkMode = ThinkMode.not_think,
         images: list[str] = None,
         recent: int = 0,
         similar: int = 0,
+        response_format: Optional[BaseModel] = None,
+        client_kwargs: Optional[dict] = None,
         **jinja_args,
     ):
         """
@@ -331,12 +188,17 @@ class AsyncAgent(Agent):
         for turn in history:
             history_msg.extend(turn.message)
 
+        if client_kwargs is None:
+            client_kwargs = {}
         response, message = await self.llm(
             prompt,
+            think_mode=think_mode,
             system_message=self.system_message,
             history=history_msg,
             images=images,
             return_message=True,
+            response_format=response_format,
+            **client_kwargs,
         )
         turn = Turn(
             id=self.next_turn_id,
@@ -365,7 +227,7 @@ class AsyncAgent(Agent):
 
     async def __post_process__(
         self, response: str, history: list[Turn], turn: Turn, similar: int = 0
-    ):
+    ) -> str | dict:
         """
         Post-process the response from the agent.
         """
