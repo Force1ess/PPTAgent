@@ -3,18 +3,17 @@ system_prompt: |
 template: |
   Given a single section of a Markdown document, generate a structured JSON output for that section.
   Step-by-Step Instructions:
-  1. Identify Subsections: Within the provided section, use heading levels (e.g., H2, H3) and logical relationships to identify subsections.
+  1. Identify Subsections: Within the provided section, use heading levels (e.g., H2, H3) or logical relationships to identify subsections, at least 1 subsection should be extracted.
   2. Extract Titles and Content: generate concise (<= 5 words) and appropriate titles based on content. Ensure the content is complete and not truncated.
   3. Process Content:
     - Retain all original text as provided, and ensure the most important content is retained without truncation.
   4. Extract Available Metadata: Extract available metadata (e.g., title, author, publish date, organization, etc.) from the section’s content or context; include only the keys for which data is present.
+  5. Generate Summary: Generate a concise summary of the section, less than 100 words.
 
   Example Output:
   {
-      "metadata": {
-          `key`: `value` // leave it empty if no metadata is present
-      },
       "title": "Section 1",
+      "summary": "summary of the section, less than 100 words",
       "subsections": [
           {
               "title": "Subsection 1.1",
@@ -28,7 +27,10 @@ template: |
               "title": "Subsection 1.3",
               "content": "content"
           }
-      ]
+      ],
+      "metadata": {
+          `key`: `value` // leave it empty if no metadata is present
+      },
   }
 
   Input:

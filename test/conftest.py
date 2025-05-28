@@ -46,8 +46,8 @@ class TestConfig:
         return self.models.vision_model
 
     @property
-    def text_model(self):
-        return self.models.text_model
+    def embed_model(self):
+        return self.models.embed_model
 
     @property
     def image_model(self):

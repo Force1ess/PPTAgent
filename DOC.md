@@ -43,10 +43,10 @@ For a quick test, use the example in `runs/pdf(pptx)/*/source.pdf(pptx)` to save
   <tbody>
     <tr>
       <td rowspan="3"><b>LLM Recommendations</b></td>
-      <td>Language Model: 70B+ parameters (Qwen2.5-72B-Instruct, reasoning models are not recommended)</td>
+      <td>Language Model: 70B+ parameters (Qwen3-32B/gpt-4.1, etc. with support for structured output)</td>
     </tr>
     <tr>
-      <td>Vision Model: 7B+ parameters (Qwen2-VL-7B-Instruct)</td>
+      <td>Vision Model: 7B+ parameters (Qwen2.5-VL-7B-Instruct)</td>
     </tr>
     <tr>
       <td>Text Embedding Model: text-embedding-3-small/bge-m3 or other models</td>
@@ -104,18 +104,9 @@ pip install git+https://github.com/icip-cas/PPTAgent.git
 
 ##### Generate Via WebUI
 
-1. **Serve Backend**
+1. **Initialize Models**
 
-   Initialize your models in `pptagent_ui/backend.py`:
-   ```python
-   language_model = AsyncLLM(
-       model="Qwen2.5-72B-Instruct",
-       api_base="http://localhost:7812/v1"
-   )
-   vision_model = AsyncLLM(model="gpt-4o-2024-08-06")
-   text_embedder = AsyncLLM(model="text-embedding-3-small")
-   ```
-   Or use the environment variables:
+   Set the environment variables:
 
    ```bash
    export OPENAI_API_KEY="your_key"
@@ -125,7 +116,13 @@ pip install git+https://github.com/icip-cas/PPTAgent.git
    export TEXT_MODEL="text-embedding-3-small"
    ```
 
-2. **Launch Frontend**
+2. **Run Backend**
+
+   ```python
+   python pptagent_ui/backend.py
+   ```
+
+3. **Launch Frontend**
 
    > Note: The backend API endpoint is configured at `pptagent_ui/vue.config.js`
 
@@ -147,7 +144,7 @@ PPTAgent/
 ├── document/                       # Organize markdown document
 ├── pptagent/
 │   ├── apis.py                     # API and CodeExecutor
-│   ├── agent.py                    # Defines the `Agent` and `AsyncAgent`
+│   ├── agent.py                    # Defines the `Agent` class
 │   ├── llms.py                     # Defines the `LLM` and `AsyncLLM`
 │   ├── induct.py                   # Presentation analysis (Stage Ⅰ)
 │   ├── pptgen.py                   # Presentation generation (Stage Ⅱ)
