@@ -1,4 +1,4 @@
-from .layout import Layout
+from .layout import Element, Layout
 from .presentation import Presentation, SlidePage
 from .shapes import (
     SHAPECAST,
@@ -28,6 +28,7 @@ __all__ = [
     "Background",
     "Closure",
     "ClosureType",
+    "Element",
     "Fill",
     "Font",
     "FreeShape",

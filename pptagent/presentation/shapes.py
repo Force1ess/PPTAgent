@@ -44,11 +44,16 @@ def shape_normalize(shape: BaseShape):
 
 
 class ClosureType(Enum):
+    """
+    Enum for closure types.
+    """
+
     CLONE = auto()
     REPLACE = auto()
     DELETE = auto()
     STYLE = auto()
     MERGE = auto()
+    POST_PROCESS = auto()
 
     def __str__(self):
         return self.name.lower()
@@ -317,6 +322,7 @@ class Paragraph:
     bullet: Any
     font: Font
     text: str
+    edited: bool = False
 
     @classmethod
     def from_paragraph(cls, paragraph: _Paragraph, idx: int) -> "Paragraph":
@@ -334,7 +340,13 @@ class Paragraph:
         font = Font(**paragraph.font.get_attrs())
         font.override(Font(**run.font.get_attrs()))
         text = re.sub(r"(_x000B_|\\x0b)", " ", paragraph.text)
-        return cls(idx=idx, real_idx=real_idx, bullet=bullet, font=font, text=text)
+        return cls(
+            idx=idx,
+            real_idx=real_idx,
+            bullet=bullet,
+            font=font,
+            text=text,
+        )
 
     def to_html(self, style_args: StyleArg) -> str:
         """
@@ -614,6 +626,7 @@ class ShapeElement:
         )
         closures.extend(sorted(self._closures[ClosureType.DELETE], reverse=True))
         closures.extend(self._closures[ClosureType.MERGE])
+        closures.extend(sorted(self._closures[ClosureType.POST_PROCESS], reverse=True))
         return closures
 
     @property

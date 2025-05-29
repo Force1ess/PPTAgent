@@ -3,15 +3,14 @@ import re
 from typing import Optional
 
 from jinja2 import Environment, StrictUndefined
-from mistune import html as markdown
 from PIL import Image
 from pydantic import BaseModel, Field, create_model
 
 from pptagent.llms import AsyncLLM
 from pptagent.utils import (
     edit_distance,
+    get_html_table_image,
     get_logger,
-    markdown_table_to_image,
     package_join,
     pexists,
     pjoin,
@@ -74,8 +73,7 @@ class Table(Media):
     merge_area: Optional[list[tuple[int, int, int, int]]] = None
 
     def parse(self, image_dir: str):
-        html = markdown(self.markdown_content)
-        cells, merges = parse_table_with_merges(html)
+        cells, merges = parse_table_with_merges(self.markdown_content)
         self.cells = cells
         self.merge_area = merges
 
@@ -84,7 +82,7 @@ class Table(Media):
                 image_dir,
                 f"table_{hashlib.md5(str(self.cells).encode()).hexdigest()[:4]}.png",
             )
-        markdown_table_to_image(self.markdown_content, self.path)
+        get_html_table_image(self.markdown_content, self.path)
 
     async def get_caption(self, language_model: AsyncLLM):
         if self.caption is None:
@@ -110,12 +108,16 @@ class Metadata(BaseModel):
 class Section(BaseModel):
     title: str
     summary: str
-    content: list[SubSection | Media]
+    content: list[SubSection | Media | Table]
     markdown_content: Optional[str] = None
 
     def iter_medias(self):
         for block in self.content:
             if isinstance(block, Media):
+                if not pexists(block.path):
+                    raise ValueError(
+                        f"Image {block.path} not found, try use `Document.validate_medias` to set a new image directory for adding missing images"
+                    )
                 yield block
 
     @classmethod
@@ -129,6 +131,16 @@ class Section(BaseModel):
             metadata=(list[Metadata], Field(default_factory=list)),
             __base__=BaseModel,
         )
+
+    def __getitem__(self, key: str):
+        for block in self.content:
+            if isinstance(block, SubSection) and block.title == key:
+                return block
+            elif isinstance(block, Media) and (
+                block.path == key or block.caption == key
+            ):
+                return block
+        raise KeyError(f"No subsection or media with title {key} found")
 
 
 def link_medias(

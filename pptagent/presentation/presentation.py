@@ -1,6 +1,7 @@
 import traceback
 from collections.abc import Generator
 from dataclasses import dataclass
+from functools import partial
 from typing import Literal, Optional
 
 from pptx import Presentation as load_prs
@@ -13,6 +14,8 @@ from pptagent.utils import Config, get_logger, package_join
 
 from .shapes import (
     Background,
+    Closure,
+    ClosureType,
     GroupShape,
     Paragraph,
     Picture,
@@ -331,13 +334,13 @@ class Presentation:
                 )
             except Exception as e:
                 error_history.append((slide_idx, str(e)))
-                logger.warning(
+                logger.error(
                     "Fail to parse slide %d of %s: %s",
                     slide_idx,
                     file_path,
                     e,
                 )
-                logger.warning(traceback.format_exc())
+                logger.error(traceback.format_exc())
 
         return cls(
             slides, error_history, slide_width, slide_height, file_path, num_pages
@@ -367,6 +370,31 @@ class Presentation:
         return slide.build(
             self.prs.slides.add_slide(self.layout_mapping[slide.slide_layout_name])
         )
+
+    def validate(self, slide: SlidePage) -> PPTXSlide:
+        """
+        Build a slide in the presentation.
+        """
+
+        from pptagent.apis import del_para
+
+        for shape in slide:
+            if not shape.text_frame.is_textframe:
+                continue
+            for para in shape.text_frame.paragraphs:
+                if not para.edited:
+                    shape._closures[ClosureType.POST_PROCESS].append(
+                        Closure(
+                            partial(del_para, para.real_idx),
+                            para.real_idx,
+                        )
+                    )
+
+        try:
+            return self.build_slide(slide)
+        except Exception as e:
+            logger.error(f"Failed to validate slide {slide.slide_idx}: {e}")
+            raise e
 
     def clear_slides(self):
         """

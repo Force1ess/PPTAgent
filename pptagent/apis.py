@@ -8,9 +8,9 @@ from enum import Enum
 from functools import partial
 from typing import Any, Optional, Union
 
-import PIL
 from bs4 import BeautifulSoup
 from mistune import HTMLRenderer, create_markdown
+from PIL import Image
 from pptx.enum.text import PP_ALIGN
 from pptx.oxml import parse_xml
 from pptx.shapes.base import BaseShape
@@ -220,9 +220,6 @@ def element_index(slide: SlidePage, element_id: int) -> ShapeElement:
 
     Returns:
         ShapeElement: The shape corresponding to the element ID.
-
-    Raises:
-        SlideEditError: If the element is not found.
     """
     for shape in slide:
         if shape.shape_idx == element_id:
@@ -364,8 +361,6 @@ def del_paragraph(slide: SlidePage, div_id: int, paragraph_id: int):
         div_id (int): The ID of the division containing the paragraph.
         paragraph_id (int): The ID of the paragraph to delete.
 
-    Raises:
-        SlideEditError: If the paragraph is not found.
     """
     shape = element_index(slide, div_id)
     if not shape.text_frame.is_textframe:
@@ -429,6 +424,7 @@ def replace_paragraph(slide: SlidePage, div_id: int, paragraph_id: int, text: st
                     para.real_idx,
                 )
             )
+            para.edited = True
             return
     else:
         raise SlideEditError(
@@ -448,8 +444,6 @@ def replace_image(slide: SlidePage, doc: Document, img_id: int, image_path: str)
         img_id (int): The ID of the image to replace.
         image_path (str): The path to the new image.
 
-    Raises:
-        SlideEditError: If the image path does not exist.
     """
     if not os.path.exists(image_path):
         raise SlideEditError(
@@ -469,7 +463,7 @@ def replace_image(slide: SlidePage, doc: Document, img_id: int, image_path: str)
             f"Failed to replace image with table element: {e}, fallback to use image directly."
         )
 
-    img_size = PIL.Image.open(image_path).size
+    img_size = Image.open(image_path).size
     r = min(shape.width / img_size[0], shape.height / img_size[1])
     new_width = img_size[0] * r
     new_height = img_size[1] * r
@@ -487,9 +481,6 @@ def clone_paragraph(slide: SlidePage, div_id: int, paragraph_id: int):
         slide (SlidePage): The slide containing the paragraph.
         div_id (int): The ID of the division containing the paragraph.
         paragraph_id (int): The ID of the paragraph to clone.
-
-    Raises:
-        SlideEditError: If the paragraph is not found.
 
     Mention: the cloned paragraph will have a paragraph_id one greater than the current maximum in the parent element.
     """

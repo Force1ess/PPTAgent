@@ -13,7 +13,6 @@ from pptagent.llms import AsyncLLM
 from pptagent.model_utils import language_id
 from pptagent.utils import (
     Language,
-    edit_distance,
     get_logger,
     package_join,
     pbasename,
@@ -26,7 +25,7 @@ from .doc_utils import (
     process_markdown_content,
     split_markdown_by_headings,
 )
-from .element import Metadata, Section, SubSection, Table, link_medias
+from .element import Media, Metadata, Section, SubSection, Table, link_medias
 
 logger = get_logger(__name__)
 
@@ -36,6 +35,20 @@ MERGE_METADATA_PROMPT = env.from_string(
     open(package_join("prompts", "document", "merge_metadata.txt")).read()
 )
 LITERAL_CONSTRAINT = os.getenv("LITERAL_CONSTRAINT", "false").lower() == "true"
+
+
+class DocumentIndex(BaseModel):
+    section: str
+    subsections: list[str]
+
+    @classmethod
+    def response_model(cls, section_fields: list[str], subsection_fields: list[str]):
+        return create_model(
+            cls.__name__,
+            section=(Literal[tuple(section_fields)], Field(...)),  # type: ignore
+            subsections=(list[Literal[tuple(subsection_fields)]], Field(...)),  # type: ignore
+            __base__=BaseModel,
+        )
 
 
 class Document(BaseModel):
@@ -179,37 +192,24 @@ class Document(BaseModel):
             f"section not found: {key}, available sections: {[section.title for section in self.sections]}"
         )
 
-    def retrieve(
-        self,
-        indexs: dict[str, list[str]],
-    ) -> list[SubSection]:
-        assert isinstance(
-            indexs, dict
-        ), "subsection_keys for index must be a dict, follow a two-level structure"
-        subsecs = []
-        for sec_key, subsec_keys in indexs.items():
-            section = self[sec_key]
-            for subsec_key in subsec_keys:
-                subsecs.append(section[subsec_key])
-        return subsecs
-
     def find_caption(self, caption: str):
         for media in self.iter_medias():
             if media.caption == caption:
                 return media.path
         raise ValueError(f"Image caption not found: {caption}")
 
-    def get_overview(self, include_summary: bool = False):
+    def get_overview(self, include_summary: bool = False, include_image: bool = True):
         overview = ""
         for section in self.sections:
-            overview += f"Section: {section.title}\n"
+            overview += f"<section>{section.title}</section>\n"
             if include_summary:
                 overview += f"\tSummary: {section.summary}\n"
-            for subsection in section.subsections:
-                overview += f"\tSubsection: {subsection.title}\n"
-                for media in subsection.medias:
-                    overview += f"\t\tMedia: {media.caption}\n"
-                overview += "\n"
+            for subsection in section.content:
+                if isinstance(subsection, SubSection):
+                    overview += f"\t<subsection>{subsection.title}</subsection>\n"
+                elif include_image and isinstance(subsection, Media):
+                    overview += f"\t<image>{subsection.caption}</image>\n"
+            overview += "\n"
         return overview
 
     @property
@@ -226,59 +226,57 @@ _allowed_indexs: ContextVar[dict[str, list[str]]] = ContextVar(
 class OutlineItem(BaseModel):
     purpose: str
     section: str
-    indexs: dict[str, list[str]] | str = Field(default_factory=dict)
+    indexes: list[DocumentIndex] | str
     images: list[str] = Field(default_factory=list)
 
-    def model_post_init(self, _):
-        """Post-process the model after initialization using ContextVar values."""
-        # Get allowed values from context
-        allowed_images = _allowed_images.get()
-        allowed_indexs = _allowed_indexs.get()
-
-        # Post-process images: find best matches if not exact
-        self.images = [
-            max(allowed_images, key=lambda x: edit_distance(x, image))
-            for image in self.images
-        ]
-
-        # Post-process indexs: find best matches for keys and values
-        first_levels = list(allowed_indexs.keys())
-        for k in list(self.indexs.keys()):
-            if k not in first_levels:
-                new_key = max(first_levels, key=lambda x: edit_distance(x, k))
-                self.indexs[new_key] = self.indexs.pop(k)
-            # Second level validation
-            for v in self.indexs[k]:
-                if v not in allowed_indexs[k]:
-                    new_v = max(allowed_indexs[k], key=lambda x: edit_distance(x, v))
-                    self.indexs[k][self.indexs[k].index(v)] = new_v
-
     def retrieve(self, slide_idx: int, document: Document):
-        subsections = document.retrieve(self.indexs)
-        header = f"Slide-{slide_idx+1}: {self.purpose}\n"
+        subsections = []
+        for index in self.indexes:
+            for subsection in index.subsections:
+                subsections.append(document[index.section][subsection])
+        header = f"Current Slide: {self.purpose}\n"
+        header += f"This is the {slide_idx+1} slide of the presentation.\n"
         content = ""
         for subsection in subsections:
             content += f"Paragraph: {subsection.title}\nContent: {subsection.content}\n"
         images = [
-            f"Image: {document.find_caption(caption)}\nCaption: {caption}"
+            f"<path>{document.find_caption(caption)}</path>: {caption}"
             for caption in self.images
         ]
         return header, content, images
 
     @classmethod
-    def response_model(
-        cls, allowed_images: list[str], allowed_indexs: dict[str, list[str]]
-    ):
+    def response_model(cls, allowed_images: list[str], document: Document):
         # Set context variables for post-processing
         _allowed_images.set(allowed_images)
-        _allowed_indexs.set(allowed_indexs)
+        sections = []
+        subsections = []
+        for sec in document.sections:
+            sections.append(sec.title)
+            for subsec in sec.content:
+                if isinstance(subsec, SubSection):
+                    subsections.append(subsec.title)
 
-        if not LITERAL_CONSTRAINT:
-            return cls
         return create_model(
             cls.__name__,
             purpose=(str, Field(...)),
+            section=(str, Field(...)),
             images=(list[Literal[tuple(allowed_images)]], Field(...)),  # type: ignore
-            indexs=(dict[Literal[tuple(allowed_indexs.keys())], list[str]], Field(...)),  # type: ignore
+            indexes=(list[DocumentIndex.response_model(sections, subsections)], Field(...)),  # type: ignore
+            __base__=BaseModel,
+        )
+
+
+class Outline(BaseModel):
+    outline: list[OutlineItem]
+
+    @classmethod
+    def response_model(cls, allowed_images: list[str], document: Document):
+        return create_model(
+            cls.__name__,
+            outline=(
+                list[OutlineItem.response_model(allowed_images, document)],
+                Field(...),
+            ),
             __base__=BaseModel,
         )

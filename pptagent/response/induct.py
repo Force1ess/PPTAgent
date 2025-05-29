@@ -1,6 +1,11 @@
+from contextvars import ContextVar
 from typing import Literal
 
-from pydantic import BaseModel, create_model
+from pydantic import BaseModel
+
+from pptagent.utils import edit_distance
+
+_allowed_contents = ContextVar("allowed_contents")
 
 
 class SlideElement(BaseModel):
@@ -8,16 +13,11 @@ class SlideElement(BaseModel):
     data: list[str]
     el_type: Literal["text", "image"]
 
-    @classmethod
-    def response_model(cls, content_fields: list[str]) -> type[BaseModel]:
-        ContentLiteral = Literal[tuple(content_fields)]  # type: ignore
-        return create_model(
-            cls.__name__,
-            el_name=(str, ...),
-            data=(list[ContentLiteral], ...),
-            el_type=(Literal["text", "image"], ...),
-            __base__=BaseModel,
-        )
+    def model_post_init(self, _):
+        self.data = [
+            max(_allowed_contents.get(), key=lambda x: edit_distance(x, d))
+            for d in self.data
+        ]
 
 
 class SlideSchema(BaseModel):
@@ -25,8 +25,5 @@ class SlideSchema(BaseModel):
 
     @classmethod
     def response_model(cls, content_fields: list[str]) -> type[BaseModel]:
-        return create_model(
-            cls.__name__,
-            elements=(list[SlideElement.response_model(content_fields)], ...),
-            __base__=BaseModel,
-        )
+        _allowed_contents.set(content_fields)
+        return cls

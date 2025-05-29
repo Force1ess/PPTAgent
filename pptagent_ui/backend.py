@@ -1,6 +1,5 @@
 import asyncio
 import hashlib
-import importlib
 import json
 import os
 import sys
@@ -24,11 +23,11 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
-import pptagent.induct as induct
-import pptagent.pptgen as pptgen
 from pptagent.document import Document
+from pptagent.induct import SlideInducter
 from pptagent.model_utils import ModelManager, parse_pdf
 from pptagent.multimodal import ImageLabler
+from pptagent.pptgen import PPTAgent
 from pptagent.presentation import Presentation
 from pptagent.utils import Config, get_logger, package_join, pjoin, ppt_to_images_async
 
@@ -197,9 +196,6 @@ async def hello():
 
 
 async def ppt_gen(task_id: str, rerun=False):
-    if DEBUG:
-        importlib.reload(induct)
-        importlib.reload(pptgen)
     if rerun:
         task_id = task_id.replace("|", "/")
         active_connections[task_id] = None
@@ -277,7 +273,7 @@ async def ppt_gen(task_id: str, rerun=False):
 
         # document refine
         if not os.path.exists(pjoin(parsedpdf_dir, "refined_doc.json")):
-            source_doc = await Document.from_markdown_async(
+            source_doc = await Document.from_markdown(
                 text_content,
                 models.language_model,
                 models.vision_model,
@@ -303,7 +299,7 @@ async def ppt_gen(task_id: str, rerun=False):
                 pjoin(pptx_config.RUN_DIR, "template.pptx"),
                 pjoin(pptx_config.RUN_DIR, "template_images"),
             )
-            slide_inducter = induct.SlideInducterAsync(
+            slide_inducter = SlideInducter(
                 presentation,
                 ppt_image_folder,
                 pjoin(pptx_config.RUN_DIR, "template_images"),
@@ -326,8 +322,8 @@ async def ppt_gen(task_id: str, rerun=False):
             )
         await progress.report_progress()
 
-        # PPT Generation with PPTAgentAsync
-        ppt_agent = pptgen.PPTAgentAsync(
+        # PPT Generation with PPTAgent
+        ppt_agent = PPTAgent(
             models.text_model,
             models.language_model,
             models.vision_model,

@@ -43,7 +43,7 @@ For a quick test, use the example in `runs/pdf(pptx)/*/source.pdf(pptx)` to save
   <tbody>
     <tr>
       <td rowspan="3"><b>LLM Recommendations</b></td>
-      <td>Language Model: 70B+ parameters (Qwen3-32B/gpt-4.1, etc. with support for structured output)</td>
+      <td>Language Model: 70B+ parameters (eg. gpt-4.1, with support for structured output)</td>
     </tr>
     <tr>
       <td>Vision Model: 7B+ parameters (Qwen2.5-VL-7B-Instruct)</td>

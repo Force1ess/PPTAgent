@@ -13,9 +13,7 @@ from typing import Any, Optional
 
 import json_repair
 import Levenshtein
-from bs4 import BeautifulSoup
 from html2image import Html2Image
-from mistune import html as markdown
 from pdf2image import convert_from_path
 from PIL import Image as PILImage
 from pptx.dml.color import RGBColor
@@ -39,6 +37,14 @@ class Language(BaseModel):
     @property
     def cjk(self) -> bool:
         return self.lid in ["zh", "ja", "ko"]
+
+    @classmethod
+    def chinese(cls):
+        return Language(lid="zh")
+
+    @classmethod
+    def english(cls):
+        return Language(lid="en")
 
 
 def get_logger(name="pptagent", level=None):
@@ -284,42 +290,68 @@ th {
 """
 
 
-# Convert Markdown to HTML
-def markdown_table_to_image(markdown_text: str, output_path: str):
+def manual_scan_crop(img_path: str):
+    """Manually detect and crop image boundaries by scanning pixels."""
+    img = PILImage.open(img_path).convert("RGB")
+    width, height = img.size
+    pixels = img.load()
+    left, top, right, bottom = width, height, 0, 0
+    found_content = False
+
+    # Scan all pixels to find non-white areas
+    for y in range(height):
+        for x in range(width):
+            r, g, b = pixels[x, y]
+            # Detect non-white pixels (using a relaxed threshold to account for anti-aliasing)
+            if r < 248 or g < 248 or b < 248:
+                left = min(left, x)
+                right = max(right, x)
+                top = min(top, y)
+                bottom = max(bottom, y)
+                found_content = True
+
+    if found_content:
+        padding = 20
+        bbox = (
+            max(0, left - padding),
+            max(0, top - padding),
+            min(width, right + 1 + padding),
+            min(height, bottom + 1 + padding),
+        )
+
+        cropped_img = img.crop(bbox)
+        cropped_img.save(img_path)
+
+
+def get_html_table_image(html: str, output_path: str):
     """
-    Convert a Markdown table to a cropped image
+    Convert a html table to the image
 
     Args:
-    markdown_text (str): Markdown text containing a table
+    html (str): html text containing a table
     output_path (str): Output image path, defaults to 'table_cropped.png'
 
     Returns:
     str: The path of the generated image
     """
-    html = markdown(markdown_text)
-    assert "table" in html, "Failed to find table in markdown"
-
-    soup = BeautifulSoup(html, "html.parser")
-    tables = soup.find_all("table")
-    html = f"<html><body>{''.join(str(table) for table in tables)}</body></html>"
-
     parent_dir, basename = os.path.split(output_path)
+
+    if parent_dir and not os.path.exists(parent_dir):
+        os.makedirs(parent_dir)
+
     hti = Html2Image(
         disable_logging=True,
-        output_path=parent_dir,
-        custom_flags=["--no-sandbox", "--headless"],
+        output_path=parent_dir if parent_dir else ".",
+        custom_flags=["--no-sandbox", "--headless", "--disable-gpu"],
     )
     hti.browser.use_new_headless = None
-    hti.screenshot(html_str=html, css_str=TABLE_CSS, save_as=basename)
-
-    img = PILImage.open(output_path).convert("RGB")
-    bbox = img.getbbox()
-    assert (
-        bbox is not None
-    ), "Failed to capture the bbox, may be markdown table conversion failed"
-    bbox = (0, 0, bbox[2] + 10, bbox[3] + 10)
-    img.crop(bbox).save(output_path)
-    return output_path
+    hti.screenshot(
+        html_str=html,
+        css_str=TABLE_CSS,
+        save_as=basename,
+        size=(1000, 600),
+    )
+    manual_scan_crop(output_path)
 
 
 @tenacity_decorator
