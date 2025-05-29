@@ -2,7 +2,7 @@ from test.conftest import test_config
 
 import pytest
 
-from pptagent.document import Document, OutlineItem
+from pptagent.document import Document
 
 
 @pytest.mark.asyncio
@@ -21,23 +21,6 @@ async def test_document_async():
 
 
 def test_document_from_dict():
-    document = Document.from_dict(
-        test_config.get_document_json(),
-        test_config.document,
-        True,
-    )
+    document = Document(**test_config.get_document_json())
     document.get_overview(include_summary=True)
     document.metainfo
-    document.retrieve({"Building effective agents": ["What are agents?"]})
-
-
-def test_outline_retrieve():
-    document = Document.from_dict(
-        test_config.get_document_json(),
-        test_config.document,
-        False,
-    )
-    outline = test_config.get_outline()
-    for outline_item in outline:
-        item = OutlineItem.from_dict(outline_item)
-        print(item.retrieve(0, document))

@@ -6,7 +6,7 @@ following a two-phase approach of Analysis and Generation.
 For more information, visit: https://github.com/icip-cas/PPTAgent
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __author__ = "Hao Zheng"
 __email__ = "wszh712811@gmail.com"
 

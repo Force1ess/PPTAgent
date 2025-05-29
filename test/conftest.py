@@ -29,10 +29,6 @@ class TestConfig:
         """Load document JSON"""
         return json.load(open(pjoin(self.document, "refined_doc.json")))
 
-    def get_outline(self):
-        """Load outline data"""
-        return json.load(open(pjoin(self.document, "outline.json")))
-
     def get_image_stats(self):
         """Load captions data"""
         return json.load(open(pjoin(self.template, "image_stats.json")))
@@ -44,10 +40,6 @@ class TestConfig:
     @property
     def vision_model(self):
         return self.models.vision_model
-
-    @property
-    def embed_model(self):
-        return self.models.embed_model
 
     @property
     def image_model(self):

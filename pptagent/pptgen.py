@@ -69,7 +69,6 @@ class PPTGen(ABC):
         "layout_selector",
     ]
 
-    text_embedder: AsyncLLM
     language_model: AsyncLLM
     vision_model: AsyncLLM
     retry_times: int = 3
@@ -77,15 +76,11 @@ class PPTGen(ABC):
     force_pages: bool = False
     error_exit: bool = False
     record_cost: bool = False
-    length_factor: float | None = None
     _initialized: bool = False
 
     def __post_init__(self):
         self._initialized = False
         self._hire_staffs(self.record_cost, self.language_model, self.vision_model)
-        assert (
-            self.length_factor is None or self.length_factor > 0
-        ), "length_factor must be positive or None"
 
     def set_reference(
         self,
@@ -141,6 +136,7 @@ class PPTGen(ABC):
         num_slides: Optional[int] = None,
         outline: Optional[list[OutlineItem]] = None,
         dst_language: Optional[Language] = None,
+        length_factor: Optional[float] = None,
         auto_length_factor: bool = True,
         max_at_once: Optional[int] = None,
         max_per_second: Optional[int] = None,
@@ -151,9 +147,11 @@ class PPTGen(ABC):
         source_doc.metadata["presentation-date"] = datetime.now().strftime("%Y-%m-%d")
         assert self._initialized, "PPTAgent not initialized, call `set_reference` first"
         self.source_doc = source_doc
-        if auto_length_factor:
+        if auto_length_factor and length_factor is None:
             self.dst_lang = dst_language or source_doc.language
             self.length_factor = get_length_factor(self.reference_lang, self.dst_lang)
+        else:
+            self.length_factor = length_factor
         succ_flag = True
         if outline is None:
             self.outline = await self.generate_outline(num_slides, source_doc)
@@ -343,7 +341,6 @@ class PPTGen(ABC):
             role: Agent(
                 role,
                 record_cost=record_cost,
-                text_model=self.text_embedder,
                 llm_mapping=llm_mapping,
             )
             for role in ["planner"] + self.roles

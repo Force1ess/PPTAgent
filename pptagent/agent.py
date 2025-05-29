@@ -8,7 +8,7 @@ import yaml
 from jinja2 import Environment, StrictUndefined, Template
 from PIL import Image
 from pydantic import BaseModel
-from torch import Tensor, cosine_similarity
+from torch import Tensor
 
 from pptagent.llms import AsyncLLM, ThinkMode
 from pptagent.utils import get_json_from_response, package_join
@@ -66,7 +66,6 @@ class Agent:
         self,
         name: str,
         llm_mapping: dict[str, AsyncLLM],
-        text_model: Optional[AsyncLLM] = None,
         record_cost: bool = False,
         config: Optional[dict] = None,
         env: Optional[Environment] = None,
@@ -92,7 +91,6 @@ class Agent:
         self.llm = self.llm_mapping[self.config["use_model"]]
         self.model = self.llm.model
         self.record_cost = record_cost
-        self.text_model = text_model
         self.return_json = self.config.get("return_json", False)
         self.system_message = self.config["system_prompt"]
         self.prompt_args = set(self.config["jinja_args"])
@@ -172,7 +170,6 @@ class Agent:
         think_mode: ThinkMode = ThinkMode.not_think,
         images: list[str] = None,
         recent: int = 0,
-        similar: int = 0,
         response_format: Optional[BaseModel] = None,
         client_kwargs: Optional[dict] = None,
         **jinja_args,
@@ -195,7 +192,7 @@ class Agent:
             jinja_args.keys()
         ), f"Invalid arguments, expected: {self.prompt_args}, got: {jinja_args.keys()}"
         prompt = self.template.render(**jinja_args)
-        history = await self.get_history(similar, recent, prompt)
+        history = await self.get_history(recent)
         history_msg = []
         for turn in history:
             history_msg.extend(turn.message)
@@ -219,33 +216,23 @@ class Agent:
             message=message,
             images=images,
         )
-        return turn.id, await self.__post_process__(response, history, turn, similar)
+        return turn.id, await self.__post_process__(response, history, turn)
 
-    async def get_history(self, similar: int, recent: int, prompt: str):
+    async def get_history(self, recent: int):
         """
         Get the conversation history.
         """
         history = self._history[-recent:] if recent > 0 else []
-        if similar > 0:
-            embedding = await self.text_model.get_embedding(prompt)
-            history.sort(key=lambda x: cosine_similarity(embedding, x.embedding))
-            for turn in history:
-                if len(history) > similar + recent:
-                    break
-                if turn not in history:
-                    history.append(turn)
         history.sort(key=lambda x: x.id)
         return history
 
     async def __post_process__(
-        self, response: str, history: list[Turn], turn: Turn, similar: int = 0
+        self, response: str, history: list[Turn], turn: Turn
     ) -> str | dict:
         """
         Post-process the response from the agent.
         """
         self._history.append(turn)
-        if similar > 0:
-            turn.embedding = await self.text_model.get_embedding(turn.prompt)
         if self.record_cost:
             turn.calc_token()
             self.calc_cost(history + [turn])

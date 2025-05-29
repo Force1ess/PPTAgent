@@ -49,7 +49,6 @@ class ModelManager:
         api_base: Optional[str] = None,
         language_model_name: Optional[str] = None,
         vision_model_name: Optional[str] = None,
-        text_model_name: Optional[str] = None,
     ):
         """Initialize models from environment variables after instance creation"""
         if api_base is None:
@@ -58,15 +57,12 @@ class ModelManager:
             language_model_name = os.environ.get("LANGUAGE_MODEL", "gpt-4.1")
         if vision_model_name is None:
             vision_model_name = os.environ.get("VISION_MODEL", "gpt-4.1")
-        if text_model_name is None:
-            text_model_name = os.environ.get("TEXT_MODEL", "text-embedding-3-small")
         self._image_model = None
         self._marker_model = None
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
         self.language_model = AsyncLLM(language_model_name, api_base)
         self.vision_model = AsyncLLM(vision_model_name, api_base)
-        self.embed_model = AsyncLLM(text_model_name, api_base)
 
     @property
     def image_model(self):
@@ -91,7 +87,6 @@ class ModelManager:
         try:
             assert await self.language_model.test_connection()
             assert await self.vision_model.test_connection()
-            assert await self.embed_model.test_connection()
         except:
             return False
         return True
