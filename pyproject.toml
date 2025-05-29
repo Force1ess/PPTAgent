@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pptagent"
-version = "0.1.0"
+version = "0.2.0"
 authors = [{ name = "Hao Zheng", email = "wszh712811@gmail.com" }]
 description = "PPTAgent, a tool for utilizing LLMs to generate PowerPoint presentations from documents."
 readme = "README.md"
@@ -30,6 +30,7 @@ dependencies = [
     "aiometer",
     "beautifulsoup4",
     "fastapi[all]",
+    "fasttext",
     "einops",
     "func_argparse",
     "html2image",

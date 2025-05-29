@@ -42,14 +42,11 @@ For a quick test, use the example in `runs/pdf(pptx)/*/source.pdf(pptx)` to save
   </thead>
   <tbody>
     <tr>
-      <td rowspan="3"><b>LLM Recommendations</b></td>
+      <td rowspan="2"><b>LLM Recommendations</b></td>
       <td>Language Model: 70B+ parameters (eg. gpt-4.1, with support for structured output)</td>
     </tr>
     <tr>
       <td>Vision Model: 7B+ parameters (Qwen2.5-VL-7B-Instruct)</td>
-    </tr>
-    <tr>
-      <td>Text Embedding Model: text-embedding-3-small/bge-m3 or other models</td>
     </tr>
     <tr>
       <td rowspan="3"><b>System Requirements</b></td>
@@ -111,9 +108,8 @@ pip install git+https://github.com/icip-cas/PPTAgent.git
    ```bash
    export OPENAI_API_KEY="your_key"
    export API_BASE="http://your_service_provider/v1"
-   export LANGUAGE_MODEL="Qwen2.5-72B-Instruct-GPTQ-Int4"
-   export VISION_MODEL="gpt-4o-2024-08-06"
-   export TEXT_MODEL="text-embedding-3-small"
+   export LANGUAGE_MODEL="openai/gpt-4.1"
+   export VISION_MODEL="openai/gpt-4.1"
    ```
 
 2. **Run Backend**

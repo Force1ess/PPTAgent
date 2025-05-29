@@ -4,7 +4,7 @@ from test.conftest import test_config
 
 import pytest
 
-from pptagent.induct import SlideInducter, SlideInducterAsync
+from pptagent.induct import SlideInducter
 from pptagent.multimodal import ImageLabler
 from pptagent.presentation import Presentation
 
@@ -29,8 +29,9 @@ def prepare_slides(prs: Presentation):
     return prs
 
 
+@pytest.mark.asyncio
 @pytest.mark.llm
-def test_layout_induct():
+async def test_layout_induct():
     prs = Presentation.from_file(
         pjoin(test_config.template, "source.pptx"), test_config.config
     )
@@ -39,28 +40,6 @@ def test_layout_induct():
     prs = prepare_slides(prs)
 
     inducter = SlideInducter(
-        prs,
-        pjoin(test_config.template, "slide_images"),
-        pjoin(test_config.template, "template_images"),
-        test_config.config,
-        test_config.image_model,
-        test_config.language_model.to_sync(),
-        test_config.vision_model.to_sync(),
-    )
-    inducter.layout_induct()
-
-
-@pytest.mark.asyncio
-@pytest.mark.llm
-async def test_layout_induct_async():
-    prs = Presentation.from_file(
-        pjoin(test_config.template, "source.pptx"), test_config.config
-    )
-    labler = ImageLabler(prs, test_config.config)
-    labler.apply_stats(test_config.get_image_stats())
-    prs = prepare_slides(prs)
-
-    inducter = SlideInducterAsync(
         prs,
         pjoin(test_config.template, "slide_images"),
         pjoin(test_config.template, "template_images"),
@@ -72,8 +51,9 @@ async def test_layout_induct_async():
     await inducter.layout_induct()
 
 
+@pytest.mark.asyncio
 @pytest.mark.llm
-def test_content_induct():
+async def test_content_induct():
     prs = Presentation.from_file(
         pjoin(test_config.template, "source.pptx"), test_config.config
     )
@@ -82,34 +62,6 @@ def test_content_induct():
     prs = prepare_slides(prs)
 
     inducter = SlideInducter(
-        prs,
-        pjoin(test_config.template, "slide_images"),
-        pjoin(test_config.template, "template_images"),
-        test_config.config,
-        test_config.image_model,
-        test_config.language_model.to_sync(),
-        test_config.vision_model.to_sync(),
-    )
-    layout_induction = {}
-    for layout_name, cluster in test_config.get_slide_induction().items():
-        cluster.pop("content_schema")
-        layout_induction[layout_name] = cluster
-        break
-
-    inducter.content_induct(layout_induction=layout_induction)
-
-
-@pytest.mark.asyncio
-@pytest.mark.llm
-async def test_content_induct_async():
-    prs = Presentation.from_file(
-        pjoin(test_config.template, "source.pptx"), test_config.config
-    )
-    labler = ImageLabler(prs, test_config.config)
-    labler.apply_stats(test_config.get_image_stats())
-    prs = prepare_slides(prs)
-
-    inducter = SlideInducterAsync(
         prs,
         pjoin(test_config.template, "slide_images"),
         pjoin(test_config.template, "template_images"),
