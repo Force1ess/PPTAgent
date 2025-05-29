@@ -274,12 +274,13 @@ class AsyncLLM(LLM):
             api_key=self.api_key,
             timeout=self.timeout,
         )
-        self.batch = Auto(
-            base_url=self.base_url,
-            api_key=self.api_key,
-            timeout=self.timeout,
-            loglevel=0,
-        )
+        if self.use_batch:
+            self.batch = Auto(
+                base_url=self.base_url,
+                api_key=self.api_key,
+                timeout=self.timeout,
+                loglevel=0,
+            )
 
     @tenacity_decorator
     async def __call__(
@@ -358,7 +359,7 @@ class AsyncLLM(LLM):
                     )
 
         except Exception as e:
-            logger.warning("Error in AsyncLLM call: %s", e)
+            logger.error("Error in AsyncLLM call: %s", e)
             raise e
         response = completion.choices[0].message.content
         message.append({"role": "assistant", "content": response})

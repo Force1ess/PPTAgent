@@ -13,7 +13,8 @@ template: |
         1.	Quantity Adjustment:
         -	If quantity_change = 0, modify the content only.
         -	If quantity_change > 0, use clone_paragraph to add the specified number of paragraphs from the same element_class. The paragraph_id for newly cloned paragraphs should be the current maximum paragraph_id of the parent element plus 1.
-        -	If quantity_change < 0, use del_paragraph or del_image to remove the specified number of tail elements.
+        > Note: if quantity_change of an image element is greater than 0, you need omit the ending images since you cannot clone image element.
+        -	If quantity_change < 0, use del_paragraph or del_image to remove the specified number of elements from the end.
         -	Each command’s API call group must exclusively use either clone_paragraph or del_paragraph/del_image based on the `quantity_change`
         2.	Content Modification:
         -	Text Content: Use replace_paragraph to modify the content.

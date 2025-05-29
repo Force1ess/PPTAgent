@@ -203,7 +203,7 @@ class SlideInducter:
             partial_funcs, max_at_once=max_at_once, max_per_second=max_per_second
         )
         for layout_name, (_, schema) in zip(layout_induction.keys(), schemas):
-            layout_induction[layout_name]["content_schema"] = schema
+            layout_induction[layout_name] = schema
 
         layout_induction["language"] = language_id(slide.to_text()).model_dump()
         return layout_induction

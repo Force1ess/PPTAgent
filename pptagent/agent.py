@@ -131,7 +131,16 @@ class Agent:
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(name={self.name}, model={self.model})"
 
-    async def retry(self, feedback: str, traceback: str, turn_id: int, error_idx: int):
+    async def retry(
+        self,
+        feedback: str,
+        traceback: str,
+        turn_id: int,
+        error_idx: int,
+        think_mode: ThinkMode = ThinkMode.not_think,
+        response_format: Optional[BaseModel] = None,
+        **client_kwargs,
+    ):
         """
         Retry a failed turn with feedback and traceback.
         """
@@ -145,6 +154,9 @@ class Agent:
             prompt,
             history=history_msg,
             return_message=True,
+            think_mode=think_mode,
+            response_format=response_format,
+            **client_kwargs,
         )
         turn = Turn(
             id=turn_id,

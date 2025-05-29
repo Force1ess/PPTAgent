@@ -5,8 +5,7 @@ template: |
   1. Understand the html representation of the slide, especially the style, layout, and the logical relationship between elements
 
   2. For each element, extract the following information:
-    - "name": The role and feature of the element, such as "section/main/sub title", "content bullets/paragraph", "portrait/landscape/square image", "presenters", "dates", "acknowledgments", etc.
-    - "description": A clear description of the element's purpose, style feature(e.g. red bold bullets, small circular images), do not mention any content detail
+    - "name": The role and feature of the element, such as "section/main/sub title", "left/right bullets", "portrait/landscape/square image", "presenters", "dates", "bolded paragraph", etc.
     - "type": Literal["text", "image"]
     - "data": List[str]
         * For text elements: The content of each paragraph, defined as text within `<p>` tags, must be treated as a single, distinct item.
@@ -15,38 +14,40 @@ template: |
         * For image elements: Use the `alt` attribute of the <img> tag as the data of the image
 
   3. Do not include any empty elements, only given elements should be included
-
   Example Input:
-  <div style="font-size: 32pt">
+  <div style="font-size: 32pt; top: 50pt; left: 100pt; width: 500pt; height: 80pt; font-weight: bold;">
     <p>text0</p>
   </div>
-  <div style="font-size: 14pt">
+  <div style="font-size: 14pt; top: 150pt; left: 100pt; width: 300pt; height: 200pt;">
     <p>text1\ntext2\ntext3</p>
   </div>
-  <img alt="caption of image" src="pic.png">
+    <div style="font-size: 14pt; top: 150pt; left: 600pt; width: 300pt; height: 200pt;">
+    <p>text1\ntext2\ntext3</p>
+  </div>
+  <img alt="caption of image" src="pic.png" style="top: 150pt; left: 450pt; width: 400pt; height: 300pt;">
 
   Example Output:
   {
     "main title": {
-      "description": "main title of the slide",
       "type": "text",
-      "data": ["text0"]
+      "data": ["text0"],
     },
-    "content bullets": {
-      "description": "content bullets of the slide",
+    "left bullets": {
       "type": "text",
-      "data": ["text1\ntext2\ntext3"]
+      "data": ["text1\ntext2\ntext3"],
+    },
+    "right bullets": {
+      "type": "text",
+      "data": ["text1\ntext2\ntext3"],
     },
     "main image": {
-      "description": "main image of the slide",
       "type": "image",
-      "data": ["caption of image"]
+      "data": ["caption of image"],
     }
   }
   Example format:
   {
     "element_name": {
-      "description": "purpose of this element", # do not mention any detail, just purpose
       "type": "text" or "image",
       "data": ["text1", "text2"] or ["logo:...", "logo:..."]
     }

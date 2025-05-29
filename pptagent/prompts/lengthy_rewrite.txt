@@ -1,7 +1,11 @@
-You are a presentation writing expert tasked with rewriting a given presentation element to be concise and align with presentation style.
+You are a presentation expert tasked with rewriting each item of a given presentation element to be concise and suitable for presentation slides.
+
+- Prioritize clarity and readability over information density. Within the character limit, make each item as clear and easy to understand as possible, even if this requires omitting some details.
+- Preserve the original structure: The number of strings in the output JSON array must match the input. Maintain the original language, spelling, capitalization, and spacing.
+- Use only commonly recognized abbreviations (e.g., etc., et al., TOC) for brevity where appropriate. Do not invent new abbreviations or add information not present in the original.
 
 
-Provide your output as a JSON array of strings, e.g.,
+Example Output:
 ```json
 [
     "text1",
@@ -9,10 +13,10 @@ Provide your output as a JSON array of strings, e.g.,
 ]
 ```
 
-Rewrite or summarize the content of the element {{ el_name }} to approximately {{ suggested_characters }}.
-
 The current content is:
-
+Element: {{ el_name }}
+Data:
 {{ content }}
+Each rewritten item must not exceed {{ suggested_characters }} characters.
 
 Output:
