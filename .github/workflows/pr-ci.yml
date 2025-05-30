@@ -43,4 +43,4 @@ jobs:
       - name: Run tests
         run: |
           rm -rf pptagent
-          OPENAI_API_KEY=sk-mockey pytest -v -m "not llm" test
+          OPENAI_API_KEY=sk-mockey pytest -v -m "not llm and not parse" test

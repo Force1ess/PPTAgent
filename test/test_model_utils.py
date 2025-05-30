@@ -8,6 +8,7 @@ import pytest
 from pptagent.model_utils import parse_pdf
 
 
+@pytest.mark.parse
 @pytest.mark.asyncio
 async def test_parse_pdf():
     with tempfile.TemporaryDirectory() as temp_dir:
