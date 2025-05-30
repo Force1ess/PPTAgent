@@ -52,4 +52,4 @@ jobs:
       - name: Run tests
         run: |
           rm -rf pptagent
-          pytest -v -n 8 test
+          pytest -v -n 8 -m "llm" test

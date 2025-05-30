@@ -287,7 +287,7 @@ async def ppt_gen(task_id: str, rerun=False):
             )
         else:
             source_doc = json.load(open(pjoin(parsedpdf_dir, "refined_doc.json")))
-            source_doc = Document.from_dict(source_doc, parsedpdf_dir)
+            source_doc = Document(**source_doc)
         await progress.report_progress()
 
         # Slide Induction

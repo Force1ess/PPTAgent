@@ -1,4 +1,3 @@
-import asyncio
 import os
 import zipfile
 from copy import deepcopy
@@ -177,12 +176,8 @@ async def parse_pdf(pdf_path: str, output_path: str):
 
             zip_data = await response.read()
 
-    loop = asyncio.get_running_loop()
-    await loop.run_in_executor(None, lambda: extract_zip(zip_data, output_path))
-
-    def extract_zip(zip_content, output_path):
-        with zipfile.ZipFile(BytesIO(zip_content)) as zip_ref:
-            zip_ref.extractall(output_path)
+    with zipfile.ZipFile(BytesIO(zip_data)) as zip_ref:
+        zip_ref.extractall(output_path)
 
 
 def get_image_embedding(

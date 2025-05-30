@@ -72,7 +72,7 @@ async def test_content_induct():
     )
     layout_induction = {}
     for layout_name, cluster in test_config.get_slide_induction().items():
-        cluster.pop("content_schema")
+        cluster.pop("elements")
         layout_induction[layout_name] = cluster
         break
     await inducter.content_induct(layout_induction=layout_induction)

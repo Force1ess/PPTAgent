@@ -135,6 +135,7 @@ class PPTGen(ABC):
         source_doc: Document,
         num_slides: Optional[int] = None,
         outline: Optional[list[OutlineItem]] = None,
+        image_dir: Optional[str] = None,
         dst_language: Optional[Language] = None,
         length_factor: Optional[float] = None,
         auto_length_factor: bool = True,
@@ -144,6 +145,8 @@ class PPTGen(ABC):
         """
         Asynchronously generate a PowerPoint presentation.
         """
+        # validate image existence
+        source_doc.validate_medias(image_dir)
         source_doc.metadata["presentation-date"] = datetime.now().strftime("%Y-%m-%d")
         assert self._initialized, "PPTAgent not initialized, call `set_reference` first"
         self.source_doc = source_doc

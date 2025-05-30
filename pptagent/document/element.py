@@ -114,10 +114,6 @@ class Section(BaseModel):
     def iter_medias(self):
         for block in self.content:
             if isinstance(block, Media):
-                if not pexists(block.path):
-                    raise ValueError(
-                        f"Image {block.path} not found, try use `Document.validate_medias` to set a new image directory for adding missing images"
-                    )
                 yield block
 
     @classmethod
