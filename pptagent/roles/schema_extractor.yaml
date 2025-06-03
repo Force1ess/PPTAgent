@@ -5,7 +5,7 @@ template: |
   1. Understand the html representation of the slide, especially the style, layout, and the logical relationship between elements
 
   2. For each element, extract the following information:
-    - "name": The role and feature of the element, such as "section/main/sub title", "left/right bullets", "portrait/landscape/square image", "presenters", "dates", "bolded paragraph", etc.
+    - "name": The role and feature of the element, such as "section/main/sub title", "left/right bullets", "portrait/landscape/square image", "presenters", "dates", "bolded paragraph", "page/section number", etc.
     - "type": Literal["text", "image"]
     - "data": List[str]
         * For text elements: The content of each paragraph, defined as text within `<p>` tags, must be treated as a single, distinct item.

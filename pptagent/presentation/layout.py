@@ -1,5 +1,5 @@
 import asyncio
-from typing import Literal, Optional
+from typing import Literal
 
 from jinja2 import StrictUndefined, Template
 from pydantic import BaseModel, field_validator
@@ -20,9 +20,9 @@ class Element(BaseModel):
     name: str
     data: list[str]
     type: Literal["text", "image"]
-    suggested_characters: Optional[int] = None
-    variable_length: Optional[tuple[int, int]] = None
-    variable_data: Optional[dict[str, list[str]]] = None
+    suggested_characters: int | None = None
+    variable_length: tuple[int, int] | None = None
+    variable_data: dict[str, list[str]] | None = None
 
     def model_post_init(self, _):
         if self.type == "text":
@@ -30,7 +30,7 @@ class Element(BaseModel):
 
     def get_schema(self):
         schema = f"Element: {self.name}\n"
-        schema += f"\tel_type: {self.type}\n"
+        schema += f"\type: {self.type}\n"
         if self.type == "text":
             schema += f"\tsuggested_characters: {self.suggested_characters}\n"
         if self.variable_length is not None:
@@ -44,7 +44,7 @@ class Layout(BaseModel):
     template_id: int
     slides: list[int]
     elements: list[Element]
-    vary_mapping: Optional[dict[int, int]] = None  # mapping for variable elements
+    vary_mapping: dict[int, int] | None = None  # mapping for variable elements
 
     @field_validator("elements")
     def validate_elements(cls, v):

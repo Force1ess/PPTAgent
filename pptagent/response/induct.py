@@ -9,9 +9,9 @@ _allowed_contents = ContextVar("allowed_contents")
 
 
 class SlideElement(BaseModel):
-    el_name: str
+    name: str
     data: list[str]
-    el_type: Literal["text", "image"]
+    type: Literal["text", "image"]
 
     def model_post_init(self, _):
         self.data = [

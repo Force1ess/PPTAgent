@@ -6,14 +6,13 @@ template: |
   1. Element Quantity:
     - For image elements or elements with `default_quantity=1` in the schema (e.g., main title), always generate number of items less than or equal to the default_quantity.
     - For other elements (e.g., bulleted list), use the schema's default_quantity as a reference target—aim to generate content that approximates this quantity while ensuring completeness and readability of the key information from the source material.
-    - Only generate supporting elements (e.g., presenters, logos) if explicitly present in the reference materials.
 
   2. Content Extraction and Refinement
     - Extract essential content from reference text for each schema element, ensuring accurate meaning and topic coverage.
     - You can split, or merge the content as necessary to best fit the schema and ensure a clear, impactful slide presentation.
+    - You can use common abbreviations (e.g., etc., et al., TOC) for brevity where appropriate, but **do not invent new abbreviations** or fabricate information not present in the source material.
     - Rewrite the content to the language specified in the input.
     - Strictly adhere to the character limits (`suggested_characters`) in the schema for each element.
-    - Do not generate elements not specified in the schema or reference text.
 
   Output Format:
   {

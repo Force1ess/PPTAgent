@@ -6,7 +6,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from enum import Enum
 from functools import partial
-from typing import Any, Optional, Union
+from typing import Any
 
 from bs4 import BeautifulSoup
 from mistune import HTMLRenderer, create_markdown
@@ -86,7 +86,7 @@ class CodeExecutor:
         funcs: list[callable],
         show_doc: bool = True,
         show_return: bool = True,
-        ignore_keys: Optional[list[str]] = None,
+        ignore_keys: list[str] | None = None,
     ) -> str:
         """
         Get the documentation for a list of API functions.
@@ -130,7 +130,7 @@ class CodeExecutor:
         edit_slide: SlidePage,
         doc: Document,
         found_code: bool = False,
-    ) -> Union[tuple[str, str], None]:
+    ) -> tuple[str, str] | None:
         """
         Execute a series of actions on a slide.
 
@@ -318,7 +318,12 @@ def del_para(paragraph_id: int, shape: BaseShape):
     """
     Delete a paragraph from a shape.
     """
-    para = shape.text_frame.paragraphs[paragraph_id]
+    tf = shape.text_frame
+    # Textframe need to have at least one paragraph
+    if len(tf.paragraphs) == 1:
+        tf.text = ""
+        return
+    para = tf.paragraphs[paragraph_id]
     para._element.getparent().remove(para._element)
 
 
@@ -340,15 +345,12 @@ def add_table(table_data: list[list[str]], table: PPTXGraphicFrame):
 def merge_cells(merge_area: list[tuple[int, int, int, int]], table: PPTXGraphicFrame):
     if merge_area is None or len(merge_area) == 0:
         return
-    for y1, x1, y2, x2 in merge_area:
-        try:
-            table.table.cell(x1, y1).merge(table.table.cell(x2, y2))
-            for x, y in zip(range(x1, x2 + 1), range(y1, y2 + 1)):
-                tf = table.table.cell(x, y).text_frame
-                for p in tf.paragraphs:
-                    p.alignment = PP_ALIGN.CENTER
-        except Exception as e:
-            logger.warning(f"Failed to merge cells: {e}")
+    for x1, y1, x2, y2 in merge_area:
+        table.table.cell(x1, y1).merge(table.table.cell(x2, y2))
+        for x, y in zip(range(x1, x2 + 1), range(y1, y2 + 1)):
+            tf = table.table.cell(x, y).text_frame
+            for p in tf.paragraphs:
+                p.alignment = PP_ALIGN.CENTER
 
 
 # api functions
@@ -369,6 +371,7 @@ def del_paragraph(slide: SlidePage, div_id: int, paragraph_id: int):
         )
     for para in shape.text_frame.paragraphs:
         if para.idx == paragraph_id:
+            para.edited = True
             shape.text_frame.paragraphs.remove(para)
             shape._closures[ClosureType.DELETE].append(
                 Closure(partial(del_para, para.real_idx), para.real_idx)

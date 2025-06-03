@@ -2,7 +2,6 @@ import asyncio
 import os
 from collections import defaultdict
 from functools import partial
-from typing import Optional
 
 from aiometer import run_all
 from jinja2 import Template
@@ -176,8 +175,8 @@ class SlideInducter:
     async def content_induct(
         self,
         layout_induction: dict,
-        max_at_once: Optional[int] = None,
-        max_per_second: Optional[int] = None,
+        max_at_once: int | None = None,
+        max_per_second: int | None = None,
     ):
         """
         Async version: Perform content schema extraction for the presentation.
@@ -203,7 +202,7 @@ class SlideInducter:
             partial_funcs, max_at_once=max_at_once, max_per_second=max_per_second
         )
         for layout_name, (_, schema) in zip(layout_induction.keys(), schemas):
-            layout_induction[layout_name] = schema
+            layout_induction[layout_name].update(schema)
 
         layout_induction["language"] = language_id(slide.to_text()).model_dump()
         return layout_induction

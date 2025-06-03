@@ -2,7 +2,7 @@ import traceback
 from collections.abc import Generator
 from dataclasses import dataclass
 from functools import partial
-from typing import Literal, Optional
+from typing import Literal
 
 from pptx import Presentation as load_prs
 from pptx.enum.shapes import MSO_SHAPE_TYPE
@@ -38,9 +38,9 @@ class SlidePage:
     backgrounds: list[Background]
     slide_idx: int
     real_idx: int
-    slide_notes: Optional[str]
-    slide_layout_name: Optional[str]
-    slide_title: Optional[str]
+    slide_notes: str | None
+    slide_layout_name: str | None
+    slide_title: str | None
     slide_width: int
     slide_height: int
 
@@ -188,7 +188,7 @@ class SlidePage:
             return "text"
         return "image"
 
-    def to_html(self, style_args: Optional[StyleArg] = None, **kwargs) -> str:
+    def to_html(self, style_args: StyleArg | None = None, **kwargs) -> str:
         """
         Represent the slide page in HTML.
 
@@ -285,7 +285,7 @@ class Presentation:
         cls,
         file_path: str,
         config: Config,
-        shape_cast: Optional[dict[MSO_SHAPE_TYPE, type[ShapeElement]]] = None,
+        shape_cast: dict[MSO_SHAPE_TYPE, type[ShapeElement]] | None = None,
     ) -> "Presentation":
         """
         Parse a Presentation from a file.
@@ -390,11 +390,7 @@ class Presentation:
                         )
                     )
 
-        try:
-            return self.build_slide(slide)
-        except Exception as e:
-            logger.error(f"Failed to validate slide {slide.slide_idx}: {e}")
-            raise e
+        return self.build_slide(slide)
 
     def clear_slides(self):
         """

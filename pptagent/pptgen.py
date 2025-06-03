@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from functools import partial
-from typing import Optional
 
 from aiometer import run_all
 
@@ -87,7 +86,7 @@ class PPTGen(ABC):
         config: Config,
         slide_induction: dict,
         presentation: Presentation,
-        hide_small_pic_ratio: Optional[float] = 0.2,
+        hide_small_pic_ratio: float | None = 0.2,
         keep_in_background: bool = True,
     ):
         """
@@ -133,14 +132,14 @@ class PPTGen(ABC):
     async def generate_pres(
         self,
         source_doc: Document,
-        num_slides: Optional[int] = None,
-        outline: Optional[list[OutlineItem]] = None,
-        image_dir: Optional[str] = None,
-        dst_language: Optional[Language] = None,
-        length_factor: Optional[float] = None,
+        num_slides: int | None = None,
+        outline: list[OutlineItem] | None = None,
+        image_dir: str | None = None,
+        dst_language: Language | None = None,
+        length_factor: float | None = None,
         auto_length_factor: bool = True,
-        max_at_once: Optional[int] = None,
-        max_per_second: Optional[int] = None,
+        max_at_once: int | None = None,
+        max_per_second: int | None = None,
     ):
         """
         Asynchronously generate a PowerPoint presentation.
@@ -160,12 +159,13 @@ class PPTGen(ABC):
             self.outline = await self.generate_outline(num_slides, source_doc)
         else:
             self.outline = outline
-        self.simple_outline = "\n".join(
-            [
-                f"Slide {slide_idx+1}: {item.purpose}"
-                for slide_idx, item in enumerate(self.outline)
-            ]
-        )
+        pre_section = None
+        self.simple_outline = ""
+        for slide_idx, item in enumerate(self.outline):
+            if item.section != pre_section and item.section != "Functional":
+                self.simple_outline += f"Section: {item.section}\n"
+                pre_section = item.section
+            self.simple_outline += f"Slide {slide_idx+1}: {item.purpose}\n"
         logger.debug(f"==========Outline Generated==========\n{self.simple_outline}")
 
         slide_tasks = []
