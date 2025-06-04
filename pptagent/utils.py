@@ -9,7 +9,7 @@ import traceback
 from itertools import product
 from shutil import which
 from time import sleep, time
-from typing import Any, Optional
+from typing import Any
 
 import json_repair
 import Levenshtein
@@ -123,7 +123,7 @@ def is_image_path(file: str) -> bool:
     return file.split(".")[-1].lower() in IMAGE_EXTENSIONS
 
 
-def runs_merge(paragraph: _Paragraph) -> Optional[_Run]:
+def runs_merge(paragraph: _Paragraph) -> _Run | None:
     """
     Merge all runs in a paragraph into a single run.
 
@@ -552,7 +552,7 @@ DEFAULT_EXCLUDE: set[str] = {"element", "language_id", "ln", "placeholder_format
 
 
 def dict_to_object(
-    dict_obj: dict[str, Any], obj: Any, exclude: Optional[set[str]] = None
+    dict_obj: dict[str, Any], obj: Any, exclude: set[str] | None = None
 ) -> None:
     """
     Apply dictionary values to an object.
@@ -591,8 +591,8 @@ class Config:
 
     def __init__(
         self,
-        rundir: Optional[str] = None,
-        session_id: Optional[str] = None,
+        rundir: str | None = None,
+        session_id: str | None = None,
     ):
         """
         Initialize the configuration.

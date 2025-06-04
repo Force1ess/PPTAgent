@@ -1,6 +1,5 @@
 import hashlib
 import re
-from typing import Optional
 
 from jinja2 import Environment, StrictUndefined
 from PIL import Image
@@ -34,8 +33,8 @@ logger = get_logger(__name__)
 class Media(BaseModel):
     markdown_content: str
     near_chunks: tuple[str, str]
-    path: Optional[str] = None
-    caption: Optional[str] = None
+    path: str | None = None
+    caption: str | None = None
 
     @property
     def size(self):
@@ -69,8 +68,8 @@ class Media(BaseModel):
 
 
 class Table(Media):
-    cells: Optional[list[list[str]]] = None
-    merge_area: Optional[list[tuple[int, int, int, int]]] = None
+    cells: list[list[str]] | None = None
+    merge_area: list[tuple[int, int, int, int]] | None = None
 
     def parse(self, image_dir: str):
         cells, merges = parse_table_with_merges(self.markdown_content)
@@ -109,7 +108,7 @@ class Section(BaseModel):
     title: str
     summary: str
     content: list[SubSection | Media | Table]
-    markdown_content: Optional[str] = None
+    markdown_content: str | None = None
 
     def iter_medias(self):
         for block in self.content:

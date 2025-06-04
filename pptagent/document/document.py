@@ -3,7 +3,7 @@ import os
 import re
 from contextlib import AsyncExitStack
 from contextvars import ContextVar
-from typing import Literal, Optional
+from typing import Literal
 
 from jinja2 import Environment, StrictUndefined
 from pydantic import BaseModel, Field, create_model
@@ -57,7 +57,7 @@ class Document(BaseModel):
     metadata: dict[str, str]
     sections: list[Section]
 
-    def validate_medias(self, image_dir: Optional[str] = None):
+    def validate_medias(self, image_dir: str | None = None):
         if image_dir is not None:
             self.image_dir = image_dir
         assert pexists(
@@ -119,7 +119,7 @@ class Document(BaseModel):
         language_model: AsyncLLM,
         vision_model: AsyncLLM,
         image_dir: str,
-        max_at_once: Optional[int] = None,
+        max_at_once: int | None = None,
     ):
         doc_extractor = Agent(
             "doc_extractor",

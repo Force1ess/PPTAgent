@@ -3,7 +3,6 @@ import zipfile
 from copy import deepcopy
 from glob import glob
 from io import BytesIO
-from typing import Optional
 
 import aiofiles
 import aiohttp
@@ -48,9 +47,9 @@ class ModelManager:
 
     def __init__(
         self,
-        api_base: Optional[str] = None,
-        language_model_name: Optional[str] = None,
-        vision_model_name: Optional[str] = None,
+        api_base: str | None = None,
+        language_model_name: str | None = None,
+        vision_model_name: str | None = None,
     ):
         """Initialize models from environment variables after instance creation"""
         if api_base is None:

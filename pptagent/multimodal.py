@@ -1,5 +1,4 @@
 import asyncio
-from typing import Optional
 
 import PIL.Image
 
@@ -29,7 +28,7 @@ class ImageLabler:
         self.config = config
         self.collect_images()
 
-    def apply_stats(self, image_stats: Optional[dict[str, dict]] = None):
+    def apply_stats(self, image_stats: dict[str, dict] | None = None):
         """
         Apply image captions to the presentation.
         """

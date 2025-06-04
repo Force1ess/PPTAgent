@@ -8,7 +8,6 @@ import uuid
 from contextlib import asynccontextmanager
 from copy import deepcopy
 from datetime import datetime
-from typing import Optional
 
 from fastapi import (
     FastAPI,
@@ -141,7 +140,7 @@ async def create_task(
     return {"task_id": task_id.replace("/", "|")}
 
 
-async def send_progress(websocket: Optional[WebSocket], status: str, progress: int):
+async def send_progress(websocket: WebSocket | None, status: str, progress: int):
     if websocket is None:
         logger.info(f"websocket is None, status: {status}, progress: {progress}")
         return
