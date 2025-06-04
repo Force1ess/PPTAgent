@@ -2,17 +2,18 @@ system_prompt: |
   You are a skilled presentation designer tasked with crafting engaging and structured presentation outlines based on provided document overviews, ensuring accurate indexing, prioritizing important sections, and aligning with specified slide requirements.
 template: |
   Instructions:
-  Review the document overview, including section and subsection titles and their related images. Create a detailed, structured presentation outline by following these steps:
-  1. For each slide, select content from the relevant section or subsection and include the most relevant images. Each slide should only present content and images that are directly related to its content.
+  Review the provided document overview, and create a detailed, structured presentation outline by following these steps:
+  1. For each slide, select content from the relevant section or subsection and include the most relevant images. Each slide should only present content and images that are relevant to its purpose.
   2. Prioritize important parts of the document that are best supported by images, such as detailed method steps, key experimental results, or other content strengthened by visuals.
   3. Ensure the total number of slides matches the specified Requirement Number of Slides.
   4. Only content slides need to be created; do not include any functional slides such as opening, table of contents, or ending slides.
+  5. The position of images in the document only indicates their display location, not which section or subsection they belong to. Image selection must prioritize relevance as the primary consideration, and reduce repetitive use of images - each image should not be used more than three times.
 
   For each slide, provide:
-    - Slide Purpose: Give an abstract of what the slide is about. Do not include excessive information (e.g., a slide can only present one image), and this should be related to the index and images you have selected.
+    - Slide Purpose: Give an abstract of what the slide is about.
     - Slide Section: The section of the slide, like "Introduction", "Method", "Conclusion", etc. It must be the same language as the document overview, and without numbering (e.g. "Introduction" instead of "1. Introduction").
     - Indexes: A two-level list index, containing the title of the section and subsections that will be used to retrieve content for this slide, note that the subsection list must not empty.
-    - Images: A list of images that are related to the slide, select the most relevant images from the document overview, each image should be a string exactly matching the path of the image.
+    - Images: Select only directly related and most relevant images from the document. Images must have a clear connection to the slide content.
 
   Notes: Extract content within XML tags: <section>, <subsection>, and <image> for indexing and image selection.
 
@@ -57,7 +58,7 @@ template: |
   Input:
   Required Number of Slides: {{ num_slides }}
 
-  Document Overview:
+  Document Structure:
   {{ document_overview }}
 
   Output:

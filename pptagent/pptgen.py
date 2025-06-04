@@ -13,7 +13,14 @@ from pptagent.agent import Agent
 from pptagent.apis import API_TYPES, CodeExecutor
 from pptagent.document import Document, Outline, OutlineItem
 from pptagent.llms import AsyncLLM
-from pptagent.presentation import Layout, Picture, Presentation, SlidePage, StyleArg
+from pptagent.presentation import (
+    GroupShape,
+    Layout,
+    Picture,
+    Presentation,
+    SlidePage,
+    StyleArg,
+)
 from pptagent.response import EditorOutput, LayoutChoice
 from pptagent.utils import (
     Config,
@@ -48,7 +55,7 @@ class FunctionalLayouts(Enum):
 FunctionalContent = {
     FunctionalLayouts.OPENING.value: "This slide is a presentation opening, presenting available meta information, like title, author, date, etc.",
     FunctionalLayouts.TOC.value: "This slide is the Table of Contents, outlining the presentation's sections. Please use the given Table of Contents, and remove numbering to generate the slide content.",
-    FunctionalLayouts.SECTION_OUTLINE.value: "This slide is a section start, briefly presenting the section title, and optionally the section summary. Note that you should remove the numbering of the section title.",
+    FunctionalLayouts.SECTION_OUTLINE.value: "This slide is a section start, briefly presenting the section title, and the optional section numbering and summary. Note that you should use digits instead of letters to present section number, and remove any numbering from the section title.",
     FunctionalLayouts.ENDING.value: "This slide is an *ending slide*, simply express your gratitude like 'Thank you!' or '谢谢' as the main title and *do not* include other meta information if not specified.",
 }
 
@@ -160,10 +167,12 @@ class PPTGen(ABC):
         else:
             self.outline = outline
         pre_section = None
+        section_idx = 0
         self.simple_outline = ""
         for slide_idx, item in enumerate(self.outline):
             if item.section != pre_section and item.section != "Functional":
-                self.simple_outline += f"Section: {item.section}\n"
+                section_idx += 1
+                self.simple_outline += f"Section {section_idx}: {item.section}\n"
                 pre_section = item.section
             self.simple_outline += f"Slide {slide_idx+1}: {item.purpose}\n"
         logger.debug(f"==========Outline Generated==========\n{self.simple_outline}")
@@ -289,7 +298,9 @@ class PPTGen(ABC):
     def _hide_small_pics(self, area_ratio: float, keep_in_background: bool):
         for layout in self.layouts.values():
             template_slide = self.presentation.slides[layout.template_id - 1]
-            pictures = list(template_slide.shape_filter(Picture, return_father=True))
+            pictures: list[tuple[SlidePage | GroupShape, Picture]] = list(
+                template_slide.shape_filter(Picture, return_father=True)
+            )
             if len(pictures) == 0:
                 continue
             for father, pic in pictures:
@@ -367,11 +378,8 @@ class PPTAgent(PPTGen):
             if outline_item.purpose == FunctionalLayouts.SECTION_OUTLINE.value:
                 outline_item.purpose = f"Section Outline of {outline_item.indexes}"
                 outline_item.indexes = []
-                slide_content = (
-                    "Overview of the Document:\n"
-                    + self.source_doc.get_overview(
-                        include_summary=True, include_image=False
-                    )
+                slide_content = "Document Structure:\n" + self.source_doc.get_overview(
+                    include_summary=True, include_image=False
                 )
             elif outline_item.purpose == FunctionalLayouts.TOC.value:
                 slide_content = "Table of Contents:\n" + self.toc
@@ -521,7 +529,8 @@ class PPTAgent(PPTGen):
             Exception: If command generation fails.
         """
         try:
-            layout.validate(editor_output)
+            allowed_images = [m.path for m in self.source_doc.iter_medias()]
+            layout.validate(editor_output, allowed_images)
             if self.length_factor is not None:
                 await layout.length_rewrite(
                     editor_output, self.length_factor, self.language_model
@@ -536,7 +545,7 @@ class PPTAgent(PPTGen):
                     response_format=EditorOutput,
                 )
                 return await self._validate_content(
-                    new_output, layout, turn_id, retry + 1
+                    EditorOutput(**new_output), layout, turn_id, retry + 1
                 )
             else:
                 raise Exception(

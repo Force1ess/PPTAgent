@@ -195,6 +195,7 @@ class SlideInducter:
                     self.schema_extractor,
                     slide=slide.to_html(),
                     response_format=SlideSchema.response_model(contents),
+                    slide_idx=cluster["template_id"],
                 )
             )
 

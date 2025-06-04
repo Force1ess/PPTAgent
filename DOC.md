@@ -95,6 +95,8 @@ docker logs -f pptagent
 
 ```bash
 pip install git+https://github.com/icip-cas/PPTAgent.git
+# or install locally
+pip install -e .
 ```
 
 #### Usage

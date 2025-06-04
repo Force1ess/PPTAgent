@@ -5,8 +5,8 @@ template: |
   1. Understand the html representation of the slide, especially the style, layout, and the logical relationship between elements
 
   2. For each element, extract the following information:
-    - "name": The role and feature of the element, such as "section/main/sub title", "left/right bullets", "portrait/landscape/square image", "presenters", "dates", "bolded paragraph", "page/section number", etc.
-    - "type": Literal["text", "image"]
+    - "name": The role and feature of the element, such as "section/main/sub title", "left/right bullets", "portrait/landscape/square image", "presenters", "dates", "bolded paragraph", "page/section number" (whether it is equal to the slide index, and located at the footer), "header", "footer", "quote", "caption", "table", "chart description", etc. Be descriptive and specific about the element's purpose and position on the slide.
+     - "type": Literal["text", "image"]
     - "data": List[str]
         * For text elements: The content of each paragraph, defined as text within `<p>` tags, must be treated as a single, distinct item.
           - Preserve newlines (`\n`) within paragraphs, ensuring they remain intact and are not split into multiple items. Only `<p>` tags serve as separators.
@@ -53,12 +53,14 @@ template: |
     }
   }
   Input:
+  This is the {{slide_idx}} slide of the presentation:
   {{slide}}
 
   Output: Please provide the slide schema in a dict of JSON format
 
 jinja_args:
   - slide
+  - slide_idx
 
 use_model: language
 return_json: True

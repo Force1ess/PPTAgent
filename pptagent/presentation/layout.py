@@ -1,4 +1,5 @@
 import asyncio
+from math import ceil
 from typing import Literal
 
 from jinja2 import StrictUndefined, Template
@@ -6,7 +7,7 @@ from pydantic import BaseModel, field_validator
 
 from pptagent.llms import AsyncLLM
 from pptagent.response import EditorOutput
-from pptagent.utils import get_logger, package_join, pexists
+from pptagent.utils import edit_distance, get_logger, package_join, pexists
 
 logger = get_logger(__name__)
 
@@ -72,17 +73,21 @@ class Layout(BaseModel):
 
         return template_id, old_data
 
-    def validate(self, editor_output: EditorOutput):
+    def validate(self, editor_output: EditorOutput, allowed_images: list[str]):
         for el in editor_output.elements:
             if self[el.name].type != "image":
                 continue
             for i in range(len(el.data)):
-                if not pexists(el.data[i]):
+                sim_image = max(
+                    allowed_images, key=lambda x: edit_distance(x, el.data[i])
+                )
+                if edit_distance(sim_image, el.data[i]) < 0.5 or not pexists(sim_image):
                     raise ValueError(
                         f"Image {el.data[i]} not found\n"
                         "Please check the image path and use only existing images\n"
                         "Or, leave a blank list for this element"
                     )
+                el.data[i] = sim_image
 
     async def length_rewrite(
         self,
@@ -96,7 +101,10 @@ class Layout(BaseModel):
                 if self[el.name].type != "text":
                     continue
                 charater_counts = max([len(i) for i in el.data])
-                if charater_counts > self[el.name].suggested_characters * length_factor:
+                expected_length = ceil(
+                    self[el.name].suggested_characters * length_factor
+                )
+                if charater_counts - expected_length > 5:
                     task = tg.create_task(
                         language_model(
                             LENGTHY_REWRITE_PROMPT.render(

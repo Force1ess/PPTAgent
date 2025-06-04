@@ -132,7 +132,7 @@ class SlidePage:
             ph.element.getparent().remove(ph.element)
 
         # Build backgrounds, shapes and apply closures
-        for shape in sorted(self.backgrounds + self.shapes, key=lambda x: x.shape_idx):
+        for shape in sorted(self.backgrounds + list(self), key=lambda x: x.shape_idx):
             build_shape = shape.build(slide)
             for closure in shape.closures:
                 try:

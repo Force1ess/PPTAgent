@@ -3,7 +3,6 @@ import re
 import threading
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, Union
 
 import torch
 from oaib import Auto
@@ -37,8 +36,8 @@ class LLM:
     """
 
     model: str
-    base_url: Optional[str] = None
-    api_key: Optional[str] = None
+    base_url: str | None = None
+    api_key: str | None = None
     timeout: int = 360
 
     def __post_init__(self):
@@ -50,15 +49,15 @@ class LLM:
     def __call__(
         self,
         content: str,
-        images: Optional[Union[str, list[str]]] = None,
-        system_message: Optional[str] = None,
-        history: Optional[list] = None,
+        images: str | list[str] | None = None,
+        system_message: str | None = None,
+        history: list | None = None,
         return_json: bool = False,
         return_message: bool = False,
         think_mode: ThinkMode = ThinkMode.not_think,
-        response_format: Optional[BaseModel] = None,
+        response_format: BaseModel | None = None,
         **client_kwargs,
-    ) -> Union[str, dict, list, tuple]:
+    ) -> str | dict | list | tuple:
         """
         Call the language model with a prompt and optional images.
 
@@ -97,7 +96,7 @@ class LLM:
                 )
 
         except Exception as e:
-            logger.warning("Error in LLM call: %s", e)
+            logger.warning("Error in LLM (%s) service: %s", self.model, e)
             raise e
         response = completion.choices[0].message.content
         message.append({"role": "assistant", "content": response})
@@ -109,7 +108,7 @@ class LLM:
         message: list,
         return_json: bool = False,
         return_message: bool = False,
-    ) -> Union[str, dict, tuple]:
+    ) -> str | dict | tuple:
         """
         Process the response based on return options.
 
@@ -159,8 +158,8 @@ class LLM:
         self,
         content: str,
         think_mode: ThinkMode,
-        images: Optional[Union[str, list[str]]] = None,
-        system_message: Optional[str] = None,
+        images: str | list[str] | None = None,
+        system_message: str | None = None,
     ) -> tuple[list, list]:
         """
         Format messages for OpenAI server call.
@@ -286,15 +285,15 @@ class AsyncLLM(LLM):
     async def __call__(
         self,
         content: str,
-        images: Optional[Union[str, list[str]]] = None,
-        system_message: Optional[str] = None,
-        history: Optional[list] = None,
+        images: str | list[str] | None = None,
+        system_message: str | None = None,
+        history: list | None = None,
         return_json: bool = False,
         return_message: bool = False,
         think_mode: ThinkMode = ThinkMode.not_think,
-        response_format: Optional[BaseModel] = None,
+        response_format: BaseModel | None = None,
         **client_kwargs,
-    ) -> Union[str, dict, tuple]:
+    ) -> str | dict | tuple:
         """
         Asynchronously call the language model with a prompt and optional images.
 
@@ -456,7 +455,7 @@ class AsyncLLM(LLM):
         return LLM(model=self.model, base_url=self.base_url, api_key=self.api_key)
 
 
-def get_model_abbr(llms: Union[LLM, list[LLM]]) -> str:
+def get_model_abbr(llms: LLM | list[LLM]) -> str:
     """
     Get abbreviated model names from LLM instances.
 
