@@ -10,9 +10,9 @@ Your task:
 3. The number of characters in each splited chunk should be less than 32768.
 
 Example Output:
-[
-    "header 1", "header2"
-]
+{
+    "headings": ["header 1", "header2"]
+}
 
 Here's the heading list to process:
 

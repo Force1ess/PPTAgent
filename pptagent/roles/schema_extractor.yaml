@@ -5,7 +5,8 @@ template: |
   1. Understand the html representation of the slide, especially the style, layout, and the logical relationship between elements
 
   2. For each element, extract the following information:
-    - "name": The role and feature of the element, such as "section/main/sub title", "left/right bullets", "portrait/landscape/square image", "presenters", "dates", "bolded paragraph", "page/section number" (whether it is equal to the slide index, and located at the footer), "header", "footer", "quote", "caption", "table", "chart description", etc. Be descriptive and specific about the element's purpose and position on the slide.
+    - "name": The role and feature of the element, such as "section/main/sub title", "left/right bullets", "portrait/landscape/square image", "presenters", "dates", "bolded paragraph", "slide/section number", "header", "footer", "quote", "caption", "table", "chart description", etc. Be descriptive and specific about the element's purpose and position on the slide.
+    > Note: The slide number typically appears with small font size at the footer or header of the slide and corresponds to the slide's position in the presentation sequence. The section number typically appears with large font size at the top or center of the slide.
      - "type": Literal["text", "image"]
     - "data": List[str]
         * For text elements: The content of each paragraph, defined as text within `<p>` tags, must be treated as a single, distinct item.
@@ -28,30 +29,31 @@ template: |
 
   Example Output:
   {
-    "main title": {
-      "type": "text",
-      "data": ["text0"],
-    },
-    "left bullets": {
-      "type": "text",
-      "data": ["text1\ntext2\ntext3"],
-    },
-    "right bullets": {
-      "type": "text",
-      "data": ["text1\ntext2\ntext3"],
-    },
-    "main image": {
-      "type": "image",
-      "data": ["caption of image"],
-    }
+      "elements": [
+          {
+              "name": "main title",
+              "type": "text",
+              "data": ["text0"]
+          },
+          {
+              "name": "left bullets",
+              "type": "text",
+              "data": ["text1\ntext2\ntext3"]
+          },
+          {
+              "name": "right bullets",
+              "type": "text",
+              "data": ["text1\ntext2\ntext3"]
+          },
+          {
+              "name": "main image",
+              "type": "image",
+              "data": ["caption of image"]
+          }
+      ]
   }
-  Example format:
-  {
-    "element_name": {
-      "type": "text" or "image",
-      "data": ["text1", "text2"] or ["logo:...", "logo:..."]
-    }
-  }
+
+
   Input:
   This is the {{slide_idx}} slide of the presentation:
   {{slide}}

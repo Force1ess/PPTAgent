@@ -1,3 +1,4 @@
+import tempfile
 import traceback
 from collections.abc import Generator
 from dataclasses import dataclass
@@ -284,7 +285,7 @@ class Presentation:
     def from_file(
         cls,
         file_path: str,
-        config: Config,
+        config: Config | None = None,
         shape_cast: dict[MSO_SHAPE_TYPE, type[ShapeElement]] | None = None,
     ) -> "Presentation":
         """
@@ -298,6 +299,8 @@ class Presentation:
         Returns:
             Presentation: The parsed Presentation.
         """
+        if config is None:
+            config = Config(tempfile.mkdtemp())
         prs = load_prs(file_path)
         slide_width = prs.slide_width
         slide_height = prs.slide_height

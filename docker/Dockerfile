@@ -86,16 +86,21 @@ RUN add-apt-repository -y ppa:deadsnakes/ppa
 RUN apt install -y python3.13-full python3-pip python3-distutils python3.13-dev
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.13 100
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.13 100
-RUN python3.13 -m ensurepip --upgrade && python3.13 -m pip install --upgrade setuptools
-
-RUN git clone https://github.com/icip-cas/PPTAgent
-RUN pip install /PPTAgent
-
-RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-RUN apt install -y nodejs fish
-RUN npm install --prefix /PPTAgent/pptagent_ui
 
 RUN locale-gen en_US.UTF-8 && update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+RUN apt install -y nodejs fish npm
+
+# model cache
+RUN pip install --system huggingface_hub
+RUN huggingface-cli download google/vit-base-patch16-224-in21k
+RUN huggingface-cli download julien-c/fasttext-language-id
+
+ARG CACHE_DATE=UNKNOWN
+RUN git clone https://github.com/icip-cas/PPTAgent
+RUN pip install /PPTAgent
+RUN npm install --prefix /PPTAgent/pptagent_ui
 
 WORKDIR /PPTAgent
 

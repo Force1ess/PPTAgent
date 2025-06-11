@@ -6,12 +6,13 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from functools import partial
+from random import shuffle
 
 from aiometer import run_all
 
 from pptagent.agent import Agent
 from pptagent.apis import API_TYPES, CodeExecutor
-from pptagent.document import Document, Outline, OutlineItem
+from pptagent.document import Document
 from pptagent.llms import AsyncLLM
 from pptagent.presentation import (
     GroupShape,
@@ -21,7 +22,7 @@ from pptagent.presentation import (
     SlidePage,
     StyleArg,
 )
-from pptagent.response import EditorOutput, LayoutChoice
+from pptagent.response import EditorOutput, LayoutChoice, Outline, OutlineItem
 from pptagent.utils import (
     Config,
     Language,
@@ -54,8 +55,8 @@ class FunctionalLayouts(Enum):
 
 FunctionalContent = {
     FunctionalLayouts.OPENING.value: "This slide is a presentation opening, presenting available meta information, like title, author, date, etc.",
-    FunctionalLayouts.TOC.value: "This slide is the Table of Contents, outlining the presentation's sections. Please use the given Table of Contents, and remove numbering to generate the slide content.",
-    FunctionalLayouts.SECTION_OUTLINE.value: "This slide is a section start, briefly presenting the section title, and the optional section numbering and summary. Note that you should use digits instead of letters to present section number, and remove any numbering from the section title.",
+    FunctionalLayouts.TOC.value: "This slide is the Table of Contents, outlining the presentation's sections. Please use the Table of Contents given in the retrieved content, remove numbering and ensure the completeness of the Table of Contents, and generate the final output with the language specified in the input.",
+    FunctionalLayouts.SECTION_OUTLINE.value: "This slide marks the beginning of a new section and should present the content from <title>{}</title> as the section title clearly, any existing prefix or numbering should be removed. If section number is provided in the schema, use <section_number>{}</section_number>. And provide a brief summary of the section if additional elements are provided in the schema.",
     FunctionalLayouts.ENDING.value: "This slide is an *ending slide*, simply express your gratitude like 'Thank you!' or '谢谢' as the main title and *do not* include other meta information if not specified.",
 }
 
@@ -149,7 +150,21 @@ class PPTGen(ABC):
         max_per_second: int | None = None,
     ):
         """
-        Asynchronously generate a PowerPoint presentation.
+        Generate a PowerPoint presentation.
+
+        Args:
+            source_doc (Document): The source document.
+            num_slides (int | None): The number of slides to generate.
+            outline (list[OutlineItem] | None): The outline of the presentation.
+            image_dir (str | None): The directory of the images.
+            dst_language (Language | None): The destination language.
+            length_factor (float | None): The length factor.
+            auto_length_factor (bool): Whether to automatically calculate the length factor.
+            max_at_once (int | None): The maximum number of slides to generate at once.
+            max_per_second (int | None): The maximum number of slides to generate per second.
+
+        Returns:
+            tuple[Presentation, dict]: A tuple containing the generated presentation and the history of the agents.
         """
         # validate image existence
         source_doc.validate_medias(image_dir)
@@ -170,10 +185,12 @@ class PPTGen(ABC):
         section_idx = 0
         self.simple_outline = ""
         for slide_idx, item in enumerate(self.outline):
-            if item.section != pre_section and item.section != "Functional":
+            if item.topic != pre_section and item.topic != "Functional":
                 section_idx += 1
-                self.simple_outline += f"Section {section_idx}: {item.section}\n"
-                pre_section = item.section
+                self.simple_outline += f"Section {section_idx}: {item.topic}\n"
+                pre_section = item.topic
+            if item.purpose == FunctionalLayouts.SECTION_OUTLINE.value:
+                item.indexes.append(section_idx)
             self.simple_outline += f"Slide {slide_idx+1}: {item.purpose}\n"
         logger.debug(f"==========Outline Generated==========\n{self.simple_outline}")
 
@@ -224,11 +241,10 @@ class PPTGen(ABC):
         assert (
             self._initialized
         ), "AsyncPPTAgent not initialized, call `set_reference` first"
-        images = [m.caption for m in source_doc.iter_medias()]
         _, outline = await self.staffs["planner"](
             num_slides=num_slides,
             document_overview=source_doc.get_overview(),
-            response_format=Outline.response_model(images, source_doc),
+            response_format=Outline.response_model(source_doc),
         )
         outline = [OutlineItem(**o) for o in outline["outline"]]
         return self._add_functional_layouts(outline)
@@ -248,8 +264,8 @@ class PPTGen(ABC):
         """
         toc = []
         for item in outline:
-            if item.section not in toc and item.section != "Functional":
-                toc.append(item.section)
+            if item.topic not in toc and item.topic != "Functional":
+                toc.append(item.topic)
         self.toc = "\n".join(toc)
 
         fixed_functional_slides = [
@@ -266,7 +282,7 @@ class PPTGen(ABC):
                 outline.insert(
                     pos,
                     OutlineItem(
-                        purpose=layout, section="Functional", indexes=[], images=[]
+                        purpose=layout, topic="Functional", indexes=[], images=[]
                     ),
                 )
 
@@ -280,19 +296,19 @@ class PPTGen(ABC):
         full_outline = []
         pre_section = None
         for item in outline:
-            if item.section == "Functional":
+            if item.topic == "Functional":
                 full_outline.append(item)
                 continue
-            if item.section != pre_section:
+            if item.topic != pre_section:
                 new_item = OutlineItem(
                     purpose=section_outline,
-                    section="Functional",
-                    indexes=item.section,
+                    topic="Functional",
+                    indexes=[item.topic],
                     images=[],
                 )
                 full_outline.append(new_item)
             full_outline.append(item)
-            pre_section = item.section
+            pre_section = item.topic
         return full_outline
 
     def _hide_small_pics(self, area_ratio: float, keep_in_background: bool):
@@ -372,11 +388,13 @@ class PPTAgent(PPTGen):
         """
         Asynchronously generate a slide from the outline item.
         """
-        if outline_item.section == "Functional":
+        if outline_item.topic == "Functional":
             layout = self.layouts[outline_item.purpose]
             slide_desc = FunctionalContent[outline_item.purpose]
             if outline_item.purpose == FunctionalLayouts.SECTION_OUTLINE.value:
-                outline_item.purpose = f"Section Outline of {outline_item.indexes}"
+                section, sec_idx = outline_item.indexes
+                slide_desc = slide_desc.format(section, sec_idx + 1)
+                outline_item.purpose = f"Section Outline of {section}"
                 outline_item.indexes = []
                 slide_content = "Document Structure:\n" + self.source_doc.get_overview(
                     include_summary=True, include_image=False
@@ -424,6 +442,7 @@ class PPTAgent(PPTGen):
             slide_content += "\nImages:\n" + "\n".join(images)
             layouts = self.multimodal_layouts
 
+        shuffle(layouts)
         _, layout_selection = await self.staffs["layout_selector"](
             outline=self.simple_outline,
             slide_description=header,
@@ -455,10 +474,6 @@ class PPTAgent(PPTGen):
         """
         Asynchronously generate content for the slide.
         """
-        if self.dst_lang == self.source_doc.language:
-            language = "same language as the reference text"
-        else:
-            language = self.dst_lang.lid
         elements = [el.name for el in layout.elements]
         turn_id, editor_output = await self.staffs["editor"](
             outline=self.simple_outline,
@@ -466,7 +481,7 @@ class PPTAgent(PPTGen):
             metadata=self.source_doc.metainfo,
             slide_content=slide_content,
             schema=layout.content_schema,
-            language=language,
+            language=self.dst_lang.lid,
             response_format=EditorOutput.response_model(elements),
         )
         editor_output = EditorOutput(**editor_output)

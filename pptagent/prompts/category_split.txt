@@ -10,7 +10,7 @@ Instructions:
 
    - Content:
      - Opening: Minimal content, often meta-information (e.g., title, presenter, or context).
-     - Table of Contents: Lists the title of each section, optionally use numbers or bullets to indicate the order, acting as a presentation roadmap.
+     - Table of Contents: Lists section titles in order, often with numbers or bullets as indicators, serving as a presentation roadmap. Usually displays "Table of Contents", "TOC", or similar as the main title.
      - Ending: Minimal content, often meta-information (e.g., "Thank You" or contact details).
      - Section Outline:
 	   - Contains a **section title** that **strictly matches** the Table of Contents (identical wording), if present.

@@ -512,7 +512,7 @@ def clone_paragraph(slide: SlidePage, div_id: int, paragraph_id: int):
 
 
 def replace_image_with_table(shape: Picture, doc: Document, image_path: str):
-    table = doc.get_table(image_path)
+    table = doc.find_media(path=image_path)
     shape.is_table = True
     shape.grid = (len(table.cells), len(table.cells[0]))
     shape._closures[ClosureType.REPLACE].append(

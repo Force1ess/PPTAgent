@@ -1,12 +1,13 @@
 import os
 import re
+from contextvars import ContextVar
 
 from bs4 import BeautifulSoup
 from jinja2 import Environment, StrictUndefined
+from pydantic import BaseModel
 
 from pptagent.llms import AsyncLLM
-from pptagent.response import LogicHeadings
-from pptagent.utils import package_join
+from pptagent.utils import edit_distance, package_join
 
 env = Environment(undefined=StrictUndefined)
 
@@ -256,6 +257,25 @@ def split_large_chunks(sections: list[str]) -> list[str]:
         result.extend(split_large_chunks([first_part, second_part]))
 
     return result
+
+
+# global context variable for allowed headings, used to validate headings in async context
+_allowed_headings: ContextVar[list[str]] = ContextVar("allowed_headings", default=[])
+
+
+class LogicHeadings(BaseModel):
+    headings: list[str]
+
+    def model_post_init(self, _):
+        self.headings = [
+            max(_allowed_headings.get(), key=lambda x: edit_distance(x, h))
+            for h in self.headings
+        ]
+
+    @classmethod
+    def response_model(cls, allowed_headings: list[str]):
+        _allowed_headings.set(allowed_headings)
+        return cls
 
 
 async def split_markdown_by_headings(

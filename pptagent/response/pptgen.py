@@ -11,7 +11,7 @@ class SlideElement(BaseModel):
     def response_model(cls, elements: list[str]):
         return create_model(
             cls.__name__,
-            name=(Literal[tuple(elements)], Field(...)),  # type: ignore
+            name=(Literal[*elements], Field(...)),  # type: ignore
             data=(list[str], Field(...)),
             __base__=BaseModel,
         )
@@ -54,6 +54,6 @@ class LayoutChoice(BaseModel):
         return create_model(
             cls.__name__,
             reasoning=(str, Field(...)),
-            layout=(Literal[tuple(layouts)], Field(...)),  # type: ignore
+            layout=(Literal[*layouts], Field(...)),  # type: ignore
             __base__=BaseModel,
         )

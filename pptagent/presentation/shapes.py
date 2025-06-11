@@ -1,8 +1,9 @@
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from types import MappingProxyType
-from typing import Any, Callable, ClassVar, Optional, Union
+from typing import Any, ClassVar
 
 from lxml import etree
 from pptx.dml.fill import FillFormat
@@ -18,6 +19,7 @@ from pptx.shapes.placeholder import PlaceholderPicture, SlidePlaceholder
 from pptx.slide import Slide as PPTXSlide
 from pptx.slide import _Background
 from pptx.text.text import _Paragraph
+from pptx.util import Pt
 
 from pptagent.utils import (
     Config,
@@ -101,12 +103,12 @@ class StyleArg:
 @dataclass
 class Fill:
     fill_type: MSO_FILL_TYPE
-    fill_str: Optional[str] = None
-    fill_xml: Optional[str] = None
-    image_path: Optional[str] = None
+    fill_str: str | None = None
+    fill_xml: str | None = None
+    image_path: str | None = None
 
     @classmethod
-    def from_shape(cls, fill: Optional[FillFormat], part: SlidePart, config: Config):
+    def from_shape(cls, fill: FillFormat | None, part: SlidePart, config: Config):
         if fill is None or fill.type is None or fill.type == MSO_FILL_TYPE.BACKGROUND:
             return cls(MSO_FILL_TYPE.BACKGROUND)
 
@@ -151,10 +153,10 @@ class Fill:
 class Line:
     fill: Fill
     line_width: float
-    line_dash_style: Optional[str]
+    line_dash_style: str | None
 
     @classmethod
-    def from_shape(cls, line: Optional[LineFormat], part: SlidePart, config: Config):
+    def from_shape(cls, line: LineFormat | None, part: SlidePart, config: Config):
         line_fill = getattr(line, "fill", None)
         if line_fill is None:
             return cls(Fill(MSO_FILL_TYPE.BACKGROUND, "", None), 0, None)
@@ -249,13 +251,13 @@ class Closure:
 
 @dataclass
 class Font:
-    name: Optional[str]
-    color: Optional[str]
-    size: Optional[int]
-    bold: Optional[bool]
-    italic: Optional[bool]
-    underline: Optional[bool]
-    strikethrough: Optional[bool]
+    name: str | None
+    color: str | None
+    size: int | None
+    bold: bool | None
+    italic: bool | None
+    underline: bool | None
+    strikethrough: bool | None
 
     def update(self, other: "Font"):
         """
@@ -390,7 +392,7 @@ class TextFrame:
     text: str = ""
     is_textframe: bool = False
     extents: Any = None
-    font: Optional[Font] = None
+    font: Font | None = None
 
     @classmethod
     def from_shape(cls, shape: BaseShape, level: int) -> "TextFrame":
@@ -462,7 +464,7 @@ class ShapeElement:
     xml: str
     fill: Fill
     line: Line
-    shape: Optional[BaseShape]
+    shape: BaseShape | None
     _closures: dict[ClosureType, list[Closure]]
 
     @classmethod
@@ -730,7 +732,7 @@ class ShapeElement:
         return self.width * self.height
 
     @property
-    def semantic_name(self) -> Optional[str]:
+    def semantic_name(self) -> str | None:
         """
         Get the semantic name of the shape element.
 
@@ -870,6 +872,7 @@ class Picture(ShapeElement):
         """
         # Add picture to slide
         if self.is_table:
+            self.width = Pt(self.width - 1)
             return slide.shapes.add_table(
                 self.row, self.col, **self.style["shape_bounds"]
             )
@@ -929,7 +932,7 @@ class Picture(ShapeElement):
         self.data[0] = img_path
 
     @property
-    def caption(self) -> Optional[str]:
+    def caption(self) -> str | None:
         """
         Get the caption.
 
@@ -1175,7 +1178,7 @@ class Placeholder:
         shape_idx: int,
         shape: SlidePlaceholder,
         **kwargs,
-    ) -> Union[Picture, TextBox]:
+    ) -> Picture | TextBox:
         """
         Create a Placeholder from a SlidePlaceholder.
 

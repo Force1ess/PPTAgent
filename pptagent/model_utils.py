@@ -2,7 +2,6 @@ import os
 from copy import deepcopy
 from glob import glob
 from io import BytesIO
-from typing import Optional
 
 import numpy as np
 import torch
@@ -13,8 +12,7 @@ from huggingface_hub.constants import HUGGINGFACE_HUB_CACHE
 from PIL import Image
 from transformers import AutoModel, AutoProcessor
 
-from pptagent.llms import LLM, AsyncLLM
-from pptagent.presentation import Presentation, SlidePage
+from pptagent.llms import AsyncLLM
 from pptagent.utils import Language, get_logger, is_image_path, pjoin
 
 logger = get_logger(__name__)
@@ -45,9 +43,9 @@ class ModelManager:
 
     def __init__(
         self,
-        api_base: Optional[str] = None,
-        language_model_name: Optional[str] = None,
-        vision_model_name: Optional[str] = None,
+        api_base: str | None = None,
+        language_model_name: str | None = None,
+        vision_model_name: str | None = None,
     ):
         """Initialize models from environment variables after instance creation"""
         if api_base is None:
@@ -97,36 +95,6 @@ def language_id(text: str) -> Language:
             "__label__", ""
         )
     )
-
-
-def prs_dedup(
-    presentation: Presentation,
-    model: LLM,
-    threshold: float = 0.8,
-) -> list[SlidePage]:
-    """
-    Deduplicate slides in a presentation based on text similarity.
-
-    Args:
-        presentation (Presentation): The presentation object containing slides.
-        model: The model used for generating text embeddings.
-        batchsize (int): The batch size for processing slides.
-        threshold (float): The similarity threshold for deduplication.
-
-    Returns:
-        list: A list of removed duplicate slides.
-    """
-    text_embeddings = model.get_embedding([i.to_text() for i in presentation.slides])
-    pre_embedding = text_embeddings[0]
-    slide_idx = 1
-    duplicates = []
-    while slide_idx < len(presentation):
-        cur_embedding = text_embeddings[slide_idx]
-        if torch.cosine_similarity(pre_embedding, cur_embedding, -1) > threshold:
-            duplicates.append(slide_idx - 1)
-        slide_idx += 1
-        pre_embedding = cur_embedding
-    return [presentation.slides.pop(i) for i in reversed(duplicates)]
 
 
 def get_image_model(device: str = None):

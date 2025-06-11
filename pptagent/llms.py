@@ -392,8 +392,8 @@ class AsyncLLM(LLM):
             bool: True if connection is successful, False otherwise.
         """
         try:
-            await self.client.models.list()
-            return True
+            models = await self.client.models.list()
+            return any(model.id == self.model for model in models.data)
         except Exception as e:
             logger.warning(
                 "Async connection test failed: %s\nLLM: %s: %s, %s",

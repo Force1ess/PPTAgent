@@ -74,20 +74,25 @@ class Layout(BaseModel):
         return template_id, old_data
 
     def validate(self, editor_output: EditorOutput, allowed_images: list[str]):
-        for el in editor_output.elements:
+        for el in self.elements:
+            if el.name not in editor_output:
+                raise ValueError(f"Element {el.name} not found in editor output")
             if self[el.name].type != "image":
                 continue
-            for i in range(len(el.data)):
+            for i in range(len(editor_output[el.name].data)):
                 sim_image = max(
-                    allowed_images, key=lambda x: edit_distance(x, el.data[i])
+                    allowed_images,
+                    key=lambda x: edit_distance(x, editor_output[el.name].data[i]),
                 )
-                if edit_distance(sim_image, el.data[i]) < 0.5 or not pexists(sim_image):
+                if edit_distance(
+                    sim_image, editor_output[el.name].data[i]
+                ) < 0.5 or not pexists(sim_image):
                     raise ValueError(
-                        f"Image {el.data[i]} not found\n"
+                        f"Image {editor_output[el.name].data[i]} not found\n"
                         "Please check the image path and use only existing images\n"
                         "Or, leave a blank list for this element"
                     )
-                el.data[i] = sim_image
+                editor_output[el.name].data[i] = sim_image
 
     async def length_rewrite(
         self,

@@ -1,7 +1,6 @@
 from dataclasses import asdict, dataclass
 from functools import partial
 from math import ceil
-from typing import Optional
 
 import tiktoken
 import yaml
@@ -67,8 +66,8 @@ class Agent:
         name: str,
         llm_mapping: dict[str, AsyncLLM],
         record_cost: bool = False,
-        config: Optional[dict] = None,
-        env: Optional[Environment] = None,
+        config: dict | None = None,
+        env: Environment | None = None,
     ):
         """
         Initialize the Agent.
@@ -136,7 +135,7 @@ class Agent:
         turn_id: int,
         error_idx: int,
         think_mode: ThinkMode = ThinkMode.not_think,
-        response_format: Optional[BaseModel] = None,
+        response_format: BaseModel | None = None,
         **client_kwargs,
     ):
         """
@@ -170,8 +169,8 @@ class Agent:
         think_mode: ThinkMode = ThinkMode.not_think,
         images: list[str] = None,
         recent: int = 0,
-        response_format: Optional[BaseModel] = None,
-        client_kwargs: Optional[dict] = None,
+        response_format: BaseModel | None = None,
+        client_kwargs: dict | None = None,
         **jinja_args,
     ):
         """
