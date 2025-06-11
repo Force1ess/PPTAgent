@@ -12,10 +12,6 @@ __email__ = "wszh712811@gmail.com"
 
 
 # Check the version of python and python-pptx
-import sys
-
-if sys.version_info < (3, 11):
-    raise ImportError("You should use Python 3.11 or higher for this project.")
 
 from packaging.version import Version
 from pptx import __version__ as PPTXVersion
