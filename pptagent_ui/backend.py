@@ -256,14 +256,18 @@ async def ppt_gen(task_id: str, rerun=False):
         labler = ImageLabler(presentation, pptx_config)
         if os.path.exists(pjoin(pptx_config.RUN_DIR, "image_stats.json")):
             image_stats = json.load(
-                open(pjoin(pptx_config.RUN_DIR, "image_stats.json"))
+                open(pjoin(pptx_config.RUN_DIR, "image_stats.json"), encoding="utf-8")
             )
             labler.apply_stats(image_stats)
         else:
             await labler.caption_images_async(models.vision_model)
             json.dump(
                 labler.image_stats,
-                open(pjoin(pptx_config.RUN_DIR, "image_stats.json"), "w"),
+                open(
+                    pjoin(pptx_config.RUN_DIR, "image_stats.json"),
+                    "w",
+                    encoding="utf-8",
+                ),
                 ensure_ascii=False,
                 indent=4,
             )
@@ -277,7 +281,9 @@ async def ppt_gen(task_id: str, rerun=False):
                 models.marker_model,
             )
         else:
-            text_content = open(pjoin(parsedpdf_dir, "source.md")).read()
+            text_content = open(
+                pjoin(parsedpdf_dir, "source.md"), encoding="utf-8"
+            ).read()
         await progress.report_progress()
 
         # document refine
@@ -321,13 +327,19 @@ async def ppt_gen(task_id: str, rerun=False):
             slide_induction = await slide_inducter.content_induct(layout_induction)
             json.dump(
                 slide_induction,
-                open(pjoin(pptx_config.RUN_DIR, "slide_induction.json"), "w"),
+                open(
+                    pjoin(pptx_config.RUN_DIR, "slide_induction.json"),
+                    "w",
+                    encoding="utf-8",
+                ),
                 ensure_ascii=False,
                 indent=4,
             )
         else:
             slide_induction = json.load(
-                open(pjoin(pptx_config.RUN_DIR, "slide_induction.json"))
+                open(
+                    pjoin(pptx_config.RUN_DIR, "slide_induction.json"), encoding="utf-8"
+                )
             )
         await progress.report_progress()
 
