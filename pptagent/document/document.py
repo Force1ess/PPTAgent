@@ -96,7 +96,7 @@ class Document(BaseModel):
         image_dir: str,
         language_model: AsyncLLM,
         vision_model: AsyncLLM,
-        limiter: AsyncExitStack,
+        limiter: asyncio.Semaphore | AsyncExitStack,
     ):
         markdown, medias = process_markdown_content(
             markdown_chunk,
@@ -110,12 +110,13 @@ class Document(BaseModel):
             section["content"] = section.pop("subsections")
             section = Section(**section, markdown_content=markdown_chunk)
             link_medias(medias, section)
-            for media in section.iter_medias():
-                media.parse(image_dir)
-                if isinstance(media, Table):
-                    await media.get_caption(language_model)
-                else:
-                    await media.get_caption(vision_model)
+            async with asyncio.TaskGroup() as tg:
+                for media in section.iter_medias():
+                    media.parse(image_dir)
+                    if isinstance(media, Table):
+                        tg.create_task(media.get_caption(language_model))
+                    else:
+                        tg.create_task(media.get_caption(vision_model))
         return metadata, section
 
     @classmethod
