@@ -1,5 +1,6 @@
 import re
 from collections.abc import Callable
+from copy import deepcopy
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from types import MappingProxyType
@@ -10,7 +11,7 @@ from pptx.dml.fill import FillFormat
 from pptx.dml.line import LineFormat
 from pptx.enum.dml import MSO_FILL_TYPE
 from pptx.enum.shapes import MSO_SHAPE_TYPE
-from pptx.oxml import parse_xml
+from pptx.oxml.shapes import ShapeElement as PPTXShapeElement
 from pptx.parts.slide import SlidePart
 from pptx.shapes.base import BaseShape
 from pptx.shapes.group import GroupShape as PPTXGroupShape
@@ -143,11 +144,6 @@ class Fill:
             new_element = etree.fromstring(self.fill_xml)
             fill._xPr.getparent().replace(fill._xPr, new_element)
 
-    def to_html(self, style_args: StyleArg) -> str:
-        """
-        Convert the fill to HTML.
-        """
-
 
 @dataclass
 class Line:
@@ -251,13 +247,13 @@ class Closure:
 
 @dataclass
 class Font:
-    name: str | None
-    color: str | None
-    size: int | None
-    bold: bool | None
-    italic: bool | None
-    underline: bool | None
-    strikethrough: bool | None
+    name: str | None = None
+    color: str | None = None
+    size: int | None = None
+    bold: bool | None = None
+    italic: bool | None = None
+    underline: bool | None = None
+    strikethrough: bool | None = None
 
     def update(self, other: "Font"):
         """
@@ -412,7 +408,10 @@ class TextFrame:
             return cls(is_textframe=False)
         text = shape.text
         extents = shape.text_frame._extents
-        font = Font(**shape.text_frame.font.get_attrs())
+        try:
+            font = Font(**shape.text_frame.font.get_attrs())
+        except:
+            font = Font()
         font.unify([para.font for para in paragraphs if para.idx != -1])
         return cls(
             paragraphs=paragraphs,
@@ -461,7 +460,7 @@ class ShapeElement:
     text_frame: TextFrame
     level: int
     slide_area: float
-    xml: str
+    sp: PPTXShapeElement
     fill: Fill
     line: Line
     shape: BaseShape | None
@@ -547,7 +546,7 @@ class ShapeElement:
             text_frame=text_frame,
             level=level,
             slide_area=slide_area,
-            xml=shape._element.xml,
+            sp=deepcopy(shape._element),
             fill=Fill.from_shape(getattr(shape, "fill", None), shape.part, config),
             line=Line.from_shape(getattr(shape, "line", None), shape.part, config),
             shape=shape,
@@ -564,8 +563,9 @@ class ShapeElement:
         Returns:
             BaseShape: The built shape.
         """
+        self.sp.nvSpPr.cNvPr.id = slide.shapes._next_shape_id
         shape = slide.shapes._shape_factory(
-            slide.shapes._spTree.insert_element_before(parse_xml(self.xml), "p:extLst")
+            slide.shapes._spTree.insert_element_before(self.sp, "p:extLst")
         )
         if getattr(shape, "fill", None) is not None:
             self.fill.build(shape, shape.part)
@@ -1173,9 +1173,6 @@ class Placeholder:
     @classmethod
     def from_shape(
         cls,
-        config: Config,
-        slide_idx: int,
-        shape_idx: int,
         shape: SlidePlaceholder,
         **kwargs,
     ) -> Picture | TextBox:
@@ -1205,17 +1202,11 @@ class Placeholder:
         # Create appropriate shape based on placeholder type
         if isinstance(shape, PlaceholderPicture):
             return Picture(
-                config=config,
-                slide_idx=slide_idx,
-                shape_idx=shape_idx,
                 shape=shape,
                 **kwargs,
             )
         elif shape.has_text_frame:
             return TextBox(
-                config=config,
-                slide_idx=slide_idx,
-                shape_idx=shape_idx,
                 shape=shape,
                 **kwargs,
             )
@@ -1227,6 +1218,7 @@ class Placeholder:
 SHAPECAST = {
     MSO_SHAPE_TYPE.AUTO_SHAPE: FreeShape,
     MSO_SHAPE_TYPE.LINE: FreeShape,
+    MSO_SHAPE_TYPE.FREEFORM: FreeShape,
     MSO_SHAPE_TYPE.PICTURE: Picture,
     MSO_SHAPE_TYPE.PLACEHOLDER: Placeholder,
     MSO_SHAPE_TYPE.GROUP: GroupShape,
