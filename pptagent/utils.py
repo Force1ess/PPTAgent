@@ -1,4 +1,5 @@
 import asyncio
+import io
 import json
 import logging
 import os
@@ -438,10 +439,16 @@ async def ppt_to_images_async(file: str, output_dir: str):
 def parsing_image(image: Image, image_path: str) -> str:
     # Handle WMF images (PDFs)
     if image.ext == "wmf":
-        image_path = image_path.replace(".wmf", ".jpg")
+        image_path = image_path.replace(".wmf", ".png")
         if not pexists(image_path):
             wmf_to_images(image.blob, image_path)
     # Check for supported image types
+    elif image.ext == "webp":
+        image_path = image_path.replace(".webp", ".png")
+        pil_image = PILImage.open(io.BytesIO(image.blob))
+        if not pexists(image_path):
+            pil_image.save(image_path, "PNG")
+        return image_path
     elif image.ext not in IMAGE_EXTENSIONS:
         raise ValueError(f"Unsupported image type {image.ext}")
 
@@ -454,10 +461,10 @@ def parsing_image(image: Image, image_path: str) -> str:
 
 @tenacity_decorator
 def wmf_to_images(blob: bytes, filepath: str):
-    if not filepath.endswith(".jpg"):
-        raise ValueError("filepath must end with .jpg")
+    if not filepath.endswith(".png"):
+        raise ValueError("filepath must end with .png")
     dirname = os.path.dirname(filepath)
-    basename = os.path.basename(filepath).removesuffix(".jpg")
+    basename = os.path.basename(filepath).removesuffix(".png")
     with tempfile.TemporaryDirectory() as temp_dir:
         with open(pjoin(temp_dir, f"{basename}.wmf"), "wb") as f:
             f.write(blob)
@@ -465,7 +472,7 @@ def wmf_to_images(blob: bytes, filepath: str):
             "soffice",
             "--headless",
             "--convert-to",
-            "jpg",
+            "png",
             pjoin(temp_dir, f"{basename}.wmf"),
             "--outdir",
             dirname,

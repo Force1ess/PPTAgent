@@ -13,7 +13,13 @@ from PIL import Image
 from transformers import AutoModel, AutoProcessor
 
 from pptagent.llms import AsyncLLM
-from pptagent.utils import Language, get_logger, is_image_path, pjoin
+from pptagent.utils import (
+    Language,
+    get_logger,
+    is_image_path,
+    pjoin,
+    tenacity_decorator,
+)
 
 logger = get_logger(__name__)
 
@@ -123,11 +129,8 @@ def get_image_model(device: str = None):
     )
 
 
-def parse_pdf(
-    pdf_path: str,
-    output_path: str,
-    model_lst: list,
-) -> str:
+@tenacity_decorator
+async def parse_pdf(pdf_path: str, output_path: str):
     """
     Parse a PDF file and extract text and images.
 

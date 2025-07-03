@@ -4,13 +4,15 @@ from collections import defaultdict
 from glob import glob
 
 from jinja2 import Template
-from llms import LLM
 from tqdm import tqdm
 
-from pptagent.presentation import Presentation
-from pptagent.utils import Config, package_join, pdirname, pexists
+from .model_utils import ModelManager
+from .presentation import Presentation
+from .utils import Config, package_join, pdirname, pexists
 
-language_model = vision_model = LLM("gpt-4o")
+manager = ModelManager()
+language_model = manager.language_model
+vision_model = manager.vision_model
 
 text_scorer = Template(
     open(package_join("prompts", "ppteval", "ppteval_content.txt")).read()

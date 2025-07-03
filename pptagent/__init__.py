@@ -33,6 +33,7 @@ from .induct import *
 from .llms import *
 from .model_utils import *
 from .multimodal import *
+from .ppteval import *
 from .pptgen import *
 from .presentation import *
 from .utils import *
@@ -40,6 +41,7 @@ from .utils import *
 # Define the top-level exports
 __all__ = [
     "agent",
+    "ppteval",
     "pptgen",
     "document",
     "llms",

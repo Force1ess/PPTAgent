@@ -43,6 +43,7 @@ dependencies = [
     "oaib",
     "openai>=1.50.0",
     "opencv-python-headless",
+    "openpyxl",
     "pandas",
     "pdf2image",
     "peft",

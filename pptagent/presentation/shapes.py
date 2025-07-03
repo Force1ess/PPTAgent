@@ -12,6 +12,7 @@ from pptx.dml.line import LineFormat
 from pptx.enum.dml import MSO_FILL_TYPE
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.oxml.shapes import ShapeElement as PPTXShapeElement
+from pptx.oxml.shapes.connector import CT_Connector
 from pptx.parts.slide import SlidePart
 from pptx.shapes.base import BaseShape
 from pptx.shapes.group import GroupShape as PPTXGroupShape
@@ -563,7 +564,10 @@ class ShapeElement:
         Returns:
             BaseShape: The built shape.
         """
-        self.sp.nvSpPr.cNvPr.id = slide.shapes._next_shape_id
+        if isinstance(self.sp, CT_Connector):
+            self.sp.nvCxnSpPr.cNvPr.id = slide.shapes._next_shape_id
+        else:
+            self.sp.nvSpPr.cNvPr.id = slide.shapes._next_shape_id
         shape = slide.shapes._shape_factory(
             slide.shapes._spTree.insert_element_before(self.sp, "p:extLst")
         )

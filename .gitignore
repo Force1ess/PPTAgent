@@ -2,6 +2,7 @@ __pycache__
 olddata
 data
 tmp
+build
 *ipynb
 .vscode
 oaib.txt
