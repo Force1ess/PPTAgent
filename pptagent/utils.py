@@ -443,8 +443,8 @@ def parsing_image(image: Image, image_path: str) -> str:
         if not pexists(image_path):
             wmf_to_images(image.blob, image_path)
     # Check for supported image types
-    elif image.ext == "webp":
-        image_path = image_path.replace(".webp", ".png")
+    elif image.ext in ["webp", "tiff"]:
+        image_path = image_path.replace(".webp", ".png").replace(".tiff", ".png")
         pil_image = PILImage.open(io.BytesIO(image.blob))
         if not pexists(image_path):
             pil_image.save(image_path, "PNG")

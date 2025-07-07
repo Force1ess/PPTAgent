@@ -203,7 +203,9 @@ class CodeExecutor:
         self.api_history[-1][0] = HistoryMark.API_CALL_CORRECT
 
     def __add__(self, other):
-        self.api_history.extend(other.api_history)
+        if len(self.api_history) == 0 or not isinstance(self.api_history[0], list):
+            self.api_history = [self.api_history]
+        self.api_history.append(other.api_history)
         self.command_history.extend(other.command_history)
         self.code_history.extend(other.code_history)
         return self
@@ -492,7 +494,11 @@ def clone_paragraph(slide: SlidePage, div_id: int, paragraph_id: int):
         raise SlideEditError(
             f"The element {shape.shape_idx} of slide {slide.slide_idx} does not have a text frame, please check the element id and type of element."
         )
-    max_idx = max([para.idx for para in shape.text_frame.paragraphs])
+    max_idx = (
+        max([para.idx for para in shape.text_frame.paragraphs])
+        if shape.text_frame.paragraphs
+        else 0
+    )
     for para in shape.text_frame.paragraphs:
         if para.idx != paragraph_id:
             continue
