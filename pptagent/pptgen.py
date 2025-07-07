@@ -1,14 +1,13 @@
+import asyncio
 import json
 import traceback
 from abc import ABC, abstractmethod
+from contextlib import AsyncExitStack
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from functools import partial
 from random import shuffle
-
-from aiometer import run_all
 
 from pptagent.agent import Agent
 from pptagent.apis import API_TYPES, CodeExecutor
@@ -112,20 +111,6 @@ class PPTGen(ABC):
 
         self.reference_lang = Language(**slide_induction.pop("language"))
         self.functional_layouts = slide_induction.pop("functional_keys")
-        self.text_layouts = [
-            k
-            for k in slide_induction
-            if k.endswith("text") and k not in self.functional_layouts
-        ]
-        self.multimodal_layouts = [
-            k
-            for k in slide_induction
-            if not k.endswith("text") and k not in self.functional_layouts
-        ]
-        if len(self.text_layouts) == 0:
-            self.text_layouts = self.multimodal_layouts
-        if len(self.multimodal_layouts) == 0:
-            self.multimodal_layouts = self.text_layouts
 
         self.layouts = {k: Layout(title=k, **v) for k, v in slide_induction.items()}
         self.empty_prs = deepcopy(self.presentation)
@@ -134,6 +119,22 @@ class PPTGen(ABC):
         ), "hide_small_pic_ratio must be positive or None"
         if hide_small_pic_ratio is not None:
             self._hide_small_pics(hide_small_pic_ratio, keep_in_background)
+
+        self.text_layouts = [
+            k
+            for k in self.layouts.keys()
+            if k.endswith("text") and k not in self.functional_layouts
+        ]
+        self.multimodal_layouts = [
+            k
+            for k in self.layouts.keys()
+            if not k.endswith("text") and k not in self.functional_layouts
+        ]
+        if len(self.text_layouts) == 0:
+            self.text_layouts = self.multimodal_layouts
+        if len(self.multimodal_layouts) == 0:
+            self.multimodal_layouts = self.text_layouts
+
         self._initialized = True
         return self
 
@@ -194,15 +195,20 @@ class PPTGen(ABC):
             self.simple_outline += f"Slide {slide_idx+1}: {item.purpose}\n"
         logger.debug(f"==========Outline Generated==========\n{self.simple_outline}")
 
+        if max_at_once:
+            semaphore = asyncio.Semaphore(max_at_once)
+        else:
+            semaphore = AsyncExitStack()
+
         slide_tasks = []
         for slide_idx, outline_item in enumerate(self.outline):
             if self.force_pages and slide_idx == num_slides:
                 break
-            slide_tasks.append(partial(self.generate_slide, slide_idx, outline_item))
+            slide_tasks.append(
+                self.generate_slide(slide_idx, outline_item, semaphore=semaphore)
+            )
 
-        slide_results = await run_all(
-            slide_tasks, max_at_once=max_at_once, max_per_second=max_per_second
-        )
+        slide_results = await asyncio.gather(*slide_tasks, return_exceptions=True)
 
         generated_slides = []
         code_executors = []
@@ -251,7 +257,7 @@ class PPTGen(ABC):
 
     @abstractmethod
     def generate_slide(
-        self, slide_idx: int, outline_item: OutlineItem
+        self, slide_idx: int, outline_item: OutlineItem, semaphore: AsyncExitStack
     ) -> tuple[SlidePage, CodeExecutor]:
         """
         Generate a slide from the outline item.
@@ -312,7 +318,7 @@ class PPTGen(ABC):
         return full_outline
 
     def _hide_small_pics(self, area_ratio: float, keep_in_background: bool):
-        for layout in self.layouts.values():
+        for layout in list(self.layouts.values()):
             template_slide = self.presentation.slides[layout.template_id - 1]
             pictures: list[tuple[SlidePage | GroupShape, Picture]] = list(
                 template_slide.shape_filter(Picture, return_father=True)
@@ -321,19 +327,19 @@ class PPTGen(ABC):
                 continue
             for father, pic in pictures:
                 if pic.area / pic.slide_area < area_ratio:
+                    father.shapes.remove(pic)
                     if keep_in_background:
-                        father.shapes.remove(pic)
-                    else:
-                        father.shapes.remove(pic)
-                        father.backgrounds.append(pic)
+                        template_slide.backgrounds.append(pic)
                     layout.remove_item(pic.caption.strip())
 
             if len(list(template_slide.shape_filter(Picture))) == 0:
-                logger.info(
+                logger.debug(
                     "All pictures in layout %s are too small, set to pure text layout",
                     layout.title,
                 )
-                layout.title = layout.title.replace(":image", ":text")
+                self.layouts[layout.title.replace(":image", ":text")] = (
+                    self.layouts.pop(layout.title)
+                )
 
     def _collect_history(self, code_executor: CodeExecutor):
         """
@@ -344,6 +350,7 @@ class PPTGen(ABC):
         """
         history = {
             "agents": {},
+            "command_history": code_executor.command_history,
             "code_history": code_executor.code_history,
             "api_history": code_executor.api_history,
         }
@@ -383,42 +390,46 @@ class PPTAgent(PPTGen):
     """
 
     async def generate_slide(
-        self, slide_idx: int, outline_item: OutlineItem
+        self, slide_idx: int, outline_item: OutlineItem, semaphore: AsyncExitStack
     ) -> tuple[SlidePage, CodeExecutor]:
         """
         Asynchronously generate a slide from the outline item.
         """
-        if outline_item.topic == "Functional":
-            layout = self.layouts[outline_item.purpose]
-            slide_desc = FunctionalContent[outline_item.purpose]
-            if outline_item.purpose == FunctionalLayouts.SECTION_OUTLINE.value:
-                section, sec_idx = outline_item.indexes
-                slide_desc = slide_desc.format(section, sec_idx + 1)
-                outline_item.purpose = f"Section Outline of {section}"
-                outline_item.indexes = []
-                slide_content = "Document Structure:\n" + self.source_doc.get_overview(
-                    include_summary=True, include_image=False
-                )
-            elif outline_item.purpose == FunctionalLayouts.TOC.value:
-                slide_content = "Table of Contents:\n" + self.toc
+        async with semaphore:
+            if outline_item.topic == "Functional":
+                layout = self.layouts[outline_item.purpose]
+                slide_desc = FunctionalContent[outline_item.purpose]
+                if outline_item.purpose == FunctionalLayouts.SECTION_OUTLINE.value:
+                    section, sec_idx = outline_item.indexes
+                    slide_desc = slide_desc.format(section, sec_idx + 1)
+                    outline_item.purpose = f"Section Outline of {section}"
+                    outline_item.indexes = []
+                    slide_content = (
+                        "Document Structure:\n"
+                        + self.source_doc.get_overview(
+                            include_summary=True, include_image=False
+                        )
+                    )
+                elif outline_item.purpose == FunctionalLayouts.TOC.value:
+                    slide_content = "Table of Contents:\n" + self.toc
+                else:
+                    slide_content = "This slide is a functional layout, please follow the slide description and content schema to generate the slide content."
+                header, _, _ = outline_item.retrieve(slide_idx, self.source_doc)
+                header += slide_desc
             else:
-                slide_content = "This slide is a functional layout, please follow the slide description and content schema to generate the slide content."
-            header, _, _ = outline_item.retrieve(slide_idx, self.source_doc)
-            header += slide_desc
-        else:
-            layout, header, slide_content = await self._select_layout(
-                slide_idx, outline_item
-            )
-        try:
-            command_list, template_id = await self._generate_content(
-                layout, slide_content, header
-            )
-            slide, code_executor = await self._edit_slide(command_list, template_id)
-        except Exception as e:
-            logger.error(f"Failed to generate slide {slide_idx}, error: {e}")
-            traceback.print_exc()
-            raise e
-        return slide, code_executor
+                layout, header, slide_content = await self._select_layout(
+                    slide_idx, outline_item
+                )
+            try:
+                command_list, template_id = await self._generate_content(
+                    layout, slide_content, header
+                )
+                slide, code_executor = await self._edit_slide(command_list, template_id)
+            except Exception as e:
+                logger.error(f"Failed to generate slide {slide_idx}, error: {e}")
+                traceback.print_exc()
+                raise e
+            return slide, code_executor
 
     @tenacity_decorator
     async def _select_layout(
@@ -496,6 +507,7 @@ class PPTAgent(PPTGen):
         Asynchronously edit the slide.
         """
         code_executor = CodeExecutor(self.retry_times)
+        code_executor.command_history.append(command_list)
         turn_id, edit_actions = await self.staffs["coder"](
             api_docs=code_executor.get_apis_docs(API_TYPES.Agent.value),
             edit_target=self.presentation.slides[template_id - 1].to_html(),

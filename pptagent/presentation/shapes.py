@@ -564,12 +564,13 @@ class ShapeElement:
         Returns:
             BaseShape: The built shape.
         """
+        sp = deepcopy(self.sp)
         if isinstance(self.sp, CT_Connector):
-            self.sp.nvCxnSpPr.cNvPr.id = slide.shapes._next_shape_id
+            sp.nvCxnSpPr.cNvPr.id = slide.shapes._next_shape_id
         else:
-            self.sp.nvSpPr.cNvPr.id = slide.shapes._next_shape_id
+            sp.nvSpPr.cNvPr.id = slide.shapes._next_shape_id
         shape = slide.shapes._shape_factory(
-            slide.shapes._spTree.insert_element_before(self.sp, "p:extLst")
+            slide.shapes._spTree.insert_element_before(sp, "p:extLst")
         )
         if getattr(shape, "fill", None) is not None:
             self.fill.build(shape, shape.part)

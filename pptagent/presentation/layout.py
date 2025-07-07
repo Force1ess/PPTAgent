@@ -79,6 +79,9 @@ class Layout(BaseModel):
                 raise ValueError(f"Element {el.name} not found in editor output")
             if self[el.name].type != "image":
                 continue
+            assert (
+                len(editor_output[el.name].data) == 0 or len(allowed_images) > 0
+            ), "No images provided for slide generation, please leave a blank list for this element"
             for i in range(len(editor_output[el.name].data)):
                 sim_image = max(
                     allowed_images,
