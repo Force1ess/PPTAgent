@@ -74,6 +74,7 @@ class CodeExecutor:
             retry_times (int): The number of times to retry failed actions.
         """
         self.api_history = []
+        self.command_list = []
         self.command_history = []
         self.code_history = []
         self.retry_times = retry_times
@@ -203,9 +204,8 @@ class CodeExecutor:
         self.api_history[-1][0] = HistoryMark.API_CALL_CORRECT
 
     def __add__(self, other):
-        if len(self.api_history) == 0 or not isinstance(self.api_history[0], list):
-            self.api_history = [self.api_history]
         self.api_history.append(other.api_history)
+        self.command_list.extend(other.command_list)
         self.command_history.extend(other.command_history)
         self.code_history.extend(other.code_history)
         return self
@@ -459,7 +459,7 @@ def replace_image(slide: SlidePage, doc: Document, img_id: int, image_path: str)
         raise SlideEditError(
             f"The element {shape.shape_idx} of slide {slide.slide_idx} is not a Picture."
         )
-
+    shape.caption = doc.find_media(path=image_path).caption
     try:
         if TABLE_REGEX.match(image_path):
             return replace_image_with_table(shape, doc, image_path)

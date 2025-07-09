@@ -148,7 +148,6 @@ class PPTGen(ABC):
         length_factor: float | None = None,
         auto_length_factor: bool = True,
         max_at_once: int | None = None,
-        max_per_second: int | None = None,
     ):
         """
         Generate a PowerPoint presentation.
@@ -162,7 +161,6 @@ class PPTGen(ABC):
             length_factor (float | None): The length factor.
             auto_length_factor (bool): Whether to automatically calculate the length factor.
             max_at_once (int | None): The maximum number of slides to generate at once.
-            max_per_second (int | None): The maximum number of slides to generate per second.
 
         Returns:
             tuple[Presentation, dict]: A tuple containing the generated presentation and the history of the agents.
@@ -353,6 +351,7 @@ class PPTGen(ABC):
             "command_history": code_executor.command_history,
             "code_history": code_executor.code_history,
             "api_history": code_executor.api_history,
+            "command_list": code_executor.command_list,
         }
 
         for role_name, role in self.staffs.items():
@@ -507,11 +506,17 @@ class PPTAgent(PPTGen):
         Asynchronously edit the slide.
         """
         code_executor = CodeExecutor(self.retry_times)
-        code_executor.command_history.append(command_list)
+        code_executor.command_list.append(command_list)
+        kwargs = {
+            "api_docs": code_executor.get_apis_docs(API_TYPES.Agent.value),
+            "edit_target": self.presentation.slides[template_id - 1].to_html(),
+            "command_list": "\n".join([str(i) for i in command_list]),
+        }
+        code_executor.command_list[-1].append(
+            self.staffs["coder"].template.render(**kwargs)
+        )
         turn_id, edit_actions = await self.staffs["coder"](
-            api_docs=code_executor.get_apis_docs(API_TYPES.Agent.value),
-            edit_target=self.presentation.slides[template_id - 1].to_html(),
-            command_list="\n".join([str(i) for i in command_list]),
+            **kwargs,
         )
 
         for error_idx in range(self.retry_times):
