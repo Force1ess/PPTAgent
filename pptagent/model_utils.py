@@ -26,19 +26,19 @@ from pptagent.utils import (
 
 logger = get_logger(__name__)
 
-LID_PATTERN = pjoin(
-    HUGGINGFACE_HUB_CACHE, "models--julien-c--fasttext-language-id", "*/*/lid.176.bin"
-)
-LID_FILES = glob(LID_PATTERN)
-if LID_FILES:
-    LID_MODEL = load_model(LID_FILES[0])
-else:
-    LID_MODEL = load_model(
-        hf_hub_download(
-            repo_id="julien-c/fasttext-language-id",
-            filename="lid.176.bin",
-        )
-    )
+# LID_PATTERN = pjoin(
+#     HUGGINGFACE_HUB_CACHE, "models--julien-c--fasttext-language-id", "*/*/lid.176.bin"
+# )
+# LID_FILES = glob(LID_PATTERN)
+# if LID_FILES:
+#     LID_MODEL = load_model(LID_FILES[0])
+# else:
+#     LID_MODEL = load_model(
+#         hf_hub_download(
+#             repo_id="julien-c/fasttext-language-id",
+#             filename="lid.176.bin",
+#         )
+#     )
 
 MINERU_API = os.environ.get("MINERU_API", None)
 if MINERU_API is None:

@@ -12,7 +12,7 @@ from torch import Tensor
 from pptagent.llms import AsyncLLM, ThinkMode
 from pptagent.utils import get_json_from_response, package_join
 
-ENCODING = tiktoken.encoding_for_model("gpt-4o")
+# ENCODING = tiktoken.encoding_for_model("gpt-4o")
 RETRY_TEMPLATE = Template(
     """The previous output is invalid, please carefully analyze the traceback and feedback information, correct errors happened before.
             feedback:

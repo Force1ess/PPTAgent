@@ -450,10 +450,11 @@ def replace_image(slide: SlidePage, doc: Document, img_id: int, image_path: str)
         image_path (str): The path to the new image.
 
     """
-    if not os.path.exists(image_path):
-        raise SlideEditError(
-            f"The image {image_path} does not exist, consider use del_image if image_path in the given command is faked"
-        )
+    # ? this is guranteed by document find_caption
+    # if not os.path.exists(image_path):
+    #     raise SlideEditError(
+    #         f"The image {image_path} does not exist, consider use del_image if image_path in the given command is faked"
+    #     )
     shape = element_index(slide, img_id)
     if not isinstance(shape, Picture):
         raise SlideEditError(

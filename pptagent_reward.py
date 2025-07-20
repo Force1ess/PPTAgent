@@ -20,6 +20,10 @@ for ppt in glob("data/*/pptx/*"):
     image_states = json.load(open(join(ppt, "image_stats.json")))
     image_labler.apply_stats(image_states)
 
+docs = {}
+for doc_path in glob("data/*/pdf/*/refined_doc.json"):
+    doc = Document(**json.load(open(doc_path)))
+    docs[basename(doc_path.replace("/refined_doc.json", ""))] = doc
 
 def rouge_score(gen_slide: SlidePage, gt_slide: SlidePage):
     return scorer.score(gen_slide.to_text(True), gt_slide.to_text(True))[
@@ -38,22 +42,19 @@ def slide_execute(commands: str, slide: SlidePage, doc: Document):
     return True
 
 
-def compute_reward(
-    source_pptx: str,
-    source_pdf: str,
-    template_id: int,
-    gt_commands: str,
-    response: str,
+def compute_score(
+    data_source, solution_str, ground_truth, extra_info:dict[str, str], format_score=0.1
 ):
-    doc_path = glob(join("data", "*", "pdf", source_pdf, "refined_doc.json"))[0]
-    doc = Document(**json.load(open(doc_path)))
-    source_slide = deepcopy(ppts[source_pptx].slides[template_id - 1])
+    
+    doc = docs[extra_info["source_pdf"]]
+    source_slide = deepcopy(ppts[extra_info["source_pptx"]].slides[extra_info["template_id"] - 1])
 
     gen_slide = deepcopy(source_slide)
-    exec_result = slide_execute(response, gen_slide, doc)
+    exec_result = slide_execute(solution_str, gen_slide, doc)
 
     gt_slide = deepcopy(source_slide)
-    slide_execute(gt_commands, gt_slide, doc)
+    if not slide_execute(ground_truth, gt_slide, doc):
+        raise ValueError("Ground truth is not executable")
 
     if exec_result:
         return rouge_score(gen_slide, gt_slide)
@@ -66,12 +67,6 @@ if __name__ == "__main__":
 
     pseudo_code = ""
 
-    df = pd.read_parquet("data_dataset.parquet")
-    row = df.iloc[0].to_dict()
-    compute_reward(
-        row["source_pptx"],
-        row["source_pdf"],
-        row["template_id"],
-        row["gt_response"],
-        pseudo_code,
-    )
+    df = pd.read_parquet("pptagent-code26k/data/train-00000-of-00001.parquet")
+    for row in df.to_dict(orient="records"):
+        compute_score(row["data_source"], pseudo_code, row["reward_model"]["ground_truth"], row["extra_info"])
