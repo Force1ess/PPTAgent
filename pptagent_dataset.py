@@ -38,10 +38,16 @@ for ppt in ppts:
             "source_pptx": base_ppt,
             "source_pdf": base_pdf,
             "template_id": slide_apis[-1][1],
+            "interaction_kwargs": {
+                "name": "pptagent",
+                "query": prompt,
+                "ground_truth": response,
+            },
         }
         data.append(
             {
                 "data_source": "pptagent-code26k",
+                "name": "pptagent",
                 "prompt": messages,
                 "reward_model": {"style": "rule", "ground_truth": response},
                 "extra_info": extra_info,
