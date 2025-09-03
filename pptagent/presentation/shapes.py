@@ -631,9 +631,14 @@ class ShapeElement:
         closures.extend(
             self._closures[ClosureType.REPLACE] + self._closures[ClosureType.STYLE]
         )
-        closures.extend(sorted(self._closures[ClosureType.DELETE], reverse=True))
+        closures.extend(
+            sorted(
+                self._closures[ClosureType.DELETE]
+                + self._closures[ClosureType.POST_PROCESS],
+                reverse=True,
+            )
+        )
         closures.extend(self._closures[ClosureType.MERGE])
-        closures.extend(sorted(self._closures[ClosureType.POST_PROCESS], reverse=True))
         return closures
 
     @property

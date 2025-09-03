@@ -1,5 +1,4 @@
 import inspect
-import os
 import re
 import traceback
 from copy import deepcopy
@@ -203,8 +202,6 @@ class CodeExecutor:
         self.api_history[-1][0] = HistoryMark.API_CALL_CORRECT
 
     def __add__(self, other):
-        if len(self.api_history) == 0 or not isinstance(self.api_history[0], list):
-            self.api_history = [self.api_history]
         self.api_history.append(other.api_history)
         self.command_history.extend(other.command_history)
         self.code_history.extend(other.code_history)
@@ -450,16 +447,12 @@ def replace_image(slide: SlidePage, doc: Document, img_id: int, image_path: str)
         image_path (str): The path to the new image.
 
     """
-    if not os.path.exists(image_path):
-        raise SlideEditError(
-            f"The image {image_path} does not exist, consider use del_image if image_path in the given command is faked"
-        )
     shape = element_index(slide, img_id)
     if not isinstance(shape, Picture):
         raise SlideEditError(
             f"The element {shape.shape_idx} of slide {slide.slide_idx} is not a Picture."
         )
-
+    shape.caption = doc.find_media(path=image_path).caption
     try:
         if TABLE_REGEX.match(image_path):
             return replace_image_with_table(shape, doc, image_path)

@@ -290,14 +290,14 @@ async def ppt_gen(task_id: str, rerun=False):
                 parsedpdf_dir,
             )
             json.dump(
-                source_doc.to_dict(),
+                source_doc.model_dump(),
                 open(pjoin(parsedpdf_dir, "refined_doc.json"), "w"),
                 ensure_ascii=False,
                 indent=4,
             )
         else:
             source_doc = json.load(open(pjoin(parsedpdf_dir, "refined_doc.json")))
-            source_doc = Document(**source_doc)
+            source_doc = Document.model_validate(source_doc)
         await progress.report_progress()
 
         # Slide Induction
@@ -340,7 +340,6 @@ async def ppt_gen(task_id: str, rerun=False):
 
         # PPT Generation with PPTAgent
         ppt_agent = PPTAgent(
-            models.text_model,
             models.language_model,
             models.vision_model,
             error_exit=False,

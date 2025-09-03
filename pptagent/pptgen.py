@@ -148,7 +148,6 @@ class PPTGen(ABC):
         length_factor: float | None = None,
         auto_length_factor: bool = True,
         max_at_once: int | None = None,
-        max_per_second: int | None = None,
     ):
         """
         Generate a PowerPoint presentation.
@@ -162,7 +161,6 @@ class PPTGen(ABC):
             length_factor (float | None): The length factor.
             auto_length_factor (bool): Whether to automatically calculate the length factor.
             max_at_once (int | None): The maximum number of slides to generate at once.
-            max_per_second (int | None): The maximum number of slides to generate per second.
 
         Returns:
             tuple[Presentation, dict]: A tuple containing the generated presentation and the history of the agents.
@@ -330,7 +328,7 @@ class PPTGen(ABC):
                     father.shapes.remove(pic)
                     if keep_in_background:
                         template_slide.backgrounds.append(pic)
-                    layout.remove_item(pic.caption.strip())
+                    layout.remove_item(pic.caption)
 
             if len(list(template_slide.shape_filter(Picture))) == 0:
                 logger.debug(

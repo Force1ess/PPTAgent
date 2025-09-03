@@ -385,7 +385,7 @@ class Presentation:
             if not shape.text_frame.is_textframe:
                 continue
             for para in shape.text_frame.paragraphs:
-                if not para.edited:
+                if not para.edited and para.idx != -1:
                     shape._closures[ClosureType.POST_PROCESS].append(
                         Closure(
                             partial(del_para, para.real_idx),
