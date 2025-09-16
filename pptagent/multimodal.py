@@ -51,10 +51,12 @@ class ImageLabler:
         Returns:
             dict: Dictionary containing image stats with captions.
         """
-        assert isinstance(
-            vision_model, AsyncLLM
-        ), "vision_model must be an AsyncLLM instance"
-        caption_prompt = open(package_join("prompts", "caption.txt")).read()
+        assert isinstance(vision_model, AsyncLLM), (
+            "vision_model must be an AsyncLLM instance"
+        )
+        caption_prompt = open(
+            package_join("prompts", "caption.txt"), encoding="utf-8"
+        ).read()
 
         async with asyncio.TaskGroup() as tg:
             for image, stats in self.image_stats.items():
@@ -86,7 +88,9 @@ class ImageLabler:
             dict: Dictionary containing image stats with captions.
         """
         assert isinstance(vision_model, LLM), "vision_model must be an LLM instance"
-        caption_prompt = open(package_join("prompts", "caption.txt")).read()
+        caption_prompt = open(
+            package_join("prompts", "caption.txt"), encoding="utf-8"
+        ).read()
         for image, stats in self.image_stats.items():
             if "caption" not in stats:
                 stats["caption"] = vision_model(

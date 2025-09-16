@@ -23,15 +23,21 @@ class TestConfig:
 
     def get_slide_induction(self):
         """Load slide induction data"""
-        return json.load(open(pjoin(self.template, "slide_induction.json")))
+        return json.load(
+            open(pjoin(self.template, "slide_induction.json"), encoding="utf-8")
+        )
 
     def get_document_json(self):
         """Load document JSON"""
-        return json.load(open(pjoin(self.document, "refined_doc.json")))
+        return json.load(
+            open(pjoin(self.document, "refined_doc.json"), encoding="utf-8")
+        )
 
     def get_image_stats(self):
         """Load captions data"""
-        return json.load(open(pjoin(self.template, "image_stats.json")))
+        return json.load(
+            open(pjoin(self.template, "image_stats.json"), encoding="utf-8")
+        )
 
     @property
     def language_model(self):

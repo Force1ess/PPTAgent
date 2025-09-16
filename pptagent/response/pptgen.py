@@ -57,3 +57,17 @@ class LayoutChoice(BaseModel):
             layout=(Literal[*layouts], Field(...)),  # type: ignore
             __base__=BaseModel,
         )
+
+
+class TemplateChoice(BaseModel):
+    reasoning: str
+    template: str
+
+    @classmethod
+    def response_model(cls, templates: list[str]):
+        return create_model(
+            cls.__name__,
+            reasoning=(str, Field(...)),
+            template=(Literal[*templates], Field(...)),  # type: ignore
+            __base__=BaseModel,
+        )

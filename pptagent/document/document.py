@@ -30,7 +30,9 @@ logger = get_logger(__name__)
 env = Environment(undefined=StrictUndefined)
 
 MERGE_METADATA_PROMPT = env.from_string(
-    open(package_join("prompts", "document", "merge_metadata.txt")).read()
+    open(
+        package_join("prompts", "document", "merge_metadata.txt"), encoding="utf-8"
+    ).read()
 )
 LITERAL_CONSTRAINT = os.getenv("LITERAL_CONSTRAINT", "false").lower() == "true"
 
@@ -45,9 +47,9 @@ class Document(BaseModel):
         """Validate and fix media file paths"""
         if image_dir is not None:
             self.image_dir = image_dir
-        assert pexists(
-            self.image_dir
-        ), f"image directory is not found: {self.image_dir}"
+        assert pexists(self.image_dir), (
+            f"image directory is not found: {self.image_dir}"
+        )
         for media in self.iter_medias():
             if pexists(media.path):
                 continue

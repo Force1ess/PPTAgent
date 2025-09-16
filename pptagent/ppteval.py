@@ -15,22 +15,30 @@ language_model = manager.language_model
 vision_model = manager.vision_model
 
 text_scorer = Template(
-    open(package_join("prompts", "ppteval", "ppteval_content.txt")).read()
+    open(
+        package_join("prompts", "ppteval", "ppteval_content.txt"), encoding="utf-8"
+    ).read()
 )
 vision_scorer = Template(
-    open(package_join("prompts", "ppteval", "ppteval_style.txt")).read()
+    open(
+        package_join("prompts", "ppteval", "ppteval_style.txt"), encoding="utf-8"
+    ).read()
 )
 style_descriptor = open(
-    package_join("prompts", "ppteval", "ppteval_describe_style.txt")
+    package_join("prompts", "ppteval", "ppteval_describe_style.txt"), encoding="utf-8"
 ).read()
 content_descriptor = open(
-    package_join("prompts", "ppteval", "ppteval_describe_content.txt")
+    package_join("prompts", "ppteval", "ppteval_describe_content.txt"), encoding="utf-8"
 ).read()
 ppt_extractor = Template(
-    open(package_join("prompts", "ppteval", "ppteval_extract.txt")).read()
+    open(
+        package_join("prompts", "ppteval", "ppteval_extract.txt"), encoding="utf-8"
+    ).read()
 )
 logic_scorer = Template(
-    open(package_join("prompts", "ppteval", "ppteval_coherence.txt")).read()
+    open(
+        package_join("prompts", "ppteval", "ppteval_coherence.txt"), encoding="utf-8"
+    ).read()
 )
 
 
@@ -38,7 +46,7 @@ def get_eval(prs_source: str):
     evals = defaultdict(dict)
     eval_file = pjoin(pdirname(prs_source), "evals.json")
     if pexists(eval_file):
-        with open(eval_file) as f:
+        with open(eval_file, encoding="utf-8") as f:
             evals |= json.load(f)
     return evals, eval_file
 
@@ -52,14 +60,14 @@ async def slide_score(prs_source: str, slide_folder: str):
         if not os.path.exists(slide_descr):
             style_descr = await vision_model(style_descriptor, slide_image)
             content_descr = await vision_model(content_descriptor, slide_image)
-            with open(slide_descr, "w") as f:
+            with open(slide_descr, "w", encoding="utf-8") as f:
                 json.dump(
                     {"content": content_descr, "style": style_descr},
                     f,
                     indent=2,
                 )
         else:
-            descr = json.load(open(slide_descr))
+            descr = json.load(open(slide_descr, encoding="utf-8"))
             style_descr = descr["style"]
             content_descr = descr["content"]
         if slide_image not in evals["vision"]:
@@ -70,7 +78,7 @@ async def slide_score(prs_source: str, slide_folder: str):
             evals["content"][slide_image] = await language_model(
                 text_scorer.render(descr=content_descr), return_json=True
             )
-    with open(eval_file, "w") as f:
+    with open(eval_file, "w", encoding="utf-8") as f:
         json.dump(evals, f, indent=2)
 
 
@@ -86,17 +94,17 @@ async def pres_score(prs_source: str):
             ppt_extractor.render(presentation=presentation),
             return_json=True,
         )
-        with open(slide_descr, "w") as f:
+        with open(slide_descr, "w", encoding="utf-8") as f:
             json.dump(extracted, f, indent=2)
     else:
-        extracted = json.load(open(slide_descr))
+        extracted = json.load(open(slide_descr, encoding="utf-8"))
     evals["logic"] = await language_model(
         logic_scorer.render(
             presentation=extracted,
         ),
         return_json=True,
     )
-    with open(eval_file, "w") as f:
+    with open(eval_file, "w", encoding="utf-8") as f:
         json.dump(evals, f, indent=2)
 
 

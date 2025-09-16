@@ -74,11 +74,11 @@ class Agent:
 
         Args:
             name (str): The name of the role.
-            env (Environment): The Jinja2 environment.
+        llm_mapping (dict): The mapping of the language model.
             record_cost (bool): Whether to record the token cost.
             llm (LLM): The language model.
             config (dict): The configuration.
-            text_model (LLM): The text embedding model.
+            env (Environment): The Jinja2 environment.
         """
         self.name = name
         self.config = config
@@ -187,9 +187,9 @@ class Agent:
         """
         if isinstance(images, str):
             images = [images]
-        assert self.prompt_args == set(
-            jinja_args.keys()
-        ), f"Invalid arguments, expected: {self.prompt_args}, got: {jinja_args.keys()}"
+        assert self.prompt_args == set(jinja_args.keys()), (
+            f"Invalid arguments, expected: {self.prompt_args}, got: {jinja_args.keys()}"
+        )
         prompt = self.template.render(**jinja_args)
         history = await self.get_history(recent)
         history_msg = []

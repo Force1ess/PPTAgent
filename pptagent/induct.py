@@ -27,9 +27,11 @@ from pptagent.utils import (
 logger = get_logger(__name__)
 
 CATEGORY_SPLIT_TEMPLATE = Template(
-    open(package_join("prompts", "category_split.txt")).read()
+    open(package_join("prompts", "category_split.txt"), encoding="utf-8").read()
 )
-ASK_CATEGORY_PROMPT = open(package_join("prompts", "ask_category.txt")).read()
+ASK_CATEGORY_PROMPT = open(
+    package_join("prompts", "ask_category.txt"), encoding="utf-8"
+).read()
 
 
 class SlideInducter:
@@ -143,11 +145,12 @@ class SlideInducter:
                             ),
                         )
                     ).add_done_callback(
-                        lambda f, tid=template_id, sidxs=slide_indexs, ctype=content_type: layout_induction[
+                        lambda f,
+                        tid=template_id,
+                        sidxs=slide_indexs,
+                        ctype=content_type: layout_induction[
                             f.result() + ":" + ctype
-                        ].update(
-                            {"template_id": tid, "slides": sidxs}
-                        )
+                        ].update({"template_id": tid, "slides": sidxs})
                     )
 
     async def layout_induct(self):

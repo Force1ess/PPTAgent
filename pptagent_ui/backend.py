@@ -185,7 +185,9 @@ async def feedback(request: Request):
     feedback = body.get("feedback")
     task_id = body.get("task_id")
 
-    with open(pjoin(RUNS_DIR, "feedback", f"{task_id}.txt"), "w") as f:
+    with open(
+        pjoin(RUNS_DIR, "feedback", f"{task_id}.txt"), "w", encoding="utf-8"
+    ) as f:
         f.write(feedback)
     return {"message": "Feedback submitted successfully"}
 
@@ -199,7 +201,9 @@ async def ppt_gen(task_id: str, rerun=False):
     if rerun:
         task_id = task_id.replace("|", "/")
         active_connections[task_id] = None
-        progress_store[task_id] = json.load(open(pjoin(RUNS_DIR, task_id, "task.json")))
+        progress_store[task_id] = json.load(
+            open(pjoin(RUNS_DIR, task_id, "task.json"), encoding="utf-8")
+        )
 
     # Wait for WebSocket connection
     for _ in range(100):
@@ -215,7 +219,9 @@ async def ppt_gen(task_id: str, rerun=False):
     pdf_md5 = task["pdf"]
     generation_config = Config(pjoin(RUNS_DIR, task_id))
     pptx_config = Config(pjoin(RUNS_DIR, "pptx", pptx_md5))
-    json.dump(task, open(pjoin(generation_config.RUN_DIR, "task.json"), "w"))
+    json.dump(
+        task, open(pjoin(generation_config.RUN_DIR, "task.json"), "w", encoding="utf-8")
+    )
     progress = ProgressManager(task_id, STAGES)
     parsedpdf_dir = pjoin(RUNS_DIR, "pdf", pdf_md5)
     ppt_image_folder = pjoin(pptx_config.RUN_DIR, "slide_images")
@@ -296,7 +302,9 @@ async def ppt_gen(task_id: str, rerun=False):
                 indent=4,
             )
         else:
-            source_doc = json.load(open(pjoin(parsedpdf_dir, "refined_doc.json")))
+            source_doc = json.load(
+                open(pjoin(parsedpdf_dir, "refined_doc.json"), encoding="utf-8")
+            )
             source_doc = Document.model_validate(source_doc)
         await progress.report_progress()
 

@@ -14,7 +14,6 @@ jobs:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       LANGUAGE_MODEL: ${{ secrets.LANGUAGE_MODEL }}
       VISION_MODEL: ${{ secrets.VISION_MODEL }}
-      TEXT_MODEL: ${{ secrets.TEXT_MODEL }}
 
     strategy:
       matrix:

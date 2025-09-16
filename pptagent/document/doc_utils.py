@@ -17,7 +17,9 @@ MARKDOWN_TABLE_REGEX = re.compile(
     r"(\|.*\|)|((<html><body>)?<table>.*</table>(</body></html>)?)"
 )
 HEADING_EXTRACT_PROMPT = env.from_string(
-    open(package_join("prompts", "document", "heading_extract.txt")).read()
+    open(
+        package_join("prompts", "document", "heading_extract.txt"), encoding="utf-8"
+    ).read()
 )
 
 MIN_CHUNK_SIZE: int = os.getenv("MIN_CHUNK_SIZE", 512)

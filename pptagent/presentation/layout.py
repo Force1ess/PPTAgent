@@ -12,7 +12,7 @@ from pptagent.utils import edit_distance, get_logger, package_join, pexists
 logger = get_logger(__name__)
 
 LENGTHY_REWRITE_PROMPT = Template(
-    open(package_join("prompts", "lengthy_rewrite.txt")).read(),
+    open(package_join("prompts", "lengthy_rewrite.txt"), encoding="utf-8").read(),
     undefined=StrictUndefined,
 )
 
@@ -79,9 +79,9 @@ class Layout(BaseModel):
                 raise ValueError(f"Element {el.name} not found in editor output")
             if self[el.name].type != "image":
                 continue
-            assert (
-                len(editor_output[el.name].data) == 0 or len(allowed_images) > 0
-            ), "No images provided for slide generation, please leave a blank list for this element"
+            assert len(editor_output[el.name].data) == 0 or len(allowed_images) > 0, (
+                "No images provided for slide generation, please leave a blank list for this element"
+            )
             for i in range(len(editor_output[el.name].data)):
                 sim_image = max(
                     allowed_images,
