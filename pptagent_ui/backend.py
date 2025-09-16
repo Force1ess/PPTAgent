@@ -76,9 +76,9 @@ class ProgressManager:
         self.total_stages = len(stages)
 
     async def report_progress(self):
-        assert (
-            self.task_id in active_connections
-        ), "WebSocket connection is already closed"
+        assert self.task_id in active_connections, (
+            "WebSocket connection is already closed"
+        )
         self.current_stage += 1
         progress = int((self.current_stage / self.total_stages) * 100)
         await send_progress(
@@ -346,7 +346,6 @@ async def ppt_gen(task_id: str, rerun=False):
             retry_times=5,
         )
         ppt_agent.set_reference(
-            config=generation_config,
             slide_induction=slide_induction,
             presentation=presentation,
         )

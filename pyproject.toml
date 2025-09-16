@@ -41,7 +41,7 @@ dependencies = [
     "mistune",
     "numpy",
     "oaib",
-    "openai>=1.50.0",
+    "openai>=1.107.3",
     "opencv-python-headless",
     "openpyxl",
     "pandas",

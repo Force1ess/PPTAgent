@@ -16,7 +16,6 @@ async def test_pptgen():
         language_model=test_config.language_model,
         vision_model=test_config.vision_model,
     ).set_reference(
-        config=test_config.config,
         presentation=Presentation.from_file(
             pjoin(test_config.template, "source.pptx"), test_config.config
         ),

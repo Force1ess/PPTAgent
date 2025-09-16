@@ -45,10 +45,6 @@ class TestConfig:
     def image_model(self):
         return self.models.image_model
 
-    @property
-    def marker_model(self):
-        return self.models.marker_model
-
 
 # Create a global instance
 test_config = TestConfig()

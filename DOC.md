@@ -60,8 +60,9 @@ For a quick test, use the example in `runs/pdf(pptx)/*/source.pdf(pptx)` to save
     </tr>
   </tbody>
 </table>
+To parse your uploaded PDF files, please follow [MinerU](https://opendatalab.github.io/MinerU/usage/quick_usage/#advanced-usage-via-api-webui-sglang-clientserver) and set the `MINERU_API` environment variable to `http://localhost:8000/file_parse`.
 
-Some recommended templates are available in the [templates](resource/templates/) directory, and you can also refer to [Best Practice](BESTPRACTICE.md) for more details.
+Some recommended templates are available in the [templates](pptagent/templates/) directory, and you can also refer to [Best Practice](BESTPRACTICE.md) for more details.
 
 ### Docker 🐳
 
@@ -73,6 +74,7 @@ docker pull forceless/pptagent:latest
 # mapping home directory to /root to allow caching of models
 docker run -dt --gpus all --ipc=host --name pptagent \
   -e OPENAI_API_KEY=$OPENAI_API_KEY \
+  -e MINERU_API=$MINERU_API \
   -p 9297:9297 \
   -p 8088:8088 \
   -v $HOME:/root \
@@ -112,6 +114,7 @@ pip install -e .
    export API_BASE="http://your_service_provider/v1"
    export LANGUAGE_MODEL="openai/gpt-4.1"
    export VISION_MODEL="openai/gpt-4.1"
+   export MINERU_API="http://localhost:8000/file_parse"
    ```
 
 2. **Run Backend**

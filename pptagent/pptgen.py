@@ -23,7 +23,6 @@ from pptagent.presentation import (
 )
 from pptagent.response import EditorOutput, LayoutChoice, Outline, OutlineItem
 from pptagent.utils import (
-    Config,
     Language,
     edit_distance,
     get_logger,
@@ -90,7 +89,6 @@ class PPTGen(ABC):
 
     def set_reference(
         self,
-        config: Config,
         slide_induction: dict,
         presentation: Presentation,
         hide_small_pic_ratio: float | None = 0.2,
@@ -106,7 +104,6 @@ class PPTGen(ABC):
         Returns:
             PPTGen: The updated PPTGen object.
         """
-        self.config = config
         self.presentation = presentation
 
         self.reference_lang = Language(**slide_induction.pop("language"))
@@ -114,9 +111,9 @@ class PPTGen(ABC):
 
         self.layouts = {k: Layout(title=k, **v) for k, v in slide_induction.items()}
         self.empty_prs = deepcopy(self.presentation)
-        assert (
-            hide_small_pic_ratio is None or hide_small_pic_ratio > 0
-        ), "hide_small_pic_ratio must be positive or None"
+        assert hide_small_pic_ratio is None or hide_small_pic_ratio > 0, (
+            "hide_small_pic_ratio must be positive or None"
+        )
         if hide_small_pic_ratio is not None:
             self._hide_small_pics(hide_small_pic_ratio, keep_in_background)
 
@@ -190,7 +187,7 @@ class PPTGen(ABC):
                 pre_section = item.topic
             if item.purpose == FunctionalLayouts.SECTION_OUTLINE.value:
                 item.indexes.append(section_idx)
-            self.simple_outline += f"Slide {slide_idx+1}: {item.purpose}\n"
+            self.simple_outline += f"Slide {slide_idx + 1}: {item.purpose}\n"
         logger.debug(f"==========Outline Generated==========\n{self.simple_outline}")
 
         if max_at_once:
@@ -242,9 +239,9 @@ class PPTGen(ABC):
         """
         Asynchronously generate an outline for the presentation.
         """
-        assert (
-            self._initialized
-        ), "AsyncPPTAgent not initialized, call `set_reference` first"
+        assert self._initialized, (
+            "AsyncPPTAgent not initialized, call `set_reference` first"
+        )
         _, outline = await self.staffs["planner"](
             num_slides=num_slides,
             document_overview=source_doc.get_overview(),
@@ -459,18 +456,8 @@ class PPTAgent(PPTGen):
             available_layouts=layouts,
             response_format=LayoutChoice.response_model(layouts),
         )
-        layout = max(
-            self.layouts.keys(),
-            key=lambda x: edit_distance(x, layout_selection["layout"]),
-        )
-        if "image" in layout and len(images) == 0:
-            logger.debug(
-                f"An image layout: {layout} is selected, but no images are provided, please check the parsed document and outline item:\n {outline_item}"
-            )
-        elif "image" not in layout and len(images) > 0:
-            logger.debug(
-                f"A pure text layout: {layout} is selected, but images are provided, please check the parsed document and outline item:\n {outline_item}\n Set images to empty list."
-            )
+        layout = layout_selection["layout"]
+        if "image" not in layout and len(images) > 0:
             slide_content = slide_content[: slide_content.rfind("\nImages:\n")]
         return self.layouts[layout], header, slide_content
 

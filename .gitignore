@@ -14,7 +14,7 @@ runs
 Makefile
 node_modules
 human_eval
-resource/exemplars
+resource/
 
 # Copy from vuejs
 

@@ -1,7 +1,6 @@
 import os
 from copy import deepcopy
 from glob import glob
-from io import BytesIO
 
 import numpy as np
 import torch
@@ -90,7 +89,7 @@ class ModelManager:
         try:
             assert await self.language_model.test_connection()
             assert await self.vision_model.test_connection()
-        except:
+        except Exception as _:
             return False
         return True
 
@@ -142,27 +141,39 @@ async def parse_pdf(pdf_path: str, output_path: str):
     Returns:
         str: The full text extracted from the PDF.
     """
+    assert MINERU_API is not None, "MINERU_API is not set"
     os.makedirs(output_path, exist_ok=True)
     async with aiofiles.open(pdf_path, "rb") as f:
-        pdf_data = await f.read()
+        pdf_content = await f.read()
+    data = aiohttp.FormData()
+
+    # Add the PDF file content
+    data.add_field(
+        "files",
+        pdf_content,
+        filename=os.path.basename(pdf_path),
+        content_type="application/pdf",
+    )
+
+    # Add other parameters
+    data.add_field("return_images", "True")
+    data.add_field("response_format_zip", "True")
 
     async with aiohttp.ClientSession() as session:
-        form_data = aiohttp.FormData()
-        form_data.add_field(
-            name="pdf",
-            value=pdf_data,
-            filename=os.path.basename(pdf_path),
-            content_type="application/pdf",
-        )
+        async with session.post(MINERU_API, data=data) as response:
+            response.raise_for_status()
 
-        async with session.post(MINERU_API, data=form_data) as response:
-            if response.status != 200:
-                raise Exception(f"HTTP Error: {response.status}")
+            # The response is a zip file, we need to handle it differently
+            content = await response.read()
 
-            zip_data = await response.read()
+            # Save the zip response temporarily
+            zip_path = os.path.join(output_path, "minerU.zip")
+            with open(zip_path, "wb") as f:
+                f.write(content)
 
-    with zipfile.ZipFile(BytesIO(zip_data)) as zip_ref:
-        zip_ref.extractall(output_path)
+            # Extract and process the zip file
+            with zipfile.ZipFile(zip_path, "r") as zip_ref:
+                zip_ref.extractall(output_path)
 
 
 def get_image_embedding(

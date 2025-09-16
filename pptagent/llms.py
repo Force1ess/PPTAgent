@@ -82,7 +82,7 @@ class LLM:
         )
         try:
             if response_format is not None:
-                completion: ChatCompletion = self.client.beta.chat.completions.parse(
+                completion: ChatCompletion = self.client.chat.completions.parse(
                     model=self.model,
                     messages=system + history + message,
                     response_format=response_format,
@@ -350,7 +350,7 @@ class AsyncLLM(LLM):
                         **client_kwargs,
                     )
                 else:
-                    completion = await self.client.beta.chat.completions.parse(
+                    completion = await self.client.chat.completions.parse(
                         model=self.model,
                         messages=system + history + message,
                         response_format=response_format,

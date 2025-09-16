@@ -4,11 +4,11 @@ from collections import defaultdict
 from glob import glob
 
 from jinja2 import Template
-from tqdm import tqdm
+from tqdm.asyncio import tqdm
 
 from .model_utils import ModelManager
 from .presentation import Presentation
-from .utils import Config, package_join, pdirname, pexists
+from .utils import Config, package_join, pdirname, pexists, pjoin
 
 manager = ModelManager()
 language_model = manager.language_model
@@ -36,22 +36,22 @@ logic_scorer = Template(
 
 def get_eval(prs_source: str):
     evals = defaultdict(dict)
-    eval_file = package_join(pdirname(prs_source), "evals.json")
+    eval_file = pjoin(pdirname(prs_source), "evals.json")
     if pexists(eval_file):
         with open(eval_file) as f:
             evals |= json.load(f)
     return evals, eval_file
 
 
-def slide_score(prs_source: str, slide_folder: str):
+async def slide_score(prs_source: str, slide_folder: str):
     evals, eval_file = get_eval(prs_source)
-    for slide_image in glob(package_join(slide_folder, "slide_*.jpg")) + glob(
-        package_join(slide_folder, "slide_images", "slide_*.jpg")
+    for slide_image in glob(pjoin(slide_folder, "slide_*.jpg")) + glob(
+        pjoin(slide_folder, "slide_images", "slide_*.jpg")
     ):
         slide_descr = slide_image.replace(".jpg", ".json")
         if not os.path.exists(slide_descr):
-            style_descr = vision_model(style_descriptor, slide_image)
-            content_descr = vision_model(content_descriptor, slide_image)
+            style_descr = await vision_model(style_descriptor, slide_image)
+            content_descr = await vision_model(content_descriptor, slide_image)
             with open(slide_descr, "w") as f:
                 json.dump(
                     {"content": content_descr, "style": style_descr},
@@ -63,24 +63,23 @@ def slide_score(prs_source: str, slide_folder: str):
             style_descr = descr["style"]
             content_descr = descr["content"]
         if slide_image not in evals["vision"]:
-            evals["vision"][slide_image] = language_model(
+            evals["vision"][slide_image] = await language_model(
                 vision_scorer.render(descr=style_descr), return_json=True
             )
         if slide_image not in evals["content"]:
-            evals["content"][slide_image] = language_model(
+            evals["content"][slide_image] = await language_model(
                 text_scorer.render(descr=content_descr), return_json=True
             )
     with open(eval_file, "w") as f:
         json.dump(evals, f, indent=2)
 
 
-def pres_score(prs_source: str):
-    slide_folder = pdirname(prs_source)
-    tmp_config = Config(slide_folder)
+async def pres_score(prs_source: str):
+    tmp_config = Config(pdirname(prs_source))
     evals, eval_file = get_eval(prs_source)
     if "logic" in evals:
         return
-    slide_descr = package_join(slide_folder, "extracted.json")
+    slide_descr = pjoin(prs_source.replace(".pptx", ""), "extracted.json")
     if not pexists(slide_descr):
         presentation = Presentation.from_file(prs_source, tmp_config).to_text()
         extracted = language_model(
@@ -91,7 +90,7 @@ def pres_score(prs_source: str):
             json.dump(extracted, f, indent=2)
     else:
         extracted = json.load(open(slide_descr))
-    evals["logic"] = language_model(
+    evals["logic"] = await language_model(
         logic_scorer.render(
             presentation=extracted,
         ),
@@ -101,10 +100,51 @@ def pres_score(prs_source: str):
         json.dump(evals, f, indent=2)
 
 
-def eval_ppt(prs_files: list[str], slide_folders: list[str]):
-    for prs_file in tqdm(prs_files, desc="PPT Scoring"):
-        pres_score(prs_file)
-    for prs_file, slide_folder in tqdm(
-        list(zip(prs_files, slide_folders)), desc="Slide Scoring"
-    ):
-        slide_score(prs_file, slide_folder)
+async def eval_ppt(prs_files: list[str], slide_folders: list[str]):
+    await tqdm.gather(*[pres_score(prs_file) for prs_file in prs_files])
+    await tqdm.gather(
+        *[
+            slide_score(prs_file, slide_folder)
+            for prs_file, slide_folder in zip(prs_files, slide_folders)
+        ]
+    )
+
+    # Calculate average scores directly in this function
+    all_scores = {"vision": [], "content": [], "logic": []}
+
+    for prs_file in prs_files:
+        evals, _ = get_eval(prs_file)
+
+        # Vision scores
+        vision_scores = [score.get("score", 0) for score in evals["vision"].values()]
+        if vision_scores:
+            all_scores["vision"].extend(vision_scores)
+
+        # Content scores
+        content_scores = [score.get("score", 0) for score in evals["content"].values()]
+        if content_scores:
+            all_scores["content"].extend(content_scores)
+
+        # Logic score
+        if "logic" in evals and "score" in evals["logic"]:
+            all_scores["logic"].append(evals["logic"]["score"])
+
+    # Calculate averages
+    avg_scores = {}
+    for category, scores in all_scores.items():
+        if scores:
+            avg_scores[category] = sum(scores) / len(scores)
+        else:
+            avg_scores[category] = 0
+
+    # Display results
+    print("\n=== Average Scores by Dimension ===")
+    for category, score in avg_scores.items():
+        print(f"{category.capitalize()}: {score:.2f}")
+
+    # Calculate overall average
+    if avg_scores:
+        overall_avg = sum(avg_scores.values()) / len(avg_scores)
+        print(f"Overall: {overall_avg:.2f}")
+
+    return avg_scores
