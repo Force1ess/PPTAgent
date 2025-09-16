@@ -411,7 +411,7 @@ class TextFrame:
         extents = shape.text_frame._extents
         try:
             font = Font(**shape.text_frame.font.get_attrs())
-        except:
+        except Exception as _:
             font = Font()
         font.unify([para.font for para in paragraphs if para.idx != -1])
         return cls(
@@ -778,7 +778,7 @@ class ShapeElement:
         # Add data attributes
         if style_args.area:
             data_attrs.append(
-                f"data-relative-area={self.area*100/self.slide_area:.2f}%;"
+                f"data-relative-area={self.area * 100 / self.slide_area:.2f}%;"
             )
         if style_args.show_name:
             data_attrs.append(f"data-shapeName='{self.style['name']}'")

@@ -86,3 +86,6 @@ markers = [
     "parse: mark test as using minerU API",
     "asyncio: mark test as using asyncio",
 ]
+
+[tool.ruff.lint]
+ignore = ["F403", "F405", "E741"]

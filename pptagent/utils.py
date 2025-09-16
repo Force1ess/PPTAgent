@@ -384,7 +384,7 @@ def ppt_to_images(file: str, output_dir: str):
             temp_pdf = pjoin(temp_dir, f)
             images = convert_from_path(temp_pdf, dpi=72)
             for i, img in enumerate(images):
-                img.save(pjoin(output_dir, f"slide_{i+1:04d}.jpg"))
+                img.save(pjoin(output_dir, f"slide_{i + 1:04d}.jpg"))
             return
 
         raise RuntimeError(
@@ -426,7 +426,7 @@ async def ppt_to_images_async(file: str, output_dir: str):
             temp_pdf = pjoin(temp_dir, f)
             images = convert_from_path(temp_pdf, dpi=72)
             for i, img in enumerate(images):
-                img.save(pjoin(output_dir, f"slide_{i+1:04d}.jpg"))
+                img.save(pjoin(output_dir, f"slide_{i + 1:04d}.jpg"))
             return
 
         raise RuntimeError(

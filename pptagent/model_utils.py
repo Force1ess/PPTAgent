@@ -1,7 +1,10 @@
 import os
 from copy import deepcopy
 from glob import glob
+import zipfile
 
+import aiofiles
+import aiohttp
 import numpy as np
 import torch
 import torchvision.transforms as T
@@ -71,14 +74,6 @@ class ModelManager:
         if self._image_model is None:
             self._image_model = get_image_model(device=self.device)
         return self._image_model
-
-    @property
-    def marker_model(self):
-        if self._marker_model is None:
-            self._marker_model = create_model_dict(
-                device=self.device, dtype=torch.float16
-            )
-        return self._marker_model
 
     async def test_connections(self) -> bool:
         """Test connections for all LLM models

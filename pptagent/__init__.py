@@ -19,7 +19,7 @@ from pptx import __version__ as PPTXVersion
 try:
     PPTXVersion, Mark = PPTXVersion.split("+")
     assert Version(PPTXVersion) >= Version("1.0.4") and Mark == "PPTAgent"
-except:
+except Exception as _:
     raise ImportError(
         "You should install the customized `python-pptx` for this project: Force1ess/python-pptx, but got %s."
         % PPTXVersion

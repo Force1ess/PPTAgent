@@ -43,7 +43,7 @@ class OutlineItem(BaseModel):
             for subsection in index.subsections:
                 subsections.append(document[index.section][subsection])
         header = f"Current Slide: {self.purpose}\n"
-        header += f"This is the {slide_idx+1} slide of the presentation.\n"
+        header += f"This is the {slide_idx + 1} slide of the presentation.\n"
         content = ""
         for subsection in subsections:
             content += f"Paragraph: {subsection.title}\nContent: {subsection.content}\n"
