@@ -39,9 +39,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv pip install --upgrade pip
-          uv pip install .
-          uv pip install pytest-asyncio
+          uv pip install --system .
+          uv pip install --system pytest-asyncio
 
       - name: Run tests
         run: |
