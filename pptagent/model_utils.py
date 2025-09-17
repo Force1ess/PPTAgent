@@ -1,6 +1,7 @@
 import os
 from copy import deepcopy
 from glob import glob
+import tempfile
 import zipfile
 
 import aiofiles
@@ -20,7 +21,6 @@ from pptagent.utils import (
     get_logger,
     is_image_path,
     pjoin,
-    tenacity_decorator,
 )
 
 logger = get_logger(__name__)
@@ -123,52 +123,60 @@ def get_image_model(device: str = None):
     )
 
 
-@tenacity_decorator
-async def parse_pdf(pdf_path: str, output_path: str):
+async def parse_pdf(pdf_path: str, output_folder: str):
     """
     Parse a PDF file and extract text and images.
 
     Args:
         pdf_path (str): The path to the PDF file.
-        output_path (str): The directory to save the extracted content.
-        model_lst (list): A list of models for processing the PDF.
+        output_path (str): The root directory to save the extracted content.
 
     Returns:
-        str: The full text extracted from the PDF.
+        str: The path to the extracted folder
     """
     assert MINERU_API is not None, "MINERU_API is not set"
-    os.makedirs(output_path, exist_ok=True)
+    os.makedirs(output_folder, exist_ok=True)
+
     async with aiofiles.open(pdf_path, "rb") as f:
         pdf_content = await f.read()
-    data = aiohttp.FormData()
 
-    # Add the PDF file content
+    data = aiohttp.FormData()
     data.add_field(
         "files",
         pdf_content,
         filename=os.path.basename(pdf_path),
         content_type="application/pdf",
     )
-
-    # Add other parameters
     data.add_field("return_images", "True")
     data.add_field("response_format_zip", "True")
 
     async with aiohttp.ClientSession() as session:
         async with session.post(MINERU_API, data=data) as response:
             response.raise_for_status()
-
-            # The response is a zip file, we need to handle it differently
             content = await response.read()
 
-            # Save the zip response temporarily
-            zip_path = os.path.join(output_path, "minerU.zip")
-            with open(zip_path, "wb") as f:
-                f.write(content)
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp:
+                tmp.write(content)
+                zip_path = tmp.name
 
-            # Extract and process the zip file
             with zipfile.ZipFile(zip_path, "r") as zip_ref:
-                zip_ref.extractall(output_path)
+                top_level = {
+                    name.split("/", 1)[0] for name in zip_ref.namelist() if name.strip()
+                }
+                if len(top_level) != 1:
+                    raise RuntimeError("Expected exactly one top-level folder in zip")
+                prefix = list(top_level)[0] + "/"
+
+                for member in zip_ref.infolist():
+                    filename = member.filename
+                    dest_path = os.path.join(
+                        output_folder, filename.removeprefix(prefix)
+                    )
+
+                    if not member.is_dir():
+                        os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+                        with zip_ref.open(member) as src, open(dest_path, "wb") as dst:
+                            dst.write(src.read())
 
 
 def get_image_embedding(
@@ -291,7 +299,7 @@ def get_cluster(similarity: np.ndarray, sim_bound: float = 0.65):
             sim_copy[:, best_point] = 0
         else:
             if sim_copy.max() < sim_bound:
-                # append the remaining points invididual cluster
+                # append the remaining points individual cluster
                 for i in range(num_points):
                     if not added[i]:
                         clusters.append([i])

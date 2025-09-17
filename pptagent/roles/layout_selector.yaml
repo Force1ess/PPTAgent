@@ -24,11 +24,6 @@ template: |
   }
 
   Input:
-  Outline: {{ outline }}
-
-  Current Slide Description:
-  {{ slide_description }}
-
   Slide Content Source:
   {{ slide_content }}
 
@@ -37,8 +32,6 @@ template: |
   Output: give your anwser in json format
 
 jinja_args:
-  - outline
-  - slide_description
   - slide_content
   - available_layouts
 use_model: language

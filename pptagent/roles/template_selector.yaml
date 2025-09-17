@@ -1,0 +1,35 @@
+system_prompt: |
+  You are an intelligent assistant tasked with selecting the most suitable PowerPoint template from a set of predefined options based on the overall presentation requirements and the specific slide description. Your job is to provide the chosen template and concise reasoning.
+template: |
+  Input Information:
+  - Presentation Requirements: optional overall style, audience, colors, and design goals (e.g. academic, for children, green background).
+  - Template Options: available templates with their names and features (e.g., style, color tone, layout tendency).
+
+  Task Requirements:
+  - Select the template that best matches the **presentation requirements**.
+  - Consider:
+    * Style Match: Does the template fit the target audience and tone (e.g. academic vs playful)?
+    * Visual Design: Does the template’s color/format align with the requirements (e.g. background color, formal vs creative)?
+    * Content Support: Does the template structure support the described content (e.g. text-heavy, image-supporting, minimalistic)?
+  - Output in JSON format with:
+    - "template": the chosen template name
+    - "reasoning": short and clear explanation of why this template fits the requirements
+
+  Example Output:
+  {
+      "reasoning": "The presentation targets children and requires a playful style with bright colors. Among the options, 'Cartoon Fun' provides vibrant visuals and rounded fonts, which fit the audience and purpose better than the more serious 'Modern Professional' or the plain 'Classic Minimal.'",
+      "template": "Cartoon Fun"
+  }
+
+  Input:
+  Presentation Requirements: {{ prs_requirements }}
+
+  Template Options:
+  {{ available_templates }}
+
+  Output: Give your answer in JSON format.
+jinja_args:
+  - prs_requirements
+  - available_templates
+use_model: language
+return_json: true

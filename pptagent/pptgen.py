@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 import traceback
 from abc import ABC, abstractmethod
 from contextlib import AsyncExitStack
@@ -109,7 +110,9 @@ class PPTGen(ABC):
         self.reference_lang = Language(**slide_induction.pop("language"))
         self.functional_layouts = slide_induction.pop("functional_keys")
 
-        self.layouts = {k: Layout(title=k, **v) for k, v in slide_induction.items()}
+        self.layouts: dict[str, Layout] = {
+            k: Layout(title=k, **v) for k, v in slide_induction.items()
+        }
         self.empty_prs = deepcopy(self.presentation)
         assert hide_small_pic_ratio is None or hide_small_pic_ratio > 0, (
             "hide_small_pic_ratio must be positive or None"
@@ -167,7 +170,10 @@ class PPTGen(ABC):
         source_doc.metadata["presentation-date"] = datetime.now().strftime("%Y-%m-%d")
         assert self._initialized, "PPTAgent not initialized, call `set_reference` first"
         self.source_doc = source_doc
-        if auto_length_factor and length_factor is None:
+        length_factor = length_factor or os.getenv("PPTAGENT_LENGTH_FACTOR", None)
+        if (
+            auto_length_factor or os.getenv("PPTAGENT_AUTO_LENGTH_FACTOR", False)
+        ) and length_factor is None:
             self.dst_lang = dst_language or source_doc.language
             self.length_factor = get_length_factor(self.reference_lang, self.dst_lang)
         else:
@@ -450,8 +456,6 @@ class PPTAgent(PPTGen):
 
         shuffle(layouts)
         _, layout_selection = await self.staffs["layout_selector"](
-            outline=self.simple_outline,
-            slide_description=header,
             slide_content=slide_content,
             available_layouts=layouts,
             response_format=LayoutChoice.response_model(layouts),

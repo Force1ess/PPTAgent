@@ -1,6 +1,5 @@
 import tempfile
-from glob import glob
-from os.path import join as pjoin
+from os.path import join, exists
 from test.conftest import test_config
 
 import pytest
@@ -13,7 +12,7 @@ from pptagent.model_utils import parse_pdf
 async def test_parse_pdf():
     with tempfile.TemporaryDirectory() as temp_dir:
         await parse_pdf(
-            pjoin(test_config.document, "source.pdf"),
+            join(test_config.document, "source.pdf"),
             temp_dir,
         )
-        assert len(glob(pjoin(temp_dir, "*.md")))
+        assert exists(join(temp_dir, "source.md"))

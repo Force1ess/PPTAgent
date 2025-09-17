@@ -25,30 +25,28 @@ except Exception as _:
         % PPTXVersion
     )
 
-# Import main modules to make them directly accessible when importing the package
-from .agent import *
-from .apis import *
-from .document import *
-from .induct import *
-from .llms import *
-from .model_utils import *
-from .multimodal import *
-from .ppteval import *
-from .pptgen import *
-from .presentation import *
-from .utils import *
+# __init__.py
+from .pptgen import PPTAgent
+from .document import Document
+from .presentation import Presentation
+from .utils import Config, Language
+from .model_utils import ModelManager
+from .multimodal import ImageLabler
+from .llms import LLM, AsyncLLM
+from .mcp_server import PPTAgentServer
 
-# Define the top-level exports
 __all__ = [
-    "agent",
-    "ppteval",
-    "pptgen",
-    "document",
-    "llms",
-    "presentation",
-    "utils",
-    "apis",
-    "model_utils",
-    "multimodal",
-    "induct",
+    "__version__",
+    "__author__",
+    "__email__",
+    "PPTAgent",
+    "PPTAgentServer",
+    "Document",
+    "Presentation",
+    "Config",
+    "Language",
+    "ModelManager",
+    "ImageLabler",
+    "LLM",
+    "AsyncLLM",
 ]

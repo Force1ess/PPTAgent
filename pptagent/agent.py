@@ -2,7 +2,6 @@ from dataclasses import asdict, dataclass
 from functools import partial
 from math import ceil
 
-import tiktoken
 import yaml
 from jinja2 import Environment, StrictUndefined, Template
 from PIL import Image
@@ -12,7 +11,6 @@ from torch import Tensor
 from pptagent.llms import AsyncLLM, ThinkMode
 from pptagent.utils import get_json_from_response, package_join
 
-ENCODING = tiktoken.encoding_for_model("gpt-4o")
 RETRY_TEMPLATE = Template(
     """The previous output is invalid, please carefully analyze the traceback and feedback information, correct errors happened before.
             feedback:
@@ -36,8 +34,8 @@ class Turn:
     message: list
     retry: int = -1
     images: list[str] = None
-    input_tokens: int = 0
-    output_tokens: int = 0
+    input_chars: int = 0
+    output_chars: int = 0
     embedding: Tensor = None
 
     def to_dict(self):
@@ -48,9 +46,9 @@ class Turn:
         Calculate the number of tokens for the turn.
         """
         if self.images is not None:
-            self.input_tokens += calc_image_tokens(self.images)
-        self.input_tokens += len(ENCODING.encode(self.prompt))
-        self.output_tokens = len(ENCODING.encode(self.response))
+            self.input_chars += calc_image_tokens(self.images)
+        self.input_chars += len(self.prompt)
+        self.output_chars = len(self.response)
 
     def __eq__(self, other):
         return self is other
@@ -102,17 +100,17 @@ class Agent:
         self._history: list[Turn] = []
         run_args = self.config.get("run_args", {})
         self.llm.__call__ = partial(self.llm.__call__, **run_args)
-        self.system_tokens = len(ENCODING.encode(self.system_message))
+        self.system_tokens = len(self.system_message)
 
     def calc_cost(self, turns: list[Turn]):
         """
         Calculate the cost of a list of turns.
         """
         for turn in turns[:-1]:
-            self.input_tokens += turn.input_tokens
-            self.input_tokens += turn.output_tokens
-        self.input_tokens += turns[-1].input_tokens
-        self.output_tokens += turns[-1].output_tokens
+            self.input_tokens += turn.input_chars
+            self.input_tokens += turn.output_chars
+        self.input_tokens += turns[-1].input_chars
+        self.output_tokens += turns[-1].output_chars
         self.input_tokens += self.system_tokens
 
     @property

@@ -28,9 +28,12 @@ keywords = [
 ]
 dependencies = [
     "aiometer",
+    "aiofiles",
+    "aiohttp",
     "beautifulsoup4",
     "fastapi[all]",
     "fasttext",
+    "fastmcp>=2.12.3",
     "einops",
     "func_argparse",
     "html2image",
@@ -38,8 +41,9 @@ dependencies = [
     "json_repair",
     "jsonlines",
     "lxml",
+    "mcp>=1.14.0",
     "mistune",
-    "numpy",
+    "numpy<2.0.0",
     "oaib",
     "openai>=1.107.3",
     "opencv-python-headless",
@@ -54,10 +58,11 @@ dependencies = [
     "python-Levenshtein",
     "python-multipart",
     "python-pptx @ git+https://github.com/Force1ess/python-pptx@219513d7d81a61961fc541578c1857d08b43aa2a",
+    "pytest",
+    "pytest-asyncio",
     "rich",
     "socksio",
     "tenacity",
-    "tiktoken",
     "timm",
     "transformers<4.50.0",
     "uvicorn",
@@ -66,6 +71,9 @@ dependencies = [
 [project.urls]
 "Homepage" = "https://github.com/icip-cas/PPTAgent"
 "Bug Tracker" = "https://github.com/icip-cas/PPTAgent/issues"
+
+[project.scripts]
+pptagent-mcp = "pptagent.mcp_server:main"
 
 [tool.setuptools]
 include-package-data = true
@@ -76,7 +84,14 @@ include = ["pptagent*"]
 exclude = ["pptagent_ui"]
 
 [tool.setuptools.package-data]
-"pptagent" = ["prompts/*.txt", "roles/*.yaml", "resource/*.png"]
+"pptagent" = [
+    "prompts/*.txt",
+    "roles/*.yaml",
+    "resource/*.png",
+    "templates/*.txt",
+    "templates/*.json",
+    "templates/*.pptx",
+]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
