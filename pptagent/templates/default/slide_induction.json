@@ -1,0 +1,254 @@
+{
+  "opening": {
+    "slides": [
+      1
+    ],
+    "template_id": 1,
+    "elements": [
+      {
+        "data": [
+          "Tourism & Culture:"
+        ],
+        "name": "main title",
+        "type": "text"
+      },
+      {
+        "data": [
+          "APPRECIATING THE TANGIBLE & THE INTANGIBLE OF BHUBANESWAR THROUGH CULTURAL TOURISM"
+        ],
+        "name": "section subtitle",
+        "type": "text"
+      },
+      {
+        "data": [
+          "By Ayona Bhaduri "
+        ],
+        "name": "presenter",
+        "type": "text"
+      }
+    ]
+  },
+  "Large Section Title with Multiple Bulleted Text Paragraphs:text": {
+    "template_id": 4,
+    "slides": [
+      4
+    ],
+    "elements": [
+      {
+        "data": [
+          "What do we mean by Cultural Tourism?"
+        ],
+        "name": "main title",
+        "type": "text"
+      },
+      {
+        "data": [
+          "Cultural Tourism is the subset of tourism concerned with a particular country or region’s culture, specifically the lifestyle of the people in those geographical areas, the history of those people, their art and craft, their language and literature, their architecture, their religion, and all other elements that have helped shape their way of life.",
+          "Every race has something essential to contribute to the world’s civilisation in the course of its own self-expression and self-realisation. ",
+          "And the essential contribution of India is simply her Indianness. ",
+          "All that India has to offer to the world proceeds from her philosophy. ",
+          "That this philosophy has held India together and seen her through many upheavals – political, social, economic, intellectual, is brought to the fore when Max Muller, the famous scholar and Orientalist, remarks, ‘There is, in fact, an unbroken continuity between the most modern and the most ancient phases of Hindu thought, extending over more than three thousand years.’"
+        ],
+        "name": "main body",
+        "type": "text"
+      }
+    ]
+  },
+  "Single Full-Slide Text Block over Decorative Background:text": {
+    "template_id": 13,
+    "slides": [
+      13
+    ],
+    "elements": [
+      {
+        "data": [
+          "The practice of Indian classical dance, like meditation, tames and purifies the external Sthula-Sharira (the body composed of fluid, with humours and saps, as also of the bones, muscles and vital vulnerable junctures) as it quiets and balances the body’s three humours (tridosha, tridhaatu) – wind (vata), phlegm (kapha) and fire (pitta). Eventually the dancer should begin to discover the Suksma Sharira (the subtle, metaphysical interior body) within her which articulates the psycho-spiritual experiences similar to those of the yogi and the pilgrim or devotee visiting the temple. This subtle body, most often identified with Kundalini Yoga, is defined by one of the many scholars as “ an invisible mandala formed by a combination of symbolic (but also very real) geometric figures” and often depicted as a microcosm of the universe, with the Shiva Samhita noting, “All the beings that exist in the three worlds are also to be found in the subtle body”. Rightly, it is called the seat of the Atma or soul.  And the discovery of this subtle body is made possible by the awakening of the vital Kundalini energy within the dancer’s body through the practise and performance of the Odissi repertoire wherein the dancer begins with Mangalacharan, an invocation at the entrance to the temple, proceeds to circumambulate the temple structure depicting the exquisite physical beauty of the numerous postures in various bhangi-s sculpted on the temple walls through Batu, then advancing through the Natya Mandapa with the joyous Pallavi, enters the Garbha griha with the self-reflective Abhinaya, an Ashatapadi wherein she is in private conversation with her Lord, finally leading to Moshya Nata, the dance of liberation. Thus, the repertoire leads the dancer from collective external consciousness to singular internal consciousness such that in Mokshya Nata a moment of absolute peace and stillness is reached when the dancer is in total union while in movement with her Atma or soul within.    "
+        ],
+        "name": "main paragraph",
+        "type": "text"
+      }
+    ]
+  },
+  "Title Text Header with Multi-level Bulleted Explanatory Points:text": {
+    "template_id": 2,
+    "slides": [
+      2,
+      6
+    ],
+    "elements": [
+      {
+        "data": [
+          "What is culture?"
+        ],
+        "name": "main title",
+        "type": "text"
+      },
+      {
+        "data": [
+          "In Sri Aurobindo’s words,",
+          "The culture of a people may be described as the expression of a consciousness of life which formulates itself in three aspects.",
+          "There is a side of thought, of ideal, of upward will and soul’s aspiration, which is reflected in the people’s philosophy and religion.",
+          "There is a side of creative self-expression and appreciative aesthesis, intelligence and imagination, which finds expression in its art, poetry, literature, music, dance",
+          "And, there is a side of practical and outward formulation, which is provided for in its society and politics"
+        ],
+        "name": "quote and explanation",
+        "type": "text"
+      }
+    ]
+  },
+  "One Large Left-Aligned Image with a Right-Aligned Text Block:image": {
+    "template_id": 11,
+    "slides": [
+      11,
+      12
+    ],
+    "elements": [
+      {
+        "data": [
+          "Born out of two ancient traditions, the Mahari – servants of God who, consecrated to the deity as young maidens, sang and danced for the deity alone within the temple’s sanctum sanctorum, and the Gotipua – young boys dressed up as women who sang and danced in public propagating the Vaishnava consciousness of the union of  humanity (the female) and the Infinite (the only male), Odissi, deeply impacted over centuries by the religious, social and political changes of its birth land Orissa, was reconstructed from extant dance treatises such as the invaluable Abhinaya Chandrika of the 15th century  and the endless sculptural poses on the Orissan temple walls, these serving as reference points of authenticity to the scholars and gurus who set themselves the task of identifying what was true to the form, refining it and finally not only codifying the grammar and technique, but also devising a fixed repertory for the dance. "
+        ],
+        "name": "main paragraph",
+        "type": "text"
+      },
+      {
+        "data": [
+          "Picture: A dancer in traditional attire performing a classical dance pose."
+        ],
+        "name": "main image",
+        "type": "image"
+      }
+    ]
+  },
+  "Single Large Title Followed by Bulleted Text Explanations:text": {
+    "template_id": 3,
+    "slides": [
+      3
+    ],
+    "elements": [
+      {
+        "data": [
+          "What is Tourism?"
+        ],
+        "name": "main title",
+        "type": "text"
+      },
+      {
+        "data": [
+          "The World Tourism Organisation defines tourism in terms which go",
+          "“ beyond the common perception of tourism as being limited to holiday activity only”, as people “ travelling to and staying in places outside their usual environment for not more than one consecutive year for leisure, business and other purposes”",
+          "Its importance was recognised in the Manila Declaration on World Tourism of 1980 as an activity essential to the life of nations because of its direct effects on the social, cultural, educational, and economic sectors of national societies and on their international relations",
+          "Today, tourism is a major source of income for many countries, and affects the economy of both the source and the host countries, in some cases being of vital importance"
+        ],
+        "name": "main bullets",
+        "type": "text"
+      }
+    ]
+  },
+  "Centered Grid Diagram with Multiple Labeled Sections:image": {
+    "template_id": 7,
+    "slides": [
+      7
+    ],
+    "elements": [
+      {
+        "data": [
+          "Diagram: Detailed map with various labeled sections, including directions (North, South, East, West), and specific areas named such as Prithvi House, Brahma, and others, with a central focus on \"God\" at the top."
+        ],
+        "name": "main image",
+        "type": "image"
+      }
+    ]
+  },
+  "Title followed by bullet point paragraph and single centered image underneath.:image": {
+    "template_id": 10,
+    "slides": [
+      10
+    ],
+    "elements": [
+      {
+        "data": [
+          "The Intangible – Indian Classical Dance ODISSI of ODISHA"
+        ],
+        "name": "main title",
+        "type": "text"
+      },
+      {
+        "data": [
+          "Odissi dance as an indispensable element of the intangible cultural heritage of Odisha, the earliest evidence of which is found in the form of carvings found in the caves of Khandagiri and Udaygiri dating back to 100 B.C.(D N Patnaik), establish without doubt that Odissi is one of the oldest dance traditions in the world today."
+        ],
+        "name": "main paragraph",
+        "type": "text"
+      },
+      {
+        "data": [
+          "Picture: Ancient stone structure with carved pillars and a large stone elephant sculpture in the foreground."
+        ],
+        "name": "main image",
+        "type": "image"
+      }
+    ]
+  },
+  "Single Centered Image with Title and Multi-line Paragraph Text Below:image": {
+    "template_id": 8,
+    "slides": [
+      8,
+      9
+    ],
+    "elements": [
+      {
+        "data": [
+          "The Mukteswara Temple – Early Orissan style"
+        ],
+        "name": "main title",
+        "type": "text"
+      },
+      {
+        "data": [
+          "Picture: Traditional temple architecture with intricate carvings on a domed structure, surrounded by a paved area with some modern buildings in the background."
+        ],
+        "name": "main image",
+        "type": "image"
+      },
+      {
+        "data": [
+          "The finest monument of this early style wherein the sanctum cella and its jagamohana, now more organically related, stand within a balustraded court with an elegant Torana in front – two columns supporting a superstructure of arched shape. The sanctum is pancharatha in plan and the jagamohana with a pyramidal superstructure approaches more nearly the typical Orissan form of the pidha deul.",
+          "Belonging approximately to the 9th century AD, the Mukteshwara represents a mature expression of the Nagara temple style in Odisha. "
+        ],
+        "name": "main description",
+        "type": "text"
+      }
+    ]
+  },
+  "Single Large Title with Four Bullet Point Paragraphs on Solid Color Background:text": {
+    "template_id": 5,
+    "slides": [
+      5,
+      14
+    ],
+    "elements": [
+      {
+        "data": [
+          "Bhubaneswar – The Temple City of India"
+        ],
+        "name": "main title",
+        "type": "text"
+      },
+      {
+        "data": [
+          "The land of Odisha is a thriving example of India’s exquisite cultural heritage – be it tangible, as observed in Orissan sculpture and architecture, or intangible, as in the rich legacy of Odissi dance and allied arts.",
+          "Within it, the city of Bhubaneswar is found to be a confluence of Hindu, Buddhist and Jain heritage boasting of some of the finest Kalingan temples. With many 6th-13th century CE Hindu temples, which span the entire spectrum of Kalinga architecture, Bhubaneswar is often referred to as a \"Temple City of India\".",
+          "Along with the old town, the region, historically was often depicted as Ekamra Kshetra (Temple City). With the diverse ranges of heritage resources, it showcases significant sacred cultural landscape components which have evolved with the support of available natural resource base and cultural trigger. ",
+          "Although the modern city of Bhubaneswar was formally established only in 1948, the history of the areas in and around the present-day city can be traced to 3rd century BCE and earlier. With Puri and Konark it forms the Swarna Tribhuja (Golden Triangle), one of eastern India's most visited destinations."
+        ],
+        "name": "main text",
+        "type": "text"
+      }
+    ]
+  },
+  "functional_keys": [
+    "opening"
+  ],
+  "language": {
+    "lid": "en"
+  }
+}
