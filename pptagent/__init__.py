@@ -21,8 +21,7 @@ try:
     assert Version(PPTXVersion) >= Version("1.0.4") and Mark == "PPTAgent"
 except Exception as _:
     raise ImportError(
-        "You should install the customized `python-pptx` for this project: Force1ess/python-pptx, but got %s."
-        % PPTXVersion
+        "You should install the customized `python-pptx` for this project, see https://github.com/Force1ess/python-pptx"
     )
 
 # __init__.py

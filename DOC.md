@@ -34,6 +34,7 @@ For a quick test, use the example in `runs/pdf(pptx)/*/source.pdf(pptx)` to save
 We now support MCP server, you can use it to generate presentations via MCP server.
 ```bash
 uv pip install pptagent
+uv pip install python-pptx@git+https://github.com/Force1ess/python-pptx@219513d7d81a61961fc541578c1857d08b43aa2a
 export PPTAGENT_MODEL=openai/gpt-4.1
 export PPTAGENT_API_BASE=http://localhost:8000/v1
 export PPTAGENT_API_KEY=your_key

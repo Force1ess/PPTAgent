@@ -82,7 +82,7 @@ class PPTAgentServer(PPTAgent):
         )
 
     def register_tools(self):
-        # @self.mcp.tool()
+        @self.mcp.tool()
         def set_template(template_name: str = "default"):
             """Select a PowerPoint template by name.
 
