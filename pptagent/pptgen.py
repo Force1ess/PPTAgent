@@ -42,7 +42,7 @@ def get_length_factor(src_lan: Language, dst_lang: Language):
     elif src_lan.latin:  # source is latin, dst is cjk
         return 0.7
     else:  # source is cjk, dst is latin
-        return 2
+        return 2.0
 
 
 class FunctionalLayouts(Enum):
@@ -85,7 +85,6 @@ class PPTGen(ABC):
     _initialized: bool = False
 
     def __post_init__(self):
-        self._initialized = False
         self._hire_staffs(self.record_cost, self.language_model, self.vision_model)
 
     def set_reference(
@@ -456,6 +455,8 @@ class PPTAgent(PPTGen):
 
         shuffle(layouts)
         _, layout_selection = await self.staffs["layout_selector"](
+            outline=self.simple_outline,
+            slide_description=header,
             slide_content=slide_content,
             available_layouts=layouts,
             response_format=LayoutChoice.response_model(layouts),
@@ -511,10 +512,11 @@ class PPTAgent(PPTGen):
             if feedback is None:
                 break
             logger.warning(
-                "Failed to generate slide, tried %d/%d times, error: %s",
+                "Failed to generate slide, tried %d/%d times, error: %s\n%s",
                 error_idx + 1,
                 self.retry_times,
                 str(feedback[1]),
+                edit_actions,
             )
             if error_idx == self.retry_times:
                 raise Exception(

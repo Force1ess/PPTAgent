@@ -8,7 +8,8 @@ from tqdm.asyncio import tqdm
 
 from .model_utils import ModelManager
 from .presentation import Presentation
-from .utils import Config, package_join, pdirname, pexists, pjoin
+from os.path import dirname, exists, join
+from .utils import Config, package_join
 
 manager = ModelManager()
 language_model = manager.language_model
@@ -44,8 +45,8 @@ logic_scorer = Template(
 
 def get_eval(prs_source: str):
     evals = defaultdict(dict)
-    eval_file = pjoin(pdirname(prs_source), "evals.json")
-    if pexists(eval_file):
+    eval_file = join(dirname(prs_source), "evals.json")
+    if exists(eval_file):
         with open(eval_file, encoding="utf-8") as f:
             evals |= json.load(f)
     return evals, eval_file
@@ -53,8 +54,8 @@ def get_eval(prs_source: str):
 
 async def slide_score(prs_source: str, slide_folder: str):
     evals, eval_file = get_eval(prs_source)
-    for slide_image in glob(pjoin(slide_folder, "slide_*.jpg")) + glob(
-        pjoin(slide_folder, "slide_images", "slide_*.jpg")
+    for slide_image in glob(join(slide_folder, "slide_*.jpg")) + glob(
+        join(slide_folder, "slide_images", "slide_*.jpg")
     ):
         slide_descr = slide_image.replace(".jpg", ".json")
         if not os.path.exists(slide_descr):
@@ -83,12 +84,12 @@ async def slide_score(prs_source: str, slide_folder: str):
 
 
 async def pres_score(prs_source: str):
-    tmp_config = Config(pdirname(prs_source))
+    tmp_config = Config(dirname(prs_source))
     evals, eval_file = get_eval(prs_source)
     if "logic" in evals:
         return
-    slide_descr = pjoin(prs_source.replace(".pptx", ""), "extracted.json")
-    if not pexists(slide_descr):
+    slide_descr = join(prs_source.replace(".pptx", ""), "extracted.json")
+    if not exists(slide_descr):
         presentation = Presentation.from_file(prs_source, tmp_config).to_text()
         extracted = language_model(
             ppt_extractor.render(presentation=presentation),

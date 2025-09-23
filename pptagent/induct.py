@@ -16,12 +16,12 @@ from pptagent.model_utils import (
 )
 from pptagent.presentation import Picture, Presentation, SlidePage
 from pptagent.response import SlideSchema
+from os.path import join
 from pptagent.utils import (
     Config,
     get_logger,
     is_image_path,
     package_join,
-    pjoin,
 )
 
 logger = get_logger(__name__)
@@ -140,9 +140,7 @@ class SlideInducter:
                     tg.create_task(
                         self.vision_model(
                             ASK_CATEGORY_PROMPT,
-                            pjoin(
-                                self.ppt_image_folder, f"slide_{template_id:04d}.jpg"
-                            ),
+                            join(self.ppt_image_folder, f"slide_{template_id:04d}.jpg"),
                         )
                     ).add_done_callback(
                         lambda f,

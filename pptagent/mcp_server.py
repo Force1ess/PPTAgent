@@ -1,36 +1,63 @@
+from math import ceil
 import os
+from pathlib import Path
 from random import shuffle
 from pptagent.pptgen import PPTAgent
 from pptagent.llms import AsyncLLM
 from pptagent.presentation.layout import Layout
 from pptagent.response.pptgen import (
     EditorOutput,
-    LayoutChoice,
     SlideElement,
-    TemplateChoice,
 )
-from pptagent.utils import Config, package_join
+from pptagent.multimodal import ImageLabler
+from pptagent.utils import Config, Language, package_join
 from pptagent.presentation import Presentation
 from glob import glob
-from os.path import join, basename
+from os.path import join, exists
 import json
 from fastmcp import FastMCP
 from pptagent.utils import get_logger
+from pptagent.pptgen import get_length_factor
 
 logger = get_logger(__name__)
 
 
+def mcp_slide_validate(editor_output: EditorOutput, layout: Layout, prs_lang: Language):
+    warnings = []
+    errors = []
+    length_factor = get_length_factor(prs_lang, Language.english())
+    layout_elements = {el.name for el in layout.elements}
+    editor_elements = {el.name for el in editor_output.elements}
+    for el in layout_elements - editor_elements:
+        errors.append(f"Element {el} not found in editor output")
+    for el in editor_elements - layout_elements:
+        errors.append(f"Element {el} not found in layout")
+    for el in layout.elements:
+        if layout[el.name].type == "image":
+            for i in range(len(editor_output[el.name].data)):
+                if not exists(editor_output[el.name].data[i]):
+                    errors.append(f"Image {editor_output[el.name].data[i]} not found")
+        else:
+            charater_counts = max([len(i) for i in editor_output[el.name].data])
+            expected_length = ceil(layout[el.name].suggested_characters * length_factor)
+            if charater_counts - expected_length > 5:
+                warnings.append(
+                    f"Element {el.name} has {charater_counts} characters, but the expected length is {expected_length}"
+                )
+    return warnings, errors
+
+
 class PPTAgentServer(PPTAgent):
     roles = [
-        "template_selector",
-        "layout_selector",
         "coder",
     ]
 
     def __init__(self):
+        self.source_doc = None
         self.mcp = FastMCP("PPTAgent")
-        self.layout: Layout | None = None
         self.slides = []
+        self.layout: Layout | None = None
+        self.editor_output: EditorOutput | None = None
         model = AsyncLLM(
             os.getenv("PPTAGENT_MODEL"),
             os.getenv("PPTAGENT_API_BASE"),
@@ -43,29 +70,39 @@ class PPTAgentServer(PPTAgent):
         super().__init__(language_model=model, vision_model=model)
         # load templates, a directory containing pptx, json, and description for each template
         templates = glob(package_join("templates", "*/"))
-        self.templates_options = []
+        self.template_description = {}
         for template in templates:
-            self.templates_options.append(
-                f"<template_name>{basename(template)}</template_name>\n"
-            )
-            self.templates_options[-1] += (
-                f"<template_description>{open(join(template, 'description.txt')).read()}</template_description>\n"
-            )
+            self.template_description[Path(template).name] = open(
+                join(template, "description.txt")
+            ).read()
 
-        logger.info(f"{len(templates)} templates loaded")
+        logger.info(
+            f"{len(templates)} templates loaded:"
+            + ", ".join(self.template_description.keys())
+        )
 
     def register_tools(self):
-        @self.mcp.tool()
+        # @self.mcp.tool()
         def set_template(template_name: str = "default"):
             """Select a PowerPoint template by name.
 
             Args:
-                template_name: The name of the template to select. If no specific requirement is provided, use "default"
+                template_name: The name of the template to select, `default` is the only acceptable value for now
+
+            Returns:
+                dict: Success message and list of available layouts
             """
             template_folder = package_join("templates", template_name)
+            assert template_name in self.template_description, (
+                f"Template {template_name} not available, please choose from {list(self.template_description.keys())}"
+            )
             prs_config = Config(template_folder)
             prs = Presentation.from_file(
-                join(template_folder, "template.pptx"), prs_config
+                join(template_folder, "source.pptx"), prs_config
+            )
+            image_labler = ImageLabler(prs, prs_config)
+            image_labler.apply_stats(
+                json.load(open(join(template_folder, "image_stats.json")))
             )
             self.set_reference(
                 slide_induction=json.load(
@@ -73,64 +110,48 @@ class PPTAgentServer(PPTAgent):
                 ),
                 presentation=prs,
             )
-            self._initialized = True
+
+            return {
+                "message": "Template set successfully, please select layout from given layouts later",
+                "template_description": self.template_description[template_name],
+                "available_layouts": list(self.layouts.keys()),
+            }
 
         @self.mcp.tool()
-        async def retrieve_template(prs_requirements: str):
-            """Retrieve the most suitable template based on presentation requirements.
+        async def set_layout(layout: str):
+            """Select a layout for generating slides.
 
             Args:
-                prs_requirements: Description of the presentation requirements, could be the target audience, and the desired style of the presentation, etc.
+                layout: Name of the layout to use. Must be one of the available layouts from set_template.
 
             Returns:
-                The name of the recommended template
-            """
-            if len(self.templates_options) == 0:
-                return "default"
-            _, template_selection = await self.staffs["template_selector"](
-                prs_requirements=prs_requirements,
-                available_templates=self.templates_options,
-                response_format=TemplateChoice.response_model(self.templates_options),
-            )
-            return template_selection["template"]
-
-        @self.mcp.tool()
-        async def select_layout(slide_content: str, image_captions: list[str]):
-            """Select the optimal layout for a slide based on given content.
-
-            Args:
-                slide_content: The abstract of the slide
-                image_captions: List of image captions to be included in the slide
-
-            Returns:
-                The content schema for the selected layout
+                dict: Success message, instructions, and content schema for the selected layout.
             """
             assert self._initialized, (
-                "PPTAgent is not initialized, please call `set_reference` before selecting layout"
+                "PPTAgent not initialized, please call `set_template` first"
             )
-            assert self.layout is None, (
-                "Layout is already selected, please call `generate_slide` after selecting layout"
+            assert layout in self.layouts, (
+                "Given layout was not in available layouts: " + ", ".join(self.layouts)
             )
-            layouts = self.text_layouts
-            if len(image_captions) > 0:
-                slide_content += "\nImages:\n" + "\n".join(image_captions)
-                layouts = self.multimodal_layouts
-
-            shuffle(layouts)
-            _, layout_selection = await self.staffs["layout_selector"](
-                slide_content=slide_content,
-                available_layouts=layouts,
-                response_format=LayoutChoice.response_model(layouts),
-            )
-            self.layout = self.layouts[layout_selection["layout"]]
-            return self.layout.content_schema
+            if self.layout is not None:
+                message = "Layout update from " + self.layout.title + " to " + layout
+                message += "\nDid you forget to call `generate_slide` after setting slide content?"
+            else:
+                message = "Layout " + layout + " selected successfully"
+            self.layout = self.layouts[layout]
+            return {
+                "message": message,
+                "instructions": "Generate slide content strictly following the schema below",
+                "schema": self.layout.content_schema,
+            }
 
         @self.mcp.tool()
-        async def generate_slide(structured_slide_content: list[SlideElement]):
-            """Generate a PowerPoint slide from structured slide elements.
+        async def set_slide_content(structured_slide_elements: list[dict]):
+            """Set the slide elements for generating a PowerPoint slide.
+            Note that this function will not generate a slide, you should call `generate_slide`.
 
             Args:
-                structured_slide_content: List of slide elements with their content
+                structured_slide_elements: List of slide elements with their content
                 should follow the content schema and adhere to
                 [
                     {
@@ -140,27 +161,63 @@ class PPTAgentServer(PPTAgent):
                         // OR array of image paths for image elements: ["/path/to/image1.jpg", "/path/to/image2.png"]
                     }
                 ]
-
             Returns:
-                Success message with slide number
+                dict: Success message, warnings, and errors
             """
+            self.structured_slide_elements = structured_slide_elements
             assert self.layout is not None, (
                 "Layout is not selected, please call `select_layout` before generating slide"
             )
             editor_output = EditorOutput(
-                elements=[SlideElement(**e) for e in structured_slide_content]
+                elements=[SlideElement(**e) for e in structured_slide_elements]
             )
-            self.layout.validate(editor_output, ["all"])
-            if self.length_factor is not None:
-                await self.layout.length_rewrite(
-                    editor_output, self.length_factor, self.language_model
+            warnings, errors = mcp_slide_validate(
+                editor_output, self.layout, self.reference_lang
+            )
+            if errors:
+                raise ValueError("Errors:\n" + "\n".join(errors))
+
+            self.editor_output = editor_output
+            if warnings:
+                return {
+                    "message": "Slide elements set with warnings. Review warnings, consider resetting slide content, or proceed if acceptable.",
+                    "warnings": warnings,
+                }
+            return {
+                "message": "Slide elements set successfully. Ready to generate slide."
+            }
+
+        @self.mcp.tool()
+        async def generate_slide():
+            """Generate a PowerPoint slide after layout and slide elements are set.
+
+            Returns:
+                dict: Success message with slide number and next steps
+            """
+            if self.editor_output is None:
+                raise ValueError(
+                    "Slide elements are not set, please call `set_slide_content` before generating slide"
                 )
+
             command_list, template_id = self._generate_commands(
-                editor_output, self.layout
+                self.editor_output, self.layout
             )
             slide, _ = await self._edit_slide(command_list, template_id)
+
+            # Reset state after successful generation
+            self.layout = None
+            self.editor_output = None
             self.slides.append(slide)
-            return f"Slide {len(self.slides):02d} generated successfully"
+
+            slide_number = len(self.slides)
+            available_layouts = list(self.layouts.keys())
+            shuffle(available_layouts)
+
+            return {
+                "message": f"Slide {slide_number:02d} generated successfully",
+                "next_steps": "You can now save the slides or continue generating more slides",
+                "available_layouts": available_layouts,
+            }
 
         @self.mcp.tool()
         async def save_generated_slides(pptx_path: str):
@@ -176,7 +233,6 @@ class PPTAgentServer(PPTAgent):
             self.empty_prs.slides = self.slides
             self.empty_prs.save(pptx_path)
             self.slides = []
-            self.layout = None
             self._initialized = False
             return f"total {len(self.empty_prs.slides)} slides saved to {pptx_path}"
 

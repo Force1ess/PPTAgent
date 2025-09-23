@@ -23,13 +23,13 @@ from pptx.slide import _Background
 from pptx.text.text import _Paragraph
 from pptx.util import Pt
 
+from os.path import join
 from pptagent.utils import (
     Config,
     dict_to_object,
     package_join,
     parse_groupshape,
     parsing_image,
-    pjoin,
     runs_merge,
 )
 
@@ -120,7 +120,7 @@ class Fill:
         image_path = None
         if fill_type == MSO_FILL_TYPE.PICTURE:
             image = part.get_image(fill._fill.rId)
-            image_path = pjoin(config.IMAGE_DIR, f"{image.sha1}.{image.ext}")
+            image_path = join(config.IMAGE_DIR, f"{image.sha1}.{image.ext}")
             image_path = parsing_image(image, image_path)
         return cls(fill_type, fill_str, fill_xml, image_path)
 
@@ -855,7 +855,7 @@ class Picture(ShapeElement):
         Raises:
             ValueError: If the image type is unsupported.
         """
-        img_path = pjoin(
+        img_path = join(
             self.config.IMAGE_DIR,
             f"{self.shape.image.sha1}.{self.shape.image.ext}",
         )

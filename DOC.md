@@ -11,6 +11,7 @@ Table of Contents
 =================
 - [Table of Contents](#table-of-contents)
   - [Quick Start 🚀](#quick-start-)
+    - [MCP Server 🤖](#mcp-server-)
     - [Recommendations and Requirements 🔬](#recommendations-and-requirements-)
     - [Docker 🐳](#docker-)
     - [Running Locally 💻](#running-locally-)
@@ -27,6 +28,17 @@ Table of Contents
 ## Quick Start 🚀
 
 For a quick test, use the example in `runs/pdf(pptx)/*/source.pdf(pptx)` to save preprocessing time.
+
+### MCP Server 🤖
+
+We now support MCP server, you can use it to generate presentations via MCP server.
+```bash
+uv pip install pptagent
+export PPTAGENT_MODEL=openai/gpt-4.1
+export PPTAGENT_API_BASE=http://localhost:8000/v1
+export PPTAGENT_API_KEY=your_key
+uv run pptagent-mcp
+```
 
 > [!NOTE]
 > When using a remote server, ensure both ports `8088` and `9297` are forwarded.

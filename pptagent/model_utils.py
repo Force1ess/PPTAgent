@@ -16,16 +16,16 @@ from PIL import Image
 from transformers import AutoModel, AutoProcessor
 
 from pptagent.llms import AsyncLLM
+from os.path import join
 from pptagent.utils import (
     Language,
     get_logger,
     is_image_path,
-    pjoin,
 )
 
 logger = get_logger(__name__)
 
-LID_PATTERN = pjoin(
+LID_PATTERN = join(
     HUGGINGFACE_HUB_CACHE, "models--julien-c--fasttext-language-id", "*/*/lid.176.bin"
 )
 LID_FILES = glob(LID_PATTERN)
@@ -207,7 +207,7 @@ def get_image_embedding(
     embeddings = []
     images = [i for i in sorted(os.listdir(image_dir)) if is_image_path(i)]
     for file in images:
-        image = Image.open(pjoin(image_dir, file)).convert("RGB")
+        image = Image.open(join(image_dir, file)).convert("RGB")
         inputs.append(transform(image))
         if len(inputs) % batchsize == 0 or file == images[-1]:
             batch = {"pixel_values": torch.stack(inputs).to(model.device)}

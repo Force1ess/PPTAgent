@@ -7,7 +7,8 @@ from pydantic import BaseModel, field_validator
 
 from pptagent.llms import AsyncLLM
 from pptagent.response import EditorOutput
-from pptagent.utils import edit_distance, get_logger, package_join, pexists
+from os.path import exists
+from pptagent.utils import edit_distance, get_logger, package_join
 
 logger = get_logger(__name__)
 
@@ -89,7 +90,7 @@ class Layout(BaseModel):
                 )
                 if edit_distance(
                     sim_image, editor_output[el.name].data[i]
-                ) < 0.5 or not pexists(sim_image):
+                ) < 0.5 or not exists(sim_image):
                     raise ValueError(
                         f"Image {editor_output[el.name].data[i]} not found\n"
                         "Please check the image path and use only existing images\n"

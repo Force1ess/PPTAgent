@@ -2,7 +2,8 @@ import json
 import warnings
 
 from pptagent.model_utils import ModelManager
-from pptagent.utils import Config, pjoin
+from os.path import join
+from pptagent.utils import Config
 
 
 # warning of zipfile indicates that presentation save failed
@@ -13,9 +14,9 @@ def pytest_configure():
 # Common test configuration
 class TestConfig:
     def __init__(self):
-        self.template = pjoin("runs", "pptx", "default_template")
-        self.document = pjoin("runs", "pdf", "57b32a38d68d1e62908a3d4fe77441c2")
-        self.ppt = pjoin("test", "test.pptx")
+        self.template = join("runs", "pptx", "default_template")
+        self.document = join("runs", "pdf", "57b32a38d68d1e62908a3d4fe77441c2")
+        self.ppt = join("test", "test.pptx")
         self.models = ModelManager()
 
         # Configuration object
@@ -24,19 +25,19 @@ class TestConfig:
     def get_slide_induction(self):
         """Load slide induction data"""
         return json.load(
-            open(pjoin(self.template, "slide_induction.json"), encoding="utf-8")
+            open(join(self.template, "slide_induction.json"), encoding="utf-8")
         )
 
     def get_document_json(self):
         """Load document JSON"""
         return json.load(
-            open(pjoin(self.document, "refined_doc.json"), encoding="utf-8")
+            open(join(self.document, "refined_doc.json"), encoding="utf-8")
         )
 
     def get_image_stats(self):
         """Load captions data"""
         return json.load(
-            open(pjoin(self.template, "image_stats.json"), encoding="utf-8")
+            open(join(self.template, "image_stats.json"), encoding="utf-8")
         )
 
     @property

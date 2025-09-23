@@ -437,7 +437,7 @@ def replace_paragraph(slide: SlidePage, div_id: int, paragraph_id: int, text: st
         )
 
 
-def replace_image(slide: SlidePage, doc: Document, img_id: int, image_path: str):
+def replace_image(slide: SlidePage, doc: Document | None, img_id: int, image_path: str):
     """
     Replace an image in a slide.
 
@@ -452,14 +452,15 @@ def replace_image(slide: SlidePage, doc: Document, img_id: int, image_path: str)
         raise SlideEditError(
             f"The element {shape.shape_idx} of slide {slide.slide_idx} is not a Picture."
         )
-    shape.caption = doc.find_media(path=image_path).caption
-    try:
-        if TABLE_REGEX.match(image_path):
-            return replace_image_with_table(shape, doc, image_path)
-    except Exception as e:
-        logger.warning(
-            f"Failed to replace image with table element: {e}, fallback to use image directly."
-        )
+    if doc is not None:
+        shape.caption = doc.find_media(path=image_path).caption
+        try:
+            if TABLE_REGEX.match(image_path):
+                return replace_image_with_table(shape, doc, image_path)
+        except Exception as e:
+            logger.warning(
+                f"Failed to replace image with table element: {e}, fallback to use image directly."
+            )
 
     img_size = Image.open(image_path).size
     r = min(shape.width / img_size[0], shape.height / img_size[1])

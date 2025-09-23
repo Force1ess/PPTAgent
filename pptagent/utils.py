@@ -3,6 +3,7 @@ import io
 import json
 import logging
 import os
+from os.path import dirname, exists, join
 import shutil
 import subprocess
 import tempfile
@@ -324,7 +325,7 @@ def manual_scan_crop(img_path: str):
         cropped_img.save(img_path)
 
 
-def get_html_table_image(html: str, output_path: str):
+def get_html_table_image(html: str, output_path: str, css: str = None):
     """
     Convert a html table to the image
 
@@ -335,7 +336,9 @@ def get_html_table_image(html: str, output_path: str):
     Returns:
     str: The path of the generated image
     """
-    parent_dir, basename = os.path.split(output_path)
+    if css is None:
+        css = TABLE_CSS
+    parent_dir, base_name = os.path.split(output_path)
 
     if parent_dir and not os.path.exists(parent_dir):
         os.makedirs(parent_dir)
@@ -348,8 +351,8 @@ def get_html_table_image(html: str, output_path: str):
     hti.browser.use_new_headless = None
     hti.screenshot(
         html_str=html,
-        css_str=TABLE_CSS,
-        save_as=basename,
+        css_str=css,
+        save_as=base_name,
         size=(1000, 600),
     )
     manual_scan_crop(output_path)
@@ -357,8 +360,8 @@ def get_html_table_image(html: str, output_path: str):
 
 @tenacity_decorator
 def ppt_to_images(file: str, output_dir: str):
-    assert pexists(file), f"File {file} does not exist"
-    if pexists(output_dir):
+    assert exists(file), f"File {file} does not exist"
+    if exists(output_dir):
         logger.warning(f"ppt2images: {output_dir} already exists")
     os.makedirs(output_dir, exist_ok=True)
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -381,10 +384,10 @@ def ppt_to_images(file: str, output_dir: str):
         for f in os.listdir(temp_dir):
             if not f.endswith(".pdf"):
                 continue
-            temp_pdf = pjoin(temp_dir, f)
+            temp_pdf = join(temp_dir, f)
             images = convert_from_path(temp_pdf, dpi=72)
             for i, img in enumerate(images):
-                img.save(pjoin(output_dir, f"slide_{i + 1:04d}.jpg"))
+                img.save(join(output_dir, f"slide_{i + 1:04d}.jpg"))
             return
 
         raise RuntimeError(
@@ -396,8 +399,8 @@ def ppt_to_images(file: str, output_dir: str):
 
 @tenacity_decorator
 async def ppt_to_images_async(file: str, output_dir: str):
-    assert pexists(file), f"File {file} does not exist"
-    if pexists(output_dir):
+    assert exists(file), f"File {file} does not exist"
+    if exists(output_dir):
         logger.debug(f"ppt2images: {output_dir} already exists")
     os.makedirs(output_dir, exist_ok=True)
 
@@ -423,10 +426,10 @@ async def ppt_to_images_async(file: str, output_dir: str):
         for f in os.listdir(temp_dir):
             if not f.endswith(".pdf"):
                 continue
-            temp_pdf = pjoin(temp_dir, f)
+            temp_pdf = join(temp_dir, f)
             images = convert_from_path(temp_pdf, dpi=72)
             for i, img in enumerate(images):
-                img.save(pjoin(output_dir, f"slide_{i + 1:04d}.jpg"))
+                img.save(join(output_dir, f"slide_{i + 1:04d}.jpg"))
             return
 
         raise RuntimeError(
@@ -440,20 +443,20 @@ def parsing_image(image: Image, image_path: str) -> str:
     # Handle WMF images (PDFs)
     if image.ext == "wmf":
         image_path = image_path.replace(".wmf", ".png")
-        if not pexists(image_path):
+        if not exists(image_path):
             wmf_to_images(image.blob, image_path)
     # Check for supported image types
     elif image.ext in ["webp", "tiff"]:
         image_path = image_path.replace(".webp", ".png").replace(".tiff", ".png")
         pil_image = PILImage.open(io.BytesIO(image.blob))
-        if not pexists(image_path):
+        if not exists(image_path):
             pil_image.save(image_path, "PNG")
         return image_path
     elif image.ext not in IMAGE_EXTENSIONS:
         raise ValueError(f"Unsupported image type {image.ext}")
 
     # Save image if it doesn't exist
-    if not pexists(image_path):
+    if not exists(image_path):
         with open(image_path, "wb") as f:
             f.write(image.blob)
     return image_path
@@ -464,22 +467,22 @@ def wmf_to_images(blob: bytes, filepath: str):
     if not filepath.endswith(".png"):
         raise ValueError("filepath must end with .png")
     dirname = os.path.dirname(filepath)
-    basename = os.path.basename(filepath).removesuffix(".png")
+    base_name = os.path.basename(filepath).removesuffix(".png")
     with tempfile.TemporaryDirectory() as temp_dir:
-        with open(pjoin(temp_dir, f"{basename}.wmf"), "wb") as f:
+        with open(join(temp_dir, f"{base_name}.wmf"), "wb") as f:
             f.write(blob)
         command_list = [
             "soffice",
             "--headless",
             "--convert-to",
             "png",
-            pjoin(temp_dir, f"{basename}.wmf"),
+            join(temp_dir, f"{base_name}.wmf"),
             "--outdir",
             dirname,
         ]
         subprocess.run(command_list, check=True, stdout=subprocess.DEVNULL)
 
-    assert pexists(filepath), f"File {filepath} does not exist"
+    assert exists(filepath), f"File {filepath} does not exist"
 
 
 def parse_groupshape(groupshape: GroupShape) -> list[dict[str, Length]]:
@@ -587,8 +590,8 @@ def package_join(*paths: str) -> str:
     Returns:
         str: The joined path.
     """
-    _dir = pdirname(__file__)
-    return pjoin(_dir, *paths)
+    _dir = dirname(__file__)
+    return join(_dir, *paths)
 
 
 class Config:
@@ -634,7 +637,7 @@ class Config:
             rundir (str): The run directory.
         """
         self.RUN_DIR = rundir
-        self.IMAGE_DIR = pjoin(self.RUN_DIR, "images")
+        self.IMAGE_DIR = join(self.RUN_DIR, "images")
 
         for the_dir in [self.RUN_DIR, self.IMAGE_DIR]:
             os.makedirs(the_dir, exist_ok=True)
@@ -652,9 +655,9 @@ class Config:
         """
         Remove the run directory and its subdirectories.
         """
-        if pexists(self.RUN_DIR):
+        if exists(self.RUN_DIR):
             shutil.rmtree(self.RUN_DIR)
-        if pexists(self.IMAGE_DIR):
+        if exists(self.IMAGE_DIR):
             shutil.rmtree(self.IMAGE_DIR)
 
     def __repr__(self) -> str:
@@ -669,10 +672,3 @@ class Config:
             if not attr.startswith("_") and not callable(getattr(self, attr)):
                 attrs.append(f"{attr}={getattr(self, attr)}")
         return f"Config({', '.join(attrs)})"
-
-
-# Path utility functions
-pjoin = os.path.join
-pexists = os.path.exists
-pbasename = os.path.basename
-pdirname = os.path.dirname

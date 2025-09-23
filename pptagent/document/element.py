@@ -6,13 +6,12 @@ from PIL import Image
 from pydantic import BaseModel, Field, create_model
 
 from pptagent.llms import AsyncLLM
+from os.path import exists, join
 from pptagent.utils import (
     edit_distance,
     get_html_table_image,
     get_logger,
     package_join,
-    pexists,
-    pjoin,
 )
 
 from .doc_utils import parse_table_with_merges
@@ -56,9 +55,9 @@ class Media(BaseModel):
         if match is None:
             raise ValueError("No image found in the markdown content")
         image_path = match.group(1)
-        if not pexists(image_path):
-            image_path = pjoin(image_dir, image_path)
-        assert pexists(image_path), f"image file not found: {image_path}"
+        if not exists(image_path):
+            image_path = join(image_dir, image_path)
+        assert exists(image_path), f"image file not found: {image_path}"
         self.path = image_path
 
     async def get_caption(self, vision_model: AsyncLLM):
@@ -83,7 +82,7 @@ class Table(Media):
         self.merge_area = merges
 
         if self.path is None:
-            self.path = pjoin(
+            self.path = join(
                 image_dir,
                 f"table_{hashlib.md5(str(self.cells).encode()).hexdigest()[:4]}.png",
             )

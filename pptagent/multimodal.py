@@ -4,7 +4,8 @@ import PIL.Image
 
 from pptagent.llms import LLM, AsyncLLM
 from pptagent.presentation import Picture, Presentation
-from pptagent.utils import Config, get_logger, package_join, pbasename, pjoin
+from os.path import basename, join
+from pptagent.utils import Config, get_logger, package_join
 
 logger = get_logger(__name__)
 
@@ -38,7 +39,7 @@ class ImageLabler:
         for slide in self.presentation.slides:
             for shape in slide.shape_filter(Picture):
                 if shape.caption is None:
-                    caption = image_stats[pbasename(shape.img_path)]["caption"]
+                    caption = image_stats[basename(shape.img_path)]["caption"]
                     shape.caption = max(caption.split("\n"), key=len)
 
     async def caption_images_async(self, vision_model: AsyncLLM):
@@ -64,7 +65,7 @@ class ImageLabler:
                     task = tg.create_task(
                         vision_model(
                             caption_prompt,
-                            pjoin(self.config.IMAGE_DIR, image),
+                            join(self.config.IMAGE_DIR, image),
                         )
                     )
                     task.add_done_callback(
@@ -94,7 +95,7 @@ class ImageLabler:
         for image, stats in self.image_stats.items():
             if "caption" not in stats:
                 stats["caption"] = vision_model(
-                    caption_prompt, pjoin(self.config.IMAGE_DIR, image)
+                    caption_prompt, join(self.config.IMAGE_DIR, image)
                 )
                 logger.debug("captioned %s: %s", image, stats["caption"])
         self.apply_stats()
@@ -106,11 +107,11 @@ class ImageLabler:
         """
         for slide_index, slide in enumerate(self.presentation.slides):
             for shape in slide.shape_filter(Picture):
-                image_path = pbasename(shape.img_path)
+                image_path = basename(shape.img_path)
                 if image_path == "pic_placeholder.png":
                     continue
                 if image_path not in self.image_stats:
-                    size = PIL.Image.open(pjoin(self.config.IMAGE_DIR, image_path)).size
+                    size = PIL.Image.open(join(self.config.IMAGE_DIR, image_path)).size
                     self.image_stats[image_path] = {
                         "size": size,
                         "appear_times": 0,

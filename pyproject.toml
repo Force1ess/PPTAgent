@@ -60,6 +60,7 @@ dependencies = [
     "python-pptx @ git+https://github.com/Force1ess/python-pptx@219513d7d81a61961fc541578c1857d08b43aa2a",
     "pytest",
     "pytest-asyncio",
+    "pytest-xdist",
     "rich",
     "socksio",
     "tenacity",

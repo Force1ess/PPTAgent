@@ -9,13 +9,11 @@ from pydantic import BaseModel, Field, create_model
 from pptagent.agent import Agent
 from pptagent.llms import AsyncLLM
 from pptagent.model_utils import language_id
+from os.path import basename, exists, join
 from pptagent.utils import (
     Language,
     get_logger,
     package_join,
-    pbasename,
-    pexists,
-    pjoin,
 )
 
 from .doc_utils import (
@@ -47,15 +45,13 @@ class Document(BaseModel):
         """Validate and fix media file paths"""
         if image_dir is not None:
             self.image_dir = image_dir
-        assert pexists(self.image_dir), (
-            f"image directory is not found: {self.image_dir}"
-        )
+        assert exists(self.image_dir), f"image directory is not found: {self.image_dir}"
         for media in self.iter_medias():
-            if pexists(media.path):
+            if exists(media.path):
                 continue
-            basename = pbasename(media.path)
-            if pexists(pjoin(self.image_dir, basename)):
-                media.path = pjoin(self.image_dir, basename)
+            base_name = basename(media.path)
+            if exists(join(self.image_dir, base_name)):
+                media.path = join(self.image_dir, base_name)
             else:
                 raise FileNotFoundError(f"image file not found: {media.path}")
 

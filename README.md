@@ -78,6 +78,7 @@ We present PPTAgent, an innovative system that automatically generates presentat
 
 ## 📅 News
 
+- [2025/09]: 🛠️ We support MCP server now, see [MCP Server](./DOC.md#mcp-server-) for details
 - [2025/09]: 🚀 Released v2 with major improvements - see [release notes](https://github.com/icip-cas/PPTAgent/releases/tag/v0.2.0) for details
 - [2025/08]: 🎉 Paper accepted to **EMNLP 2025**!
 - [2025/05]: ✨ Released v1 with core functionality and 🌟 breakthrough: reached 1,000 stars on GitHub! - see [release notes](https://github.com/icip-cas/PPTAgent/releases/tag/v0.1.0) for details

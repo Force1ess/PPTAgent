@@ -6,7 +6,7 @@ from pptagent.document import Document
 from pptagent.multimodal import ImageLabler
 from pptagent.pptgen import PPTAgent
 from pptagent.presentation import Presentation
-from pptagent.utils import pjoin
+from os.path import join
 
 
 @pytest.mark.asyncio
@@ -17,7 +17,7 @@ async def test_pptgen():
         vision_model=test_config.vision_model,
     ).set_reference(
         presentation=Presentation.from_file(
-            pjoin(test_config.template, "source.pptx"), test_config.config
+            join(test_config.template, "source.pptx"), test_config.config
         ),
         slide_induction=test_config.get_slide_induction(),
     )
