@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pptagent"
-version = "0.2.0"
+version = "0.2.3"
 authors = [{ name = "Hao Zheng", email = "wszh712811@gmail.com" }]
 description = "PPTAgent, a tool for utilizing LLMs to generate PowerPoint presentations from documents."
 readme = "README.md"
@@ -57,7 +57,7 @@ dependencies = [
     "PyYAML",
     "python-Levenshtein",
     "python-multipart",
-    "python-pptx @ git+https://github.com/Force1ess/python-pptx@219513d7d81a61961fc541578c1857d08b43aa2a",
+    "python-pptx",
     "pytest",
     "pytest-asyncio",
     "pytest-xdist",
