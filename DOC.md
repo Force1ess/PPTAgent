@@ -41,6 +41,17 @@ export PPTAGENT_API_KEY=your_key
 uv run pptagent-mcp
 ```
 
+Available tools:
+
+| Tool Name | Description |
+|-----------|-------------|
+| `list_available_templates` | List all available PowerPoint templates |
+| `set_template` | Select a PowerPoint template by name |
+| `set_layout` | Select a layout style for slides |
+| `set_slide_content` | Set the textual and image content for a slide |
+| `generate_slide` | Generate a slide after setting layout and content |
+| `save_generated_slides` | Save generated slides to a PowerPoint file |
+
 > [!NOTE]
 > When using a remote server, ensure both ports `8088` and `9297` are forwarded.
 

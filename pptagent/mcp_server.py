@@ -83,11 +83,25 @@ class PPTAgentServer(PPTAgent):
 
     def register_tools(self):
         @self.mcp.tool()
+        def list_available_templates() -> list[dict]:
+            """List all available templates."""
+            return {
+                "message": "Available templates:",
+                "templates": [
+                    {
+                        "name": template_name,
+                        "description": self.template_description[template_name],
+                    }
+                    for template_name in self.template_description.keys()
+                ],
+            }
+
+        @self.mcp.tool()
         def set_template(template_name: str = "default"):
             """Select a PowerPoint template by name.
 
             Args:
-                template_name: The name of the template to select, `default` is the only acceptable value for now
+                template_name: The name of the template to select
 
             Returns:
                 dict: Success message and list of available layouts
