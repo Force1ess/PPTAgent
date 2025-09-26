@@ -10,9 +10,9 @@ This documentation provides an overview of the project structure, setup instruct
 Table of Contents
 =================
 - [Table of Contents](#table-of-contents)
+  - [Recommendations and Requirements 🔬](#recommendations-and-requirements-)
   - [Quick Start 🚀](#quick-start-)
     - [MCP Server 🤖](#mcp-server-)
-    - [Recommendations and Requirements 🔬](#recommendations-and-requirements-)
     - [Docker 🐳](#docker-)
     - [Running Locally 💻](#running-locally-)
       - [Installation Guide](#installation-guide)
@@ -25,37 +25,7 @@ Table of Contents
     - [Contributing 💛](#contributing-)
     - [Experimental Reproduction 🧪](#experimental-reproduction-)
 
-## Quick Start 🚀
-
-For a quick test, use the example in `runs/pdf(pptx)/*/source.pdf(pptx)` to save preprocessing time.
-
-### MCP Server 🤖
-
-We now support MCP server, you can use it to generate presentations via MCP server.
-```bash
-uv pip install pptagent
-uv pip install python-pptx@git+https://github.com/Force1ess/python-pptx@219513d7d81a61961fc541578c1857d08b43aa2a
-export PPTAGENT_MODEL=openai/gpt-4.1
-export PPTAGENT_API_BASE=http://localhost:8000/v1
-export PPTAGENT_API_KEY=your_key
-uv run pptagent-mcp
-```
-
-Available tools:
-
-| Tool Name | Description |
-|-----------|-------------|
-| `list_available_templates` | List all available PowerPoint templates |
-| `set_template` | Select a PowerPoint template by name |
-| `set_layout` | Select a layout style for slides |
-| `set_slide_content` | Set the textual and image content for a slide |
-| `generate_slide` | Generate a slide after setting layout and content |
-| `save_generated_slides` | Save generated slides to a PowerPoint file |
-
-> [!NOTE]
-> When using a remote server, ensure both ports `8088` and `9297` are forwarded.
-
-### Recommendations and Requirements 🔬
+## Recommendations and Requirements 🔬
 
 <table>
   <thead>
@@ -88,7 +58,61 @@ To parse your uploaded PDF files, please follow [MinerU](https://opendatalab.git
 
 Some recommended templates are available in the [templates](pptagent/templates/) directory, and you can also refer to [Best Practice](BESTPRACTICE.md) for more details.
 
+## Quick Start 🚀
+
+For a quick test, use the example in `runs/pdf(pptx)/*/source.pdf(pptx)` to save preprocessing time.
+
+### MCP Server 🤖
+
+We now support MCP server, you can use it to generate presentations via MCP server.
+```bash
+uv pip install pptagent
+uv pip install python-pptx@git+https://github.com/Force1ess/python-pptx@219513d7d81a61961fc541578c1857d08b43aa2a
+export PPTAGENT_MODEL=openai/gpt-4.1
+export PPTAGENT_API_BASE=http://localhost:8000/v1
+export PPTAGENT_API_KEY=your_key
+uv run pptagent-mcp
+```
+
+Use it in Claude or Cursor:
+```json
+{
+  "mcpServers": {
+    "pptagent": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--with",
+        "pptagent",
+        "--with",
+        "python-pptx@git+https://github.com/Force1ess/python-pptx@219513d7d81a61961fc541578c1857d08b43aa2a",
+        "pptagent-mcp"
+      ],
+      "env": {
+        "PPTAGENT_MODEL": "openai/gpt-4.1",
+        "PPTAGENT_API_BASE": "http://localhost:8000/v1",
+        "PPTAGENT_API_KEY": "your_key"
+      }
+    }
+  }
+}
+```
+
+Available tools:
+
+| Tool Name | Description |
+|-----------|-------------|
+| `list_available_templates` | List all available PowerPoint templates |
+| `set_template` | Select a PowerPoint template by name |
+| `set_layout` | Select a layout style for slides |
+| `set_slide_content` | Set the textual and image content for a slide |
+| `generate_slide` | Generate a slide after setting layout and content |
+| `save_generated_slides` | Save generated slides to a PowerPoint file |
+
 ### Docker 🐳
+
+> [!NOTE]
+> When using a remote server, ensure both ports `8088` and `9297` are forwarded.
 
 ```bash
 # use docker proxy if you are in China
