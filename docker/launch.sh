@@ -10,13 +10,13 @@ fi
 if [ "$PULL" = "True" ]; then
   echo "Pulling latest changes from the repository..."
   git pull
-  pip install /PPTAgent
+  pip install "pptagent[full]"
   npm install --prefix /PPTAgent/pptagent_ui
 fi
 
 cd pptagent_ui
 # Launch Backend Server
-python3 backend.py &
+uv run backend.py &
 
 # Launch Frontend Server
 npm run serve
