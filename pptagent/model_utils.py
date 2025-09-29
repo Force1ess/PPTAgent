@@ -1,12 +1,10 @@
 import os
-from copy import deepcopy
 from glob import glob
 import tempfile
 import zipfile
 
 import aiofiles
 import aiohttp
-import numpy as np
 from PIL import Image
 
 from pptagent.llms import AsyncLLM
@@ -263,13 +261,13 @@ IMAGENET_STD = (0.229, 0.224, 0.225)
 
 
 def average_distance(
-    similarity: list[float], idx: int, cluster_idx: list[int]
+    similarity: list[list[float]], idx: int, cluster_idx: list[int]
 ) -> float:
     """
     Calculate the average distance between a point (idx) and a cluster (cluster_idx).
 
     Args:
-        similarity (np.ndarray): The similarity matrix.
+        similarity (list[list[float]]): The similarity matrix.
         idx (int): The index of the point.
         cluster_idx (list): The indices of the cluster.
 
@@ -287,18 +285,21 @@ def average_distance(
     return total_similarity / len(cluster_idx)
 
 
-def get_cluster(similarity: np.ndarray, sim_bound: float = 0.65):
+def get_cluster(similarity: list[list[float]], sim_bound: float = 0.65):
     """
     Cluster points based on similarity.
 
     Args:
-        similarity (np.ndarray): The similarity matrix.
+        similarity (list[list[float]]): The similarity matrix.
         sim_bound (float): The similarity threshold for clustering.
 
     Returns:
         list: A list of clusters.
     """
-    sim_copy = deepcopy(similarity)
+    import torch
+
+    similarity = torch.tensor(similarity)
+    sim_copy = similarity.clone()
     num_points = sim_copy.shape[0]
     clusters = []
     added = [False] * num_points
@@ -330,7 +331,7 @@ def get_cluster(similarity: np.ndarray, sim_bound: float = 0.65):
                     if not added[i]:
                         clusters.append([i])
                 break
-            i, j = np.unravel_index(np.argmax(sim_copy), sim_copy.shape)
+            i, j = torch.unravel_index(torch.argmax(sim_copy), sim_copy.shape)
             clusters.append([int(i), int(j)])
             added[i] = True
             added[j] = True
