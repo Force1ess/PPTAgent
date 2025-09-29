@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pptagent"
-version = "0.2.5"
+version = "0.2.7"
 authors = [{ name = "Hao Zheng", email = "wszh712811@gmail.com" }]
 description = "PPTAgent, a tool for utilizing LLMs to generate PowerPoint presentations from documents."
 readme = "README.md"
@@ -60,12 +60,11 @@ dependencies = [
     "rich",
     "socksio",
     "tenacity",
-    "timm",
     "uvicorn",
 ]
 
 [project.optional-dependencies]
-full = ["transformers<4.50.0", "fasttext", "einops", "peft", "huggingface_hub"]
+full = ["transformers<4.50.0", "fasttext", "einops", "peft", "huggingface_hub", "timm"]
 
 [project.urls]
 "Homepage" = "https://github.com/icip-cas/PPTAgent"

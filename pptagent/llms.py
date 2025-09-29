@@ -4,7 +4,6 @@ import threading
 from dataclasses import dataclass
 from enum import Enum
 
-import torch
 from oaib import Auto
 from openai import AsyncOpenAI, OpenAI
 from openai.types.chat import ChatCompletion
@@ -222,24 +221,6 @@ class LLM:
             .b64_json
         )
 
-    def get_embedding(
-        self,
-        text: str,
-        encoding_format: str = "float",
-        to_tensor: bool = True,
-        **kwargs,
-    ) -> torch.Tensor | list[float]:
-        """
-        Get the embedding of a text.
-        """
-        result = self.client.embeddings.create(
-            model=self.model, input=text, encoding_format=encoding_format, **kwargs
-        )
-        embeddings = [embedding.embedding for embedding in result.data]
-        if to_tensor:
-            embeddings = torch.tensor(embeddings)
-        return embeddings
-
     def to_async(self) -> "AsyncLLM":
         """
         Convert the LLM to an asynchronous LLM.
@@ -420,33 +401,6 @@ class AsyncLLM(LLM):
             model=self.model, prompt=prompt, n=n, response_format="b64_json", **kwargs
         )
         return response.data[0].b64_json
-
-    async def get_embedding(
-        self,
-        text: str,
-        to_tensor: bool = True,
-        **kwargs,
-    ) -> torch.Tensor | list[float]:
-        """
-        Get the embedding of a text asynchronously.
-
-        Args:
-            text (str): The text to get embeddings for.
-            **kwargs: Additional keyword arguments.
-
-        Returns:
-            List[float]: The embedding vector.
-        """
-        response = await self.client.embeddings.create(
-            model=self.model,
-            input=text,
-            encoding_format="float",
-            **kwargs,
-        )
-        embeddings = [embedding.embedding for embedding in response.data]
-        if to_tensor:
-            embeddings = torch.tensor(embeddings)
-        return embeddings
 
     def to_sync(self) -> LLM:
         """

@@ -6,7 +6,6 @@ import yaml
 from jinja2 import Environment, StrictUndefined, Template
 from PIL import Image
 from pydantic import BaseModel
-from torch import Tensor
 
 from pptagent.llms import AsyncLLM, ThinkMode
 from pptagent.utils import get_json_from_response, package_join
@@ -36,7 +35,6 @@ class Turn:
     images: list[str] = None
     input_chars: int = 0
     output_chars: int = 0
-    embedding: Tensor = None
 
     def to_dict(self):
         return {k: v for k, v in asdict(self).items() if k != "embedding"}

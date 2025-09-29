@@ -7,8 +7,6 @@ import zipfile
 import aiofiles
 import aiohttp
 import numpy as np
-import torch
-import torchvision.transforms as T
 from PIL import Image
 
 from pptagent.llms import AsyncLLM
@@ -76,16 +74,18 @@ class ModelManager:
         if vision_model_name is None:
             vision_model_name = os.environ.get("VISION_MODEL", "gpt-4.1")
         self._image_model = None
-        self._marker_model = None
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
         self.language_model = AsyncLLM(language_model_name, api_base)
         self.vision_model = AsyncLLM(vision_model_name, api_base)
 
     @property
     def image_model(self):
+        import torch
+
         if self._image_model is None:
-            self._image_model = get_image_model(device=self.device)
+            self._image_model = get_image_model(
+                device="cuda" if torch.cuda.is_available() else "cpu"
+            )
         return self._image_model
 
     async def test_connections(self) -> bool:
@@ -110,6 +110,7 @@ def language_id(text: str) -> Language:
 
 
 def get_image_model(device: str = None):
+    import torch
     from transformers import AutoModel, AutoProcessor
 
     """
@@ -195,7 +196,7 @@ async def parse_pdf(pdf_path: str, output_folder: str):
 
 def get_image_embedding(
     image_dir: str, extractor, model, batchsize: int = 16
-) -> dict[str, torch.Tensor]:
+) -> dict[str, list[float]]:
     """
     Generate image embeddings for images in a directory.
 
@@ -208,6 +209,9 @@ def get_image_embedding(
     Returns:
         dict: A dictionary mapping image filenames to their embeddings.
     """
+    import torch
+    import torchvision.transforms as T
+
     transform = T.Compose(
         [
             T.Resize(int((256 / 224) * extractor.size["height"])),
@@ -227,10 +231,13 @@ def get_image_embedding(
             batch = {"pixel_values": torch.stack(inputs).to(model.device)}
             embeddings.extend(model(**batch).last_hidden_state.detach())
             inputs.clear()
-    return {image: embedding.flatten() for image, embedding in zip(images, embeddings)}
+    return {
+        image: embedding.flatten().tolist()
+        for image, embedding in zip(images, embeddings)
+    }
 
 
-def images_cosine_similarity(embeddings: list[torch.Tensor]) -> torch.Tensor:
+def images_cosine_similarity(embeddings: list[list[float]]) -> list[float]:
     """
     Calculate the cosine similarity matrix for a list of embeddings.
     Args:
@@ -239,14 +246,16 @@ def images_cosine_similarity(embeddings: list[torch.Tensor]) -> torch.Tensor:
     Returns:
         torch.Tensor: A NxN similarity matrix.
     """
-    embeddings = [embedding for embedding in embeddings]
+    import torch
+
+    embeddings = [torch.tensor(embedding) for embedding in embeddings]
     sim_matrix = torch.zeros((len(embeddings), len(embeddings)))
     for i in range(len(embeddings)):
         for j in range(i + 1, len(embeddings)):
-            sim_matrix[i, j] = sim_matrix[j, i] = torch.cosine_similarity(
+            sim_matrix[i, j] = sim_matrix[j, i] = torch.nn.functional.cosine_similarity(
                 embeddings[i], embeddings[j], -1
             )
-    return sim_matrix
+    return sim_matrix.tolist()
 
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
@@ -254,7 +263,7 @@ IMAGENET_STD = (0.229, 0.224, 0.225)
 
 
 def average_distance(
-    similarity: torch.Tensor, idx: int, cluster_idx: list[int]
+    similarity: list[float], idx: int, cluster_idx: list[int]
 ) -> float:
     """
     Calculate the average distance between a point (idx) and a cluster (cluster_idx).
@@ -267,6 +276,9 @@ def average_distance(
     Returns:
         float: The average distance.
     """
+    import torch
+
+    similarity = torch.tensor(similarity)
     if idx in cluster_idx:
         return 0
     total_similarity = 0
