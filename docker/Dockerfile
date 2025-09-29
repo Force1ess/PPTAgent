@@ -1,4 +1,5 @@
 FROM nvidia/cuda:12.1.0-cudnn8-devel-ubuntu22.04
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # Environment variables
 ENV DEBIAN_FRONTEND=noninteractive
@@ -93,13 +94,13 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
 RUN apt install -y nodejs fish npm
 
 # model cache
-RUN pip install --system huggingface_hub
+RUN uv pip install --system huggingface_hub
 RUN huggingface-cli download google/vit-base-patch16-224-in21k
 RUN huggingface-cli download julien-c/fasttext-language-id
 
 ARG CACHE_DATE=UNKNOWN
 RUN git clone https://github.com/icip-cas/PPTAgent
-RUN pip install /PPTAgent
+RUN uv pip install --system "pptagent[full]"
 RUN npm install --prefix /PPTAgent/pptagent_ui
 
 WORKDIR /PPTAgent

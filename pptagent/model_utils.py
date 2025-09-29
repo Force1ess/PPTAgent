@@ -9,11 +9,7 @@ import aiohttp
 import numpy as np
 import torch
 import torchvision.transforms as T
-from fasttext import load_model
-from huggingface_hub import hf_hub_download
-from huggingface_hub.constants import HUGGINGFACE_HUB_CACHE
 from PIL import Image
-from transformers import AutoModel, AutoProcessor
 
 from pptagent.llms import AsyncLLM
 from os.path import join
@@ -25,19 +21,36 @@ from pptagent.utils import (
 
 logger = get_logger(__name__)
 
-LID_PATTERN = join(
-    HUGGINGFACE_HUB_CACHE, "models--julien-c--fasttext-language-id", "*/*/lid.176.bin"
-)
-LID_FILES = glob(LID_PATTERN)
-if LID_FILES:
-    LID_MODEL = load_model(LID_FILES[0])
-else:
-    LID_MODEL = load_model(
-        hf_hub_download(
-            repo_id="julien-c/fasttext-language-id",
-            filename="lid.176.bin",
+# Lazy loading cache for the language ID model
+_LID_MODEL = None
+
+
+def _get_lid_model():
+    from huggingface_hub.constants import HUGGINGFACE_HUB_CACHE
+
+    """Get the language ID model, loading it lazily on first access."""
+    global _LID_MODEL
+    if _LID_MODEL is None:
+        from fasttext import load_model
+        from huggingface_hub import hf_hub_download
+
+        lid_pattern = join(
+            HUGGINGFACE_HUB_CACHE,
+            "models--julien-c--fasttext-language-id",
+            "*/*/lid.176.bin",
         )
-    )
+        lid_files = glob(lid_pattern)
+        if lid_files:
+            _LID_MODEL = load_model(lid_files[0])
+        else:
+            _LID_MODEL = load_model(
+                hf_hub_download(
+                    repo_id="julien-c/fasttext-language-id",
+                    filename="lid.176.bin",
+                )
+            )
+    return _LID_MODEL
+
 
 MINERU_API = os.environ.get("MINERU_API", None)
 if MINERU_API is None:
@@ -90,14 +103,15 @@ class ModelManager:
 
 
 def language_id(text: str) -> Language:
+    model = _get_lid_model()
     return Language(
-        lid=LID_MODEL.predict(text[:1024].replace("\n", ""))[0][0].replace(
-            "__label__", ""
-        )
+        lid=model.predict(text[:1024].replace("\n", ""))[0][0].replace("__label__", "")
     )
 
 
 def get_image_model(device: str = None):
+    from transformers import AutoModel, AutoProcessor
+
     """
     Initialize and return an image model and its feature extractor.
 

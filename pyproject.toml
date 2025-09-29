@@ -32,9 +32,7 @@ dependencies = [
     "aiohttp",
     "beautifulsoup4",
     "fastapi[all]",
-    "fasttext",
     "fastmcp>=2.12.3",
-    "einops",
     "func_argparse",
     "html2image",
     "jinja2",
@@ -48,9 +46,7 @@ dependencies = [
     "openai>=1.107.3",
     "opencv-python-headless",
     "openpyxl",
-    "pandas",
     "pdf2image",
-    "peft",
     "pillow",
     "PyPDF2",
     "pydantic>=2.10.0",
@@ -65,9 +61,11 @@ dependencies = [
     "socksio",
     "tenacity",
     "timm",
-    "transformers<4.50.0",
     "uvicorn",
 ]
+
+[project.optional-dependencies]
+full = ["transformers<4.50.0", "fasttext", "einops", "peft", "huggingface_hub"]
 
 [project.urls]
 "Homepage" = "https://github.com/icip-cas/PPTAgent"
