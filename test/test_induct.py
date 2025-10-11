@@ -1,12 +1,12 @@
 from os.path import join as pjoin
 from pathlib import Path
-from test.conftest import test_config
 
 import pytest
 
 from pptagent.induct import SlideInducter
 from pptagent.multimodal import ImageLabler
 from pptagent.presentation import Presentation
+from test.conftest import test_config
 
 CUTOFF = 8
 

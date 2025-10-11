@@ -2,13 +2,13 @@ import json
 import os
 from collections import defaultdict
 from glob import glob
+from os.path import dirname, exists, join
 
 from jinja2 import Template
 from tqdm.asyncio import tqdm
 
 from .model_utils import ModelManager
 from .presentation import Presentation
-from os.path import dirname, exists, join
 from .utils import Config, package_join
 
 manager = ModelManager()

@@ -1,10 +1,10 @@
 import asyncio
+from os.path import basename, join
 
 import PIL.Image
 
 from pptagent.llms import LLM, AsyncLLM
 from pptagent.presentation import Picture, Presentation
-from os.path import basename, join
 from pptagent.utils import Config, get_logger, package_join
 
 logger = get_logger(__name__)

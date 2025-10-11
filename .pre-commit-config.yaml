@@ -9,7 +9,7 @@ repos:
     rev: v0.13.3
     hooks:
       - id: ruff-check
-        args: [ --fix ]
+        args: [ "--select", "I", "--fix" ]
       - id: ruff-format
 
   - repo: https://github.com/asottile/pyupgrade

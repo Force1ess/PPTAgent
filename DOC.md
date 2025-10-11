@@ -104,8 +104,8 @@ Available tools:
 |-----------|-------------|
 | `list_available_templates` | List all available PowerPoint templates |
 | `set_template` | Select a PowerPoint template by name |
-| `set_layout` | Select a layout style for slides |
-| `set_slide_content` | Set the textual and image content for a slide |
+| `create_slide` | Create a slide with a given layout |
+| `write_slide` | Write the slide elements for generating a PowerPoint slide |
 | `generate_slide` | Generate a slide after setting layout and content |
 | `save_generated_slides` | Save generated slides to a PowerPoint file |
 

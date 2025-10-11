@@ -8,6 +8,7 @@ import uuid
 from contextlib import asynccontextmanager
 from copy import deepcopy
 from datetime import datetime
+from os.path import join
 
 from fastapi import (
     FastAPI,
@@ -28,7 +29,6 @@ from pptagent.model_utils import ModelManager, parse_pdf
 from pptagent.multimodal import ImageLabler
 from pptagent.pptgen import PPTAgent
 from pptagent.presentation import Presentation
-from os.path import join
 from pptagent.utils import Config, get_logger, package_join, ppt_to_images_async
 
 # constants

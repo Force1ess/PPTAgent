@@ -1,8 +1,8 @@
-from test.conftest import test_config
+from os.path import join
 
 from pptagent.multimodal import ImageLabler
 from pptagent.presentation import Presentation
-from os.path import join
+from test.conftest import test_config
 
 
 def test_load_captions():

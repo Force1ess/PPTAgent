@@ -1,10 +1,10 @@
 import os
 import tempfile
-from test.conftest import test_config
 
 import pytest
 
 from pptagent.utils import get_json_from_response, package_join, ppt_to_images
+from test.conftest import test_config
 
 
 def test_package_data():

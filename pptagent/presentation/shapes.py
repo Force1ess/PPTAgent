@@ -3,6 +3,7 @@ from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass, field
 from enum import Enum, auto
+from os.path import join
 from types import MappingProxyType
 from typing import Any, ClassVar
 
@@ -23,7 +24,6 @@ from pptx.slide import _Background
 from pptx.text.text import _Paragraph
 from pptx.util import Pt
 
-from os.path import join
 from pptagent.utils import (
     Config,
     dict_to_object,

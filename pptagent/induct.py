@@ -2,6 +2,7 @@ import asyncio
 import os
 from collections import defaultdict
 from functools import partial
+from os.path import join
 
 from aiometer import run_all
 from jinja2 import Template
@@ -16,7 +17,6 @@ from pptagent.model_utils import (
 )
 from pptagent.presentation import Picture, Presentation, SlidePage
 from pptagent.response import SlideSchema
-from os.path import join
 from pptagent.utils import (
     Config,
     get_logger,

@@ -1,12 +1,12 @@
 import hashlib
 import re
+from os.path import exists, join
 
 from jinja2 import Environment, StrictUndefined
 from PIL import Image
 from pydantic import BaseModel, Field, create_model
 
 from pptagent.llms import AsyncLLM
-from os.path import exists, join
 from pptagent.utils import (
     edit_distance,
     get_html_table_image,

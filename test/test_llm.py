@@ -1,7 +1,8 @@
 from copy import deepcopy
-from test.conftest import test_config
 
 import pytest
+
+from test.conftest import test_config
 
 
 @pytest.mark.asyncio

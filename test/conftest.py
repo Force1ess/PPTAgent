@@ -1,8 +1,8 @@
 import json
 import warnings
+from os.path import join
 
 from pptagent.model_utils import ModelManager
-from os.path import join
 from pptagent.utils import Config
 
 

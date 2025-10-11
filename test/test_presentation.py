@@ -1,9 +1,9 @@
 import tempfile
 from copy import deepcopy
-from test.conftest import test_config
 
 from pptagent.presentation import Presentation
 from pptagent.utils import Config
+from test.conftest import test_config
 
 
 def test_presentation():

@@ -1,5 +1,3 @@
-from test.conftest import test_config
-
 from bs4 import BeautifulSoup
 from pptx import Presentation
 
@@ -10,6 +8,7 @@ from pptagent.apis import (
     process_element,
     replace_para,
 )
+from test.conftest import test_config
 
 
 def test_api_docs():

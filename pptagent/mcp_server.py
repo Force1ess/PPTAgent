@@ -1,23 +1,23 @@
-from math import ceil
+import json
 import os
+from glob import glob
+from math import ceil
+from os.path import exists, join
 from pathlib import Path
 from random import shuffle
-from pptagent.pptgen import PPTAgent
+
+from fastmcp import FastMCP
+
 from pptagent.llms import AsyncLLM
+from pptagent.multimodal import ImageLabler
+from pptagent.pptgen import PPTAgent, get_length_factor
+from pptagent.presentation import Presentation
 from pptagent.presentation.layout import Layout
 from pptagent.response.pptgen import (
     EditorOutput,
     SlideElement,
 )
-from pptagent.multimodal import ImageLabler
-from pptagent.utils import Config, Language, package_join
-from pptagent.presentation import Presentation
-from glob import glob
-from os.path import join, exists
-import json
-from fastmcp import FastMCP
-from pptagent.utils import get_logger
-from pptagent.pptgen import get_length_factor
+from pptagent.utils import Config, Language, get_logger, package_join
 
 logger = get_logger(__name__)
 
@@ -132,11 +132,11 @@ class PPTAgentServer(PPTAgent):
             }
 
         @self.mcp.tool()
-        async def set_layout(layout: str):
-            """Select a layout for generating slides.
+        async def create_slide(layout: str):
+            """Create a slide with a given layout.
 
             Args:
-                layout: Name of the layout to use. Must be one of the available layouts from set_template.
+                layout: Name of the layout to use. Must be one of the available layouts given by set_template.
 
             Returns:
                 dict: Success message, instructions, and content schema for the selected layout.
@@ -160,8 +160,8 @@ class PPTAgentServer(PPTAgent):
             }
 
         @self.mcp.tool()
-        async def set_slide_content(structured_slide_elements: list[dict]):
-            """Set the slide elements for generating a PowerPoint slide.
+        async def write_slide(structured_slide_elements: list[dict]):
+            """Write the slide elements for generating a PowerPoint slide.
             Note that this function will not generate a slide, you should call `generate_slide`.
 
             Args:
@@ -180,7 +180,7 @@ class PPTAgentServer(PPTAgent):
             """
             self.structured_slide_elements = structured_slide_elements
             assert self.layout is not None, (
-                "Layout is not selected, please call `select_layout` before generating slide"
+                "Layout is not selected, please call `create_slide` before writing slide"
             )
             editor_output = EditorOutput(
                 elements=[SlideElement(**e) for e in structured_slide_elements]
@@ -210,7 +210,7 @@ class PPTAgentServer(PPTAgent):
             """
             if self.editor_output is None:
                 raise ValueError(
-                    "Slide elements are not set, please call `set_slide_content` before generating slide"
+                    "Slide elements are not set, please call `write_slide` before generating slide"
                 )
 
             command_list, template_id = self._generate_commands(
