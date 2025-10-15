@@ -1,8 +1,7 @@
 import json
 import os
-from glob import glob
 from math import ceil
-from os.path import exists, join
+from os.path import exists
 from pathlib import Path
 from random import shuffle
 
@@ -63,30 +62,40 @@ class PPTAgentServer(PPTAgent):
             os.getenv("PPTAGENT_API_BASE"),
             os.getenv("PPTAGENT_API_KEY"),
         )
+        workspace = os.getenv("WORKSPACE", None)
+        if workspace is not None:
+            os.chdir(workspace)
+
         if not model.to_sync().test_connection():
             msg = "Unable to connect to the model, please set the PPTAGENT_MODEL, PPTAGENT_API_BASE, and PPTAGENT_API_KEY environment variables correctly"
             logger.error(msg)
             raise Exception(msg)
         super().__init__(language_model=model, vision_model=model)
         # load templates, a directory containing pptx, json, and description for each template
-        templates = glob(package_join("templates", "*/"))
+        templates_dir = Path(package_join("templates"))
+        templates = [p for p in templates_dir.iterdir() if p.is_dir()]
         self.template_description = {}
         for template in templates:
-            self.template_description[Path(template).name] = open(
-                join(template, "description.txt")
-            ).read()
+            desc_path = template / "description.txt"
+            # read text if exists
+            self.template_description[template.name] = desc_path.read_text()
 
         logger.info(
             f"{len(templates)} templates loaded:"
             + ", ".join(self.template_description.keys())
         )
 
+    @classmethod
+    def list_templates(cls) -> str:
+        templates_dir = Path(package_join("templates"))
+        return [p.name for p in templates_dir.iterdir() if p.is_dir()]
+
     def register_tools(self):
         @self.mcp.tool()
-        def list_available_templates() -> list[dict]:
+        def list_templates() -> list[dict]:
             """List all available templates."""
             return {
-                "message": "Available templates:",
+                "message": "Please choose one the following templates by calling `set_template`",
                 "templates": [
                     {
                         "name": template_name,
@@ -106,21 +115,20 @@ class PPTAgentServer(PPTAgent):
             Returns:
                 dict: Success message and list of available layouts
             """
-            template_folder = package_join("templates", template_name)
+            template_folder = Path(package_join("templates", template_name))
             assert template_name in self.template_description, (
                 f"Template {template_name} not available, please choose from {list(self.template_description.keys())}"
             )
-            prs_config = Config(template_folder)
+            prs_config = Config(str(template_folder))
             prs = Presentation.from_file(
-                join(template_folder, "source.pptx"), prs_config
+                str(template_folder / "source.pptx"), prs_config
             )
             image_labler = ImageLabler(prs, prs_config)
-            image_labler.apply_stats(
-                json.load(open(join(template_folder, "image_stats.json")))
-            )
+            image_stats_path = template_folder / "image_stats.json"
+            image_labler.apply_stats(json.loads(image_stats_path.read_text()))
             self.set_reference(
-                slide_induction=json.load(
-                    open(join(template_folder, "slide_induction.json"))
+                slide_induction=json.loads(
+                    (template_folder / "slide_induction.json").read_text()
                 ),
                 presentation=prs,
             )
@@ -194,7 +202,7 @@ class PPTAgentServer(PPTAgent):
             self.editor_output = editor_output
             if warnings:
                 return {
-                    "message": "Slide elements set with warnings. Review warnings, consider resetting slide content, or proceed if acceptable.",
+                    "message": "Slide elements set with warnings. Consider reset the slide content, or proceed if acceptable.",
                     "warnings": warnings,
                 }
             return {
@@ -240,15 +248,16 @@ class PPTAgentServer(PPTAgent):
             Args:
                 pptx_path: The path to save the PowerPoint file
             """
+            pptx = Path(pptx_path)
             assert len(self.slides), (
                 "No slides generated, please call `generate_slide` first"
             )
-            os.makedirs(os.path.dirname(pptx_path), exist_ok=True)
+            pptx.parent.mkdir(parents=True, exist_ok=True)
             self.empty_prs.slides = self.slides
             self.empty_prs.save(pptx_path)
             self.slides = []
             self._initialized = False
-            return f"total {len(self.empty_prs.slides)} slides saved to {pptx_path}"
+            return f"total {len(self.empty_prs.slides)} slides saved to {pptx}"
 
 
 def main():

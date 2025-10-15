@@ -9,7 +9,7 @@ from tqdm.asyncio import tqdm
 
 from .model_utils import ModelManager
 from .presentation import Presentation
-from .utils import Config, package_join
+from .utils import Config, package_join, ppt_to_images_async
 
 manager = ModelManager()
 language_model = manager.language_model
@@ -52,7 +52,7 @@ def get_eval(prs_source: str):
     return evals, eval_file
 
 
-async def slide_score(prs_source: str, slide_folder: str):
+async def eval_slide(prs_source: str, slide_folder: str):
     evals, eval_file = get_eval(prs_source)
     for slide_image in glob(join(slide_folder, "slide_*.jpg")) + glob(
         join(slide_folder, "slide_images", "slide_*.jpg")
@@ -83,7 +83,7 @@ async def slide_score(prs_source: str, slide_folder: str):
         json.dump(evals, f, indent=2)
 
 
-async def pres_score(prs_source: str):
+async def eval_coherence(prs_source: str):
     tmp_config = Config(dirname(prs_source))
     evals, eval_file = get_eval(prs_source)
     if "logic" in evals:
@@ -109,11 +109,20 @@ async def pres_score(prs_source: str):
         json.dump(evals, f, indent=2)
 
 
-async def eval_ppt(prs_files: list[str], slide_folders: list[str]):
-    await tqdm.gather(*[pres_score(prs_file) for prs_file in prs_files])
+async def eval_ppt(prs_source: str):
+    slide_folder = prs_source.replace(".pptx", "")
+    if not exists(slide_folder):
+        await ppt_to_images_async(prs_source, slide_folder)
+    await eval_coherence(prs_source)
+    await eval_slide(prs_source, slide_folder)
+    return get_eval(prs_source)[0]
+
+
+async def eval_parsed_ppts(prs_files: list[str], slide_folders: list[str]):
+    await tqdm.gather(*[eval_coherence(prs_file) for prs_file in prs_files])
     await tqdm.gather(
         *[
-            slide_score(prs_file, slide_folder)
+            eval_slide(prs_file, slide_folder)
             for prs_file, slide_folder in zip(prs_files, slide_folders)
         ]
     )

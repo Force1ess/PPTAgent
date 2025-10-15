@@ -9,6 +9,7 @@ This documentation provides an overview of the project structure, setup instruct
 
 Table of Contents
 =================
+- [Documentation 📝](#documentation-)
 - [Table of Contents](#table-of-contents)
   - [Recommendations and Requirements 🔬](#recommendations-and-requirements-)
   - [Quick Start 🚀](#quick-start-)
@@ -102,7 +103,7 @@ Available tools:
 
 | Tool Name | Description |
 |-----------|-------------|
-| `list_available_templates` | List all available PowerPoint templates |
+| `list_templates` | List all available PowerPoint templates |
 | `set_template` | Select a PowerPoint template by name |
 | `create_slide` | Create a slide with a given layout |
 | `write_slide` | Write the slide elements for generating a PowerPoint slide |
