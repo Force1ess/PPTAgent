@@ -3,3 +3,7 @@ recursive-include pptagent/roles *.yaml
 recursive-include pptagent/templates *.txt
 recursive-include pptagent/templates *.json
 recursive-include pptagent/templates *.pptx
+recursive-include pptagent/templates */description.txt
+
+prune pptagent_ui
+prune test
