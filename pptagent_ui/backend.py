@@ -278,7 +278,6 @@ async def ppt_gen(task_id: str, rerun=False):
             text_content = parse_pdf(
                 join(RUNS_DIR, "pdf", pdf_md5, "source.pdf"),
                 parsedpdf_dir,
-                models.marker_model,
             )
         else:
             text_content = open(
