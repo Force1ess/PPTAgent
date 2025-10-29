@@ -5,11 +5,11 @@ from dataclasses import dataclass
 from functools import partial
 from typing import Literal
 
-from pptx import Presentation as load_prs
-from pptx.enum.shapes import MSO_SHAPE_TYPE
-from pptx.shapes.base import BaseShape
-from pptx.shapes.group import GroupShape as PPTXGroupShape
-from pptx.slide import Slide as PPTXSlide
+from pptagent_pptx import Presentation as load_prs
+from pptagent_pptx.enum.shapes import MSO_SHAPE_TYPE
+from pptagent_pptx.shapes.base import BaseShape
+from pptagent_pptx.shapes.group import GroupShape as PPTXGroupShape
+from pptagent_pptx.slide import Slide as PPTXSlide
 
 from pptagent.utils import Config, get_logger, package_join
 

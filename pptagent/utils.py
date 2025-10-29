@@ -18,12 +18,12 @@ import Levenshtein
 from html2image import Html2Image
 from pdf2image import convert_from_path
 from PIL import Image as PILImage
-from pptx.dml.color import RGBColor
-from pptx.oxml import parse_xml
-from pptx.parts.image import Image
-from pptx.shapes.group import GroupShape
-from pptx.text.text import _Paragraph, _Run
-from pptx.util import Length, Pt
+from pptagent_pptx.dml.color import RGBColor
+from pptagent_pptx.oxml import parse_xml
+from pptagent_pptx.parts.image import Image
+from pptagent_pptx.shapes.group import GroupShape
+from pptagent_pptx.text.text import _Paragraph, _Run
+from pptagent_pptx.util import Length, Pt
 from pydantic import BaseModel
 from tenacity import RetryCallState, retry, stop_after_attempt, wait_fixed
 

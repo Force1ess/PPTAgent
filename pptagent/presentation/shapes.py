@@ -8,21 +8,21 @@ from types import MappingProxyType
 from typing import Any, ClassVar
 
 from lxml import etree
-from pptx.dml.fill import FillFormat
-from pptx.dml.line import LineFormat
-from pptx.enum.dml import MSO_FILL_TYPE
-from pptx.enum.shapes import MSO_SHAPE_TYPE
-from pptx.oxml.shapes import ShapeElement as PPTXShapeElement
-from pptx.oxml.shapes.connector import CT_Connector
-from pptx.parts.slide import SlidePart
-from pptx.shapes.base import BaseShape
-from pptx.shapes.group import GroupShape as PPTXGroupShape
-from pptx.shapes.picture import Picture as PPTXPicture
-from pptx.shapes.placeholder import PlaceholderPicture, SlidePlaceholder
-from pptx.slide import Slide as PPTXSlide
-from pptx.slide import _Background
-from pptx.text.text import _Paragraph
-from pptx.util import Pt
+from pptagent_pptx.dml.fill import FillFormat
+from pptagent_pptx.dml.line import LineFormat
+from pptagent_pptx.enum.dml import MSO_FILL_TYPE
+from pptagent_pptx.enum.shapes import MSO_SHAPE_TYPE
+from pptagent_pptx.oxml.shapes import ShapeElement as PPTXShapeElement
+from pptagent_pptx.oxml.shapes.connector import CT_Connector
+from pptagent_pptx.parts.slide import SlidePart
+from pptagent_pptx.shapes.base import BaseShape
+from pptagent_pptx.shapes.group import GroupShape as PPTXGroupShape
+from pptagent_pptx.shapes.picture import Picture as PPTXPicture
+from pptagent_pptx.shapes.placeholder import PlaceholderPicture, SlidePlaceholder
+from pptagent_pptx.slide import Slide as PPTXSlide
+from pptagent_pptx.slide import _Background
+from pptagent_pptx.text.text import _Paragraph
+from pptagent_pptx.util import Pt
 
 from pptagent.utils import (
     Config,

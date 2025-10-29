@@ -10,12 +10,12 @@ from typing import Any
 from bs4 import BeautifulSoup
 from mistune import HTMLRenderer, create_markdown
 from PIL import Image
-from pptx.enum.text import PP_ALIGN
-from pptx.oxml import parse_xml
-from pptx.shapes.base import BaseShape
-from pptx.shapes.graphfrm import GraphicFrame as PPTXGraphicFrame
-from pptx.text.text import _Run
-from pptx.util import Pt
+from pptagent_pptx.enum.text import PP_ALIGN
+from pptagent_pptx.oxml import parse_xml
+from pptagent_pptx.shapes.base import BaseShape
+from pptagent_pptx.shapes.graphfrm import GraphicFrame as PPTXGraphicFrame
+from pptagent_pptx.text.text import _Run
+from pptagent_pptx.util import Pt
 
 from pptagent.document import Document
 from pptagent.presentation import Closure, ClosureType, Picture, ShapeElement, SlidePage

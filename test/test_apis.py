@@ -1,5 +1,5 @@
 from bs4 import BeautifulSoup
-from pptx import Presentation
+from pptagent_pptx import Presentation
 
 from pptagent.apis import (
     API_TYPES,

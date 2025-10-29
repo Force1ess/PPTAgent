@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pptagent"
-version = "0.2.10"
 authors = [{ name = "Hao Zheng", email = "wszh712811@gmail.com" }]
 description = "PPTAgent, a tool for utilizing LLMs to generate PowerPoint presentations from documents."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
+dynamic = ["version"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -32,7 +32,7 @@ dependencies = [
     "aiohttp",
     "beautifulsoup4",
     "fastapi[all]",
-    "fastmcp>=2.12.3",
+    "fastmcp>=2.10.0",
     "func_argparse",
     "html2image",
     "jinja2",
@@ -52,7 +52,7 @@ dependencies = [
     "PyYAML",
     "python-Levenshtein",
     "python-multipart",
-    "python-pptx",
+    "pptagent-pptx>=0.0.1",
     "pytest",
     "pytest-asyncio",
     "pytest-xdist",
@@ -78,9 +78,6 @@ full = [
 
 [project.scripts]
 pptagent-mcp = "pptagent.mcp_server:main"
-
-[tool.uv.sources]
-python-pptx = { git = "https://github.com/Force1ess/python-pptx", rev = "219513d7d81a61961fc541578c1857d08b43aa2a" }
 
 [tool.setuptools]
 include-package-data = true
@@ -111,3 +108,7 @@ markers = [
 
 [tool.ruff.lint]
 ignore = ["F403", "F405", "E741"]
+
+
+[tool.setuptools.dynamic]
+version = { attr = "pptagent.__version__" }
