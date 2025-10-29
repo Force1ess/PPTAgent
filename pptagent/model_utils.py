@@ -50,7 +50,7 @@ def _get_lid_model():
 
 MINERU_API = os.environ.get("MINERU_API", None)
 if MINERU_API is None:
-    logger.warning("MINERU_API is not set, PDF parsing is not available")
+    logger.debug("MINERU_API is not set, PDF parsing is not available")
 
 
 class ModelManager:
