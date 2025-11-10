@@ -47,9 +47,7 @@ def mcp_slide_validate(editor_output: EditorOutput, layout: Layout, prs_lang: La
 
 
 class PPTAgentServer(PPTAgent):
-    roles = [
-        "coder",
-    ]
+    roles = ["coder"]
 
     def __init__(self):
         self.source_doc = None
@@ -71,18 +69,45 @@ class PPTAgentServer(PPTAgent):
             logger.error(msg)
             raise Exception(msg)
         super().__init__(language_model=model, vision_model=model)
+
         # load templates, a directory containing pptx, json, and description for each template
         templates_dir = Path(package_join("templates"))
         templates = [p for p in templates_dir.iterdir() if p.is_dir()]
         self.template_description = {}
+        self.templates = {}
+
         for template in templates:
-            desc_path = template / "description.txt"
-            # read text if exists
-            self.template_description[template.name] = desc_path.read_text()
+            try:
+                desc_path = template / "description.txt"
+                self.template_description[template.name] = desc_path.read_text()
+
+                # Load template configuration
+                template_folder = template
+                prs_config = Config(str(template_folder))
+                prs = Presentation.from_file(
+                    str(template_folder / "source.pptx"), prs_config
+                )
+                image_labler = ImageLabler(prs, prs_config)
+                image_stats_path = template_folder / "image_stats.json"
+                image_labler.apply_stats(json.loads(image_stats_path.read_text()))
+
+                slide_induction = json.loads(
+                    (template_folder / "slide_induction.json").read_text()
+                )
+
+                self.templates[template.name] = {
+                    "presentation": prs,
+                    "slide_induction": slide_induction,
+                    "config": prs_config,
+                }
+
+            except Exception as e:
+                logger.warning(f"Failed to load template {template.name}: {e}")
+                continue
 
         logger.info(
-            f"{len(templates)} templates loaded:"
-            + ", ".join(self.template_description.keys())
+            f"{len(self.templates)} templates loaded successfully: "
+            + ", ".join(self.templates.keys())
         )
 
     @classmethod
@@ -101,7 +126,7 @@ class PPTAgentServer(PPTAgent):
                         "name": template_name,
                         "description": self.template_description[template_name],
                     }
-                    for template_name in self.template_description.keys()
+                    for template_name in self.templates.keys()
                 ],
             }
 
@@ -115,22 +140,14 @@ class PPTAgentServer(PPTAgent):
             Returns:
                 dict: Success message and list of available layouts
             """
-            template_folder = Path(package_join("templates", template_name))
-            assert template_name in self.template_description, (
-                f"Template {template_name} not available, please choose from {list(self.template_description.keys())}"
+            assert template_name in self.templates, (
+                f"Template {template_name} not available, please choose from {', '.join(self.templates.keys())}"
             )
-            prs_config = Config(str(template_folder))
-            prs = Presentation.from_file(
-                str(template_folder / "source.pptx"), prs_config
-            )
-            image_labler = ImageLabler(prs, prs_config)
-            image_stats_path = template_folder / "image_stats.json"
-            image_labler.apply_stats(json.loads(image_stats_path.read_text()))
+
+            template_data = self.templates[template_name]
             self.set_reference(
-                slide_induction=json.loads(
-                    (template_folder / "slide_induction.json").read_text()
-                ),
-                presentation=prs,
+                slide_induction=template_data["slide_induction"],
+                presentation=template_data["presentation"],
             )
 
             return {

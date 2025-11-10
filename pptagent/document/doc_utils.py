@@ -187,7 +187,7 @@ def get_tree_structure(markdown: str, add_tag: bool = True):
 
         tree += (
             f"{indent}{tree_symbol} {heading} "
-            f"[Direct:{chunk['direct_char_count']} | Total Characters:{chunk['total_char_count']}]\n"
+            f"[Total Characters:{chunk['total_char_count']}]\n"
         )
 
     return tree
