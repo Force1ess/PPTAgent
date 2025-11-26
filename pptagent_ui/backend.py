@@ -275,7 +275,7 @@ async def ppt_gen(task_id: str, rerun=False):
 
         # pdf parsing
         if not os.path.exists(join(parsedpdf_dir, "source.md")):
-            text_content = parse_pdf(
+            text_content = await parse_pdf(
                 join(RUNS_DIR, "pdf", pdf_md5, "source.pdf"),
                 parsedpdf_dir,
             )

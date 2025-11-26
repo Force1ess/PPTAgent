@@ -10,7 +10,7 @@ from test.conftest import test_config
 @pytest.mark.parse
 @pytest.mark.asyncio
 async def test_parse_pdf():
-    with tempfile.TemporaryDirectory() as temp_dir:
+    with tempfile.TemporaryDirectory(delete=False) as temp_dir:
         await parse_pdf(
             join(test_config.document, "source.pdf"),
             temp_dir,
