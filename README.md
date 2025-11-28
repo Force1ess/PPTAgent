@@ -29,6 +29,109 @@
   </details>
 </div>
 
+---
+
+## 🚀 Breaking News: Major Update Coming End of 2025
+
+We're excited to announce a significant update planned for release by the end of 2025! This update will introduce powerful new features:
+
+- **Deep Research Integration** - Enhanced research capabilities built directly into the workflow
+- **Free-Form Visual Design** - Create and customize visuals with unprecedented flexibility
+- **Autonomous Asset Creation** - Automatically generate assets based on your requirements
+- **Text-to-Image Generation** - Transform text descriptions into high-quality images
+
+Want a sneak peek? Check out our demo and detailed outputs below!
+
+### 📺 Demo Video of V2
+
+
+https://github.com/user-attachments/assets/938889e8-d7d8-4f4f-b2a1-07ee3ef3991a
+
+
+### 💡 Case Study of V2
+
+- #### Prompt: Please present the given document to me.
+
+<div style="display: flex; flex-wrap: wrap; gap: 10px;">
+
+  <img src="resource/v2/manuscript/0001.jpg" alt="图片1" width="200"/>
+
+  <img src="resource/v2/manuscript/0002.jpg" alt="图片2" width="200"/>
+
+  <img src="resource/v2/manuscript/0003.jpg" alt="图片3" width="200"/>
+
+  <img src="resource/v2/manuscript/0004.jpg" alt="图片4" width="200"/>
+
+  <img src="resource/v2/manuscript/0005.jpg" alt="图片5" width="200"/>
+
+  <img src="resource/v2/manuscript/0006.jpg" alt="图片6" width="200"/>
+
+  <img src="resource/v2/manuscript/0007.jpg" alt="图片7" width="200"/>
+
+  <img src="resource/v2/manuscript/0008.jpg" alt="图片8" width="200"/>
+
+  <img src="resource/v2/manuscript/0009.jpg" alt="图片9" width="200"/>
+
+  <img src="resource/v2/manuscript/0010.jpg" alt="图片10" width="200"/>
+
+</div>
+
+- #### Prompt: 请介绍小米 SU7 的外观和价格
+
+<div style="display: flex; flex-wrap: wrap; gap: 10px;">
+
+  <img src="resource/v2/presentation1/0001.jpg" alt="图片1" width="200"/>
+
+  <img src="resource/v2/presentation1/0002.jpg" alt="图片2" width="200"/>
+
+  <img src="resource/v2/presentation1/0003.jpg" alt="图片3" width="200"/>
+
+  <img src="resource/v2/presentation1/0004.jpg" alt="图片4" width="200"/>
+
+  <img src="resource/v2/presentation1/0005.jpg" alt="图片5" width="200"/>
+
+  <img src="resource/v2/presentation1/0006.jpg" alt="图片6" width="200"/>
+
+</div>
+
+- #### Prompt: 请制作一份高中课堂展示课件，主题为“解码立法过程：理解其对国际关系的影响”
+
+<div style="display: flex; flex-wrap: wrap; gap: 10px;">
+
+  <img src="resource/v2/presentation2/0001.jpg" alt="图片1" width="200"/>
+
+  <img src="resource/v2/presentation2/0002.jpg" alt="图片2" width="200"/>
+
+  <img src="resource/v2/presentation2/0003.jpg" alt="图片3" width="200"/>
+
+  <img src="resource/v2/presentation2/0004.jpg" alt="图片4" width="200"/>
+
+  <img src="resource/v2/presentation2/0005.jpg" alt="图片5" width="200"/>
+
+  <img src="resource/v2/presentation2/0006.jpg" alt="图片6" width="200"/>
+
+  <img src="resource/v2/presentation2/0007.jpg" alt="图片7" width="200"/>
+
+  <img src="resource/v2/presentation2/0008.jpg" alt="图片8" width="200"/>
+
+  <img src="resource/v2/presentation2/0009.jpg" alt="图片9" width="200"/>
+
+  <img src="resource/v2/presentation2/0010.jpg" alt="图片10" width="200"/>
+
+  <img src="resource/v2/presentation2/0011.jpg" alt="图片11" width="200"/>
+
+  <img src="resource/v2/presentation2/0012.jpg" alt="图片12" width="200"/>
+
+  <img src="resource/v2/presentation2/0013.jpg" alt="图片13" width="200"/>
+
+  <img src="resource/v2/presentation2/0014.jpg" alt="图片14" width="200"/>
+
+  <img src="resource/v2/presentation2/0015.jpg" alt="图片15" width="200"/>
+
+</div>
+
+---
+
 # PPTAgent: Generating and Evaluating Presentations Beyond Text-to-Slides
 <p align="center">
   📄 <a href="https://arxiv.org/abs/2501.03936" target="_blank">Paper</a> &nbsp; | &nbsp;
