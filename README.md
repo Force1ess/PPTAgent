@@ -29,6 +29,13 @@
   </details>
 </div>
 
+> 🧑‍💻 [Profile/简介](https://github.com/Force1ess)
+> 
+> The main contributor of this repo is a Master's student graduating in 2026, currently on the job market.
+> 
+> 本仓库主要贡献者是2026届硕士毕业生，正在求职中，欢迎联系。
+
+
 ---
 
 ## 🚀 Breaking News: Major Update Coming End of 2025
