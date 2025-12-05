@@ -7,7 +7,7 @@ from jinja2 import Environment, StrictUndefined, Template
 from PIL import Image
 from pydantic import BaseModel
 
-from pptagent.llms import AsyncLLM, ThinkMode
+from pptagent.llms import AsyncLLM
 from pptagent.utils import get_json_from_response, package_join
 
 RETRY_TEMPLATE = Template(
@@ -130,7 +130,6 @@ class Agent:
         traceback: str,
         turn_id: int,
         error_idx: int,
-        think_mode: ThinkMode = ThinkMode.not_think,
         response_format: BaseModel | None = None,
         **client_kwargs,
     ):
@@ -147,7 +146,6 @@ class Agent:
             prompt,
             history=history_msg,
             return_message=True,
-            think_mode=think_mode,
             response_format=response_format,
             **client_kwargs,
         )
@@ -162,7 +160,6 @@ class Agent:
 
     async def __call__(
         self,
-        think_mode: ThinkMode = ThinkMode.not_think,
         images: list[str] = None,
         recent: int = 0,
         response_format: BaseModel | None = None,
@@ -196,7 +193,6 @@ class Agent:
             client_kwargs = {}
         response, message = await self.llm(
             prompt,
-            think_mode=think_mode,
             system_message=self.system_message,
             history=history_msg,
             images=images,

@@ -2,7 +2,6 @@ import base64
 import re
 import threading
 from dataclasses import dataclass
-from enum import Enum
 
 from oaib import Auto
 from openai import AsyncOpenAI, OpenAI
@@ -13,19 +12,6 @@ from pptagent.utils import get_json_from_response, get_logger, tenacity_decorato
 
 logger = get_logger(__name__)
 MAX_CONTEXT_SIZE = 32768
-
-
-class ThinkMode(Enum):
-    think = "/think"
-    not_think = "/no_think"
-
-    @property
-    def client_kwargs(self):
-        if self == ThinkMode.think:
-            return {"temperature": 0.6, "top_p": 0.95}
-        else:
-            return {}
-            # return {"temperature": 0.7, "top_p": 0.8}
 
 
 @dataclass
@@ -53,7 +39,6 @@ class LLM:
         history: list | None = None,
         return_json: bool = False,
         return_message: bool = False,
-        think_mode: ThinkMode = ThinkMode.not_think,
         response_format: BaseModel | None = None,
         **client_kwargs,
     ) -> str | dict | list | tuple:
@@ -72,13 +57,9 @@ class LLM:
         Returns:
             Union[str, Dict, List, Tuple]: The response from the model.
         """
-        if "qwen3" in self.model.lower():
-            client_kwargs.update(think_mode.client_kwargs)
         if history is None:
             history = []
-        system, message = self.format_message(
-            content, think_mode, images, system_message
-        )
+        system, message = self.format_message(content, images, system_message)
         try:
             if response_format is not None:
                 completion: ChatCompletion = self.client.chat.completions.parse(
@@ -156,7 +137,6 @@ class LLM:
     def format_message(
         self,
         content: str,
-        think_mode: ThinkMode,
         images: str | list[str] | None = None,
         system_message: str | None = None,
     ) -> tuple[list, list]:
@@ -188,8 +168,6 @@ class LLM:
         ]
         message = [{"role": "user", "content": [{"type": "text", "text": content}]}]
         model_idf = self.model.lower()
-        if "qwen3" in model_idf:
-            system_message += think_mode.value
         if "qwen3" in model_idf or "deepseek" in model_idf:
             system = []
             message[0]["content"][0]["text"] = (
@@ -271,7 +249,6 @@ class AsyncLLM(LLM):
         history: list | None = None,
         return_json: bool = False,
         return_message: bool = False,
-        think_mode: ThinkMode = ThinkMode.not_think,
         response_format: BaseModel | None = None,
         **client_kwargs,
     ) -> str | dict | tuple:
@@ -290,8 +267,6 @@ class AsyncLLM(LLM):
         Returns:
             Union[str, Dict, List, Tuple]: The response from the model.
         """
-        if "qwen3" in self.model.lower():
-            client_kwargs.update(think_mode.client_kwargs)
         if self.use_batch and threading.current_thread() is threading.main_thread():
             self.batch = Auto(
                 base_url=self.base_url,
@@ -305,9 +280,7 @@ class AsyncLLM(LLM):
             )
         if history is None:
             history = []
-        system, message = self.format_message(
-            content, think_mode, images, system_message
-        )
+        system, message = self.format_message(content, images, system_message)
         try:
             if self.use_batch:
                 await self.batch.add(
