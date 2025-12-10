@@ -30,19 +30,19 @@ https://github.com/user-attachments/assets/c3935a98-4d2b-4c46-9b36-e7c598d14863
 
 <div style="display: flex; flex-wrap: wrap; gap: 10px;">
 
-  <img src="resource/iphone16pro/0001.jpg" alt="图片1" width="200"/>
+  <img src="../resource/iphone16pro/0001.jpg" alt="图片1" width="200"/>
 
-  <img src="resource/iphone16pro/0002.jpg" alt="图片2" width="200"/>
+  <img src="../resource/iphone16pro/0002.jpg" alt="图片2" width="200"/>
 
-  <img src="resource/iphone16pro/0003.jpg" alt="图片3" width="200"/>
+  <img src="../resource/iphone16pro/0003.jpg" alt="图片3" width="200"/>
 
-  <img src="resource/iphone16pro/0004.jpg" alt="图片4" width="200"/>
+  <img src="../resource/iphone16pro/0004.jpg" alt="图片4" width="200"/>
 
-  <img src="resource/iphone16pro/0005.jpg" alt="图片5" width="200"/>
+  <img src="../resource/iphone16pro/0005.jpg" alt="图片5" width="200"/>
 
-  <img src="resource/iphone16pro/0006.jpg" alt="图片6" width="200"/>
+  <img src="../resource/iphone16pro/0006.jpg" alt="图片6" width="200"/>
 
-  <img src="resource/iphone16pro/0007.jpg" alt="图片7" width="200"/>
+  <img src="../resource/iphone16pro/0007.jpg" alt="图片7" width="200"/>
 
 </div>
 
@@ -50,25 +50,25 @@ https://github.com/user-attachments/assets/c3935a98-4d2b-4c46-9b36-e7c598d14863
 
 <div style="display: flex; flex-wrap: wrap; gap: 10px;">
 
-  <img src="resource/build_effective_agents/0001.jpg" alt="图片1" width="200"/>
+  <img src="../resource/build_effective_agents/0001.jpg" alt="图片1" width="200"/>
 
-  <img src="resource/build_effective_agents/0002.jpg" alt="图片2" width="200"/>
+  <img src="../resource/build_effective_agents/0002.jpg" alt="图片2" width="200"/>
 
-  <img src="resource/build_effective_agents/0003.jpg" alt="图片3" width="200"/>
+  <img src="../resource/build_effective_agents/0003.jpg" alt="图片3" width="200"/>
 
-  <img src="resource/build_effective_agents/0004.jpg" alt="图片4" width="200"/>
+  <img src="../resource/build_effective_agents/0004.jpg" alt="图片4" width="200"/>
 
-  <img src="resource/build_effective_agents/0005.jpg" alt="图片5" width="200"/>
+  <img src="../resource/build_effective_agents/0005.jpg" alt="图片5" width="200"/>
 
-  <img src="resource/build_effective_agents/0006.jpg" alt="图片6" width="200"/>
+  <img src="../resource/build_effective_agents/0006.jpg" alt="图片6" width="200"/>
 
-  <img src="resource/build_effective_agents/0007.jpg" alt="图片7" width="200"/>
+  <img src="../resource/build_effective_agents/0007.jpg" alt="图片7" width="200"/>
 
-  <img src="resource/build_effective_agents/0008.jpg" alt="图片8" width="200"/>
+  <img src="../resource/build_effective_agents/0008.jpg" alt="图片8" width="200"/>
 
-<img src="resource/build_effective_agents/0009.jpg" alt="图片9" width="200"/>
+<img src="../resource/build_effective_agents/0009.jpg" alt="图片9" width="200"/>
 
-<img src="resource/build_effective_agents/0010.jpg" alt="图片10" width="200"/>
+<img src="../resource/build_effective_agents/0010.jpg" alt="图片10" width="200"/>
 
 </div>
 
@@ -81,7 +81,7 @@ PPTAgent follows a two-phase approach:
 Our system's workflow is illustrated below:
 
 
-![PPTAgent Workflow](resource/fig2.jpg)
+![PPTAgent Workflow](../resource/fig2.jpg)
 
 ## PPTEval ⚖️
 
@@ -92,7 +92,7 @@ PPTEval evaluates presentations across three dimensions:
 
 The workflow of PPTEval is shown below:
 <p align="center">
-<img src="resource/fig3.jpg" alt="PPTEval Workflow" style="width:70%;"/>
+<img src="../resource/fig3.jpg" alt="PPTEval Workflow" style="width:70%;"/>
 </p>
 
 

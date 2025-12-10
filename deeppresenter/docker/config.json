@@ -1,0 +1,21 @@
+{
+    "blockedCommands": [
+        "format",
+        "mount",
+        "umount",
+        "mkfs",
+        "fdisk",
+        "dd",
+        "passwd",
+        "adduser",
+        "useradd",
+        "usermod",
+        "groupadd"
+    ],
+    "fileWriteLineLimit": 1000,
+    "allowedDirectories": [
+        "/"
+    ],
+    "defaultShell": "bash",
+    "feedbackGiven": true
+}

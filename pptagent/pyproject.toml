@@ -90,11 +90,12 @@ exclude = ["pptagent_ui*", "test"]
 [tool.setuptools.package-data]
 "pptagent" = [
     "prompts/*.txt",
+    "prompts/**/*.txt",
     "roles/*.yaml",
     "resource/*.png",
-    "templates/*.txt",
-    "templates/*.json",
-    "templates/*.pptx",
+    "templates/**/*.txt",
+    "templates/**/*.json",
+    "templates/**/*.pptx",
 ]
 
 [tool.pytest.ini_options]
