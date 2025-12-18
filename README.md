@@ -57,12 +57,12 @@ https://github.com/user-attachments/assets/938889e8-d7d8-4f4f-b2a1-07ee3ef3991a
 
 > [!IMPORTANT]
 > 1. All these API keys, configurations, and services are **required**.
-> 2. Gemini 2.5/3 are the only LLMs for the Design Agent that achieve consistently good results. Other LLMs (including GPT-5/Sonnet) will lead to **severe performance degradation**.
+> 2. Agent Backbone Recommendation: Use Claude for the Research Agent and Gemini for the Design Agent.
 > 3. We do not support offline serving for now.
 
 ### 1. Prepare external services
 
-- **MinerU**: Apply for an API key at https://mineru.net/apiManage/docs. Note that each key is valid for 14 days.
+- **MinerU (Optional)**: Apply for an API key at https://mineru.net/apiManage/docs. Note that each key is valid for 14 days.
 - **Tavily**: Apply for an API key at https://www.tavily.com/.
 - **LLM**: Configure your model endpoint, API keys, and related parameters in [config.yaml](deeppresenter/deeppresenter/config.yaml).
 
@@ -79,8 +79,9 @@ https://github.com/user-attachments/assets/938889e8-d7d8-4f4f-b2a1-07ee3ef3991a
 - **Additional tools**:
 
   ```bash
-  npm install -g playwright
-  npx playwright install chromium
+  pip install playwright
+  playwright install-deps
+  playwright install chromium
   ```
 
 ### 3. Install Python dependencies
