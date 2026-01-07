@@ -63,7 +63,10 @@ include = ["deeppresenter*", "sarl*"]
 where = ["."]
 
 [tool.setuptools.package-data]
-"deeppresenter" = ["roles/*.yaml"]
+"deeppresenter" = [
+    "roles/*.yaml",
+    "html2pptx/*.js",
+]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

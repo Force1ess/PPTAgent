@@ -13,7 +13,7 @@ from deeppresenter.utils.config import GLOBAL_CONFIG
 from deeppresenter.utils.constants import WORKSPACE_BASE
 from deeppresenter.utils.log import debug, error, info, set_logger, timer
 from deeppresenter.utils.typings import ChatMessage, ConvertType, InputRequest, Role
-from deeppresenter.utils.webview import PlaywrightConverter
+from deeppresenter.utils.webview import convert_html_to_pptx
 
 
 class AgentLoop:
@@ -82,7 +82,6 @@ class AgentLoop:
                             if not pptx_file.is_absolute():
                                 pptx_file = self.workspace / pptx_file
                             self.intermediate_output["pptx"] = pptx_file
-                            self.intermediate_output["final"] = pptx_file
                             msg = str(pptx_file)
                             break
                         yield msg
@@ -113,15 +112,14 @@ class AgentLoop:
                     raise e
                 finally:
                     self.designagent.save_history()
-                msg = self.workspace / f"{md_file.stem}.pdf"
-                self.intermediate_output["pdf"] = str(msg)
-                self.intermediate_output["final"] = str(msg)
-                htmls = list(slide_html_dir.glob("*.html"))
-                async with PlaywrightConverter() as converter:
-                    slide_image_dir = await converter.convert_to_pdf(
-                        htmls, msg, request.aspect_ratio
-                    )
-                    self.intermediate_output["slide_images_dir"] = slide_image_dir
+                pptx_path = self.workspace / f"{md_file.stem}.pptx"
+                convert_html_to_pptx(
+                    slide_html_dir,
+                    pptx_path,
+                    aspect_ratio=request.aspect_ratio,
+                )
+                self.intermediate_output["pptx"] = pptx_path
+                msg = pptx_path
             with open(self.workspace / "intermediate_output.json", "w") as f:
                 json.dump(
                     {k: str(v) for k, v in self.intermediate_output.items()},

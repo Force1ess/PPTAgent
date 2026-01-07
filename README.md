@@ -71,7 +71,7 @@ https://github.com/user-attachments/assets/938889e8-d7d8-4f4f-b2a1-07ee3ef3991a
 - **Agent sandbox (Docker)**: Build the sandbox image using the provided [Dockerfile](deeppresenter/docker/Dockerfile):
 
   ```bash
-  cd docker
+  cd deeppresenter/docker
   docker build -t desktop-commander-deeppresenter .
   ```
 
@@ -82,6 +82,8 @@ https://github.com/user-attachments/assets/938889e8-d7d8-4f4f-b2a1-07ee3ef3991a
   pip install playwright
   playwright install-deps
   playwright install chromium
+  npm install
+  npx playwright install chromium
   ```
 
 ### 3. Install Python dependencies

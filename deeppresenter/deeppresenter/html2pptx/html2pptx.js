@@ -27,6 +27,8 @@
  */
 
 const { chromium } = require('playwright');
+const fs = require('fs');
+const os = require('node:os');
 const path = require('path');
 const sharp = require('sharp');
 
@@ -127,6 +129,70 @@ async function addBackground(slideData, targetSlide, tmpDir) {
     targetSlide.background = { path: imagePath };
   } else if (slideData.background.type === 'color' && slideData.background.value) {
     targetSlide.background = { color: slideData.background.value };
+  }
+}
+
+async function rasterizeGradients(page, slideData, bodyDimensions, tmpDir) {
+  const outDir = tmpDir || process.env.TMPDIR || '/tmp';
+  fs.mkdirSync(outDir, { recursive: true });
+
+  const makeId = () => `__html2pptx_gradient_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  const makePath = () => path.join(outDir, `html2pptx-gradient-${Date.now()}-${Math.random().toString(16).slice(2)}.png`);
+
+  const renderGradient = async (gradient, widthPx, heightPx, style = {}) => {
+    const id = makeId();
+    await page.evaluate(({ id, gradient, widthPx, heightPx, style }) => {
+      const el = document.createElement('div');
+      el.id = id;
+      el.style.position = 'fixed';
+      el.style.left = '0';
+      el.style.top = '0';
+      el.style.width = `${widthPx}px`;
+      el.style.height = `${heightPx}px`;
+      el.style.backgroundImage = gradient;
+      el.style.backgroundRepeat = style.backgroundRepeat || 'no-repeat';
+      el.style.backgroundSize = style.backgroundSize || 'cover';
+      el.style.backgroundPosition = style.backgroundPosition || 'center';
+      if (style.borderRadius) el.style.borderRadius = style.borderRadius;
+      el.style.pointerEvents = 'none';
+      el.style.zIndex = '2147483647';
+      document.body.appendChild(el);
+    }, { id, gradient, widthPx, heightPx, style });
+
+    const handle = await page.$(`#${id}`);
+    const filePath = makePath();
+    await handle.screenshot({ path: filePath });
+    await page.evaluate((id) => {
+      const el = document.getElementById(id);
+      if (el) el.remove();
+    }, id);
+    return filePath;
+  };
+
+  if (slideData.background && slideData.background.type === 'gradient') {
+    const filePath = await renderGradient(
+      slideData.background.value,
+      Math.round(bodyDimensions.width),
+      Math.round(bodyDimensions.height),
+      slideData.background.style || {}
+    );
+    slideData.background = { type: 'image', path: filePath };
+  }
+
+  for (const el of slideData.elements) {
+    if (el.type !== 'gradient') continue;
+    const widthPx = Math.round(el.position.w * PX_PER_IN);
+    const heightPx = Math.round(el.position.h * PX_PER_IN);
+    const filePath = await renderGradient(
+      el.gradient,
+      widthPx,
+      heightPx,
+      el.style || {}
+    );
+    el.type = 'image';
+    el.src = filePath;
+    delete el.gradient;
+    delete el.style;
   }
 }
 
@@ -496,16 +562,20 @@ async function extractSlideData(page) {
     // Collect validation errors
     const errors = [];
 
-    // Validate: Check for CSS gradients
-    if (bgImage && (bgImage.includes('linear-gradient') || bgImage.includes('radial-gradient'))) {
-      errors.push(
-        'CSS gradients are not supported. Use Sharp to rasterize gradients as PNG images first, ' +
-        'then reference with background-image: url(\'gradient.png\')'
-      );
-    }
+    const isBodyGradient = bgImage && (bgImage.includes('linear-gradient') || bgImage.includes('radial-gradient'));
 
     let background;
-    if (bgImage && bgImage !== 'none') {
+    if (isBodyGradient) {
+      background = {
+        type: 'gradient',
+        value: bgImage,
+        style: {
+          backgroundRepeat: bodyStyle.backgroundRepeat,
+          backgroundSize: bodyStyle.backgroundSize,
+          backgroundPosition: bodyStyle.backgroundPosition
+        }
+      };
+    } else if (bgImage && bgImage !== 'none') {
       // Extract URL from url("...") or url(...)
       const urlMatch = bgImage.match(/url\(["']?([^"')]+)["']?\)/);
       if (urlMatch) {
@@ -526,6 +596,26 @@ async function extractSlideData(page) {
       };
     }
 
+    const wrapTextNodesInDivs = () => {
+      document.querySelectorAll('div').forEach((el) => {
+        const nodes = Array.from(el.childNodes);
+        nodes.forEach((node) => {
+          if (node.nodeType !== Node.TEXT_NODE) return;
+          const text = node.textContent;
+          if (!text || !text.trim()) return;
+          const p = document.createElement('p');
+          p.textContent = text;
+          p.setAttribute('data-html2pptx-auto', '1');
+          p.style.margin = '0';
+          p.style.padding = '0';
+          p.style.display = 'inline';
+          el.replaceChild(p, node);
+        });
+      });
+    };
+
+    wrapTextNodesInDivs();
+
     // Process all elements
     const elements = [];
     const placeholders = [];
@@ -539,6 +629,7 @@ async function extractSlideData(page) {
       if (textTags.includes(el.tagName)) {
         const computed = window.getComputedStyle(el);
         const hasBg = computed.backgroundColor && computed.backgroundColor !== 'rgba(0, 0, 0, 0)';
+        const hasBgImage = computed.backgroundImage && computed.backgroundImage !== 'none';
         const hasBorder = (computed.borderWidth && parseFloat(computed.borderWidth) > 0) ||
                           (computed.borderTopWidth && parseFloat(computed.borderTopWidth) > 0) ||
                           (computed.borderRightWidth && parseFloat(computed.borderRightWidth) > 0) ||
@@ -546,9 +637,9 @@ async function extractSlideData(page) {
                           (computed.borderLeftWidth && parseFloat(computed.borderLeftWidth) > 0);
         const hasShadow = computed.boxShadow && computed.boxShadow !== 'none';
 
-        if (hasBg || hasBorder || hasShadow) {
+        if (hasBg || hasBgImage || hasBorder || hasShadow) {
           errors.push(
-            `Text element <${el.tagName.toLowerCase()}> has ${hasBg ? 'background' : hasBorder ? 'border' : 'shadow'}. ` +
+            `Text element <${el.tagName.toLowerCase()}> has ${hasBg || hasBgImage ? 'background' : hasBorder ? 'border' : 'shadow'}. ` +
             'Backgrounds, borders, and shadows are only supported on <div> elements, not text elements.'
           );
           return;
@@ -615,13 +706,24 @@ async function extractSlideData(page) {
 
         // Check for background images on shapes
         const bgImage = computed.backgroundImage;
+        let bgImageUrl = null;
+        let bgGradient = null;
         if (bgImage && bgImage !== 'none') {
-          errors.push(
-            'Background images on DIV elements are not supported. ' +
-            'Use solid colors or borders for shapes, or use slide.addImage() in PptxGenJS to layer images.'
-          );
-          return;
+          if (bgImage.includes('linear-gradient') || bgImage.includes('radial-gradient')) {
+            bgGradient = bgImage;
+          } else {
+            const urlMatch = bgImage.match(/url\(["']?([^"')]+)["']?\)/);
+            if (urlMatch) {
+              bgImageUrl = urlMatch[1];
+            } else {
+              errors.push(
+                'Unsupported background-image on DIV elements. Use url("...") with a raster image.'
+              );
+              return;
+            }
+          }
         }
+        const hasBgImage = !!bgImageUrl || !!bgGradient;
 
         // Check for borders - both uniform and partial
         const borderTop = computed.borderTopWidth;
@@ -632,15 +734,15 @@ async function extractSlideData(page) {
         const hasBorder = borders.some(b => b > 0);
         const hasUniformBorder = hasBorder && borders.every(b => b === borders[0]);
         const borderLines = [];
-
-        if (hasBorder && !hasUniformBorder) {
+        const useBorderLines = hasBorder && (hasBgImage || !hasUniformBorder);
+        if (useBorderLines) {
           const rect = el.getBoundingClientRect();
           const x = pxToInch(rect.left);
           const y = pxToInch(rect.top);
           const w = pxToInch(rect.width);
           const h = pxToInch(rect.height);
 
-          // Collect lines to add after shape (inset by half the line width to center on edge)
+          // Collect lines to add after background/image (inset by half the line width to center on edge)
           if (parseFloat(borderTop) > 0) {
             const widthPt = pxToPoints(borderTop);
             const inset = (widthPt / 72) / 2; // Convert points to inches, then half
@@ -683,13 +785,13 @@ async function extractSlideData(page) {
           }
         }
 
-        if (hasBg || hasBorder) {
+        if (hasBg || hasBorder || hasBgImage) {
           const rect = el.getBoundingClientRect();
           if (rect.width > 0 && rect.height > 0) {
             const shadow = parseBoxShadow(computed.boxShadow);
 
-            // Only add shape if there's background or uniform border
-            if (hasBg || hasUniformBorder) {
+            // Only add shape if there's background or uniform border without image
+            if (hasBg || (hasUniformBorder && !hasBgImage)) {
               elements.push({
                 type: 'shape',
                 text: '',  // Shape only - child text elements render on top
@@ -702,7 +804,7 @@ async function extractSlideData(page) {
                 shape: {
                   fill: hasBg ? rgbToHex(computed.backgroundColor) : null,
                   transparency: hasBg ? extractAlpha(computed.backgroundColor) : null,
-                  line: hasUniformBorder ? {
+                  line: hasUniformBorder && !hasBgImage ? {
                     color: rgbToHex(computed.borderColor),
                     width: pxToPoints(computed.borderWidth)
                   } : null,
@@ -730,7 +832,38 @@ async function extractSlideData(page) {
               });
             }
 
-            // Add partial border lines
+            if (bgImageUrl) {
+              elements.push({
+                type: 'image',
+                src: bgImageUrl,
+                position: {
+                  x: pxToInch(rect.left),
+                  y: pxToInch(rect.top),
+                  w: pxToInch(rect.width),
+                  h: pxToInch(rect.height)
+                }
+              });
+            }
+            if (bgGradient) {
+              elements.push({
+                type: 'gradient',
+                gradient: bgGradient,
+                position: {
+                  x: pxToInch(rect.left),
+                  y: pxToInch(rect.top),
+                  w: pxToInch(rect.width),
+                  h: pxToInch(rect.height)
+                },
+                style: {
+                  backgroundRepeat: computed.backgroundRepeat,
+                  backgroundSize: computed.backgroundSize,
+                  backgroundPosition: computed.backgroundPosition,
+                  borderRadius: computed.borderRadius
+                }
+              });
+            }
+
+            // Add border lines
             elements.push(...borderLines);
 
             processed.add(el);
@@ -895,10 +1028,8 @@ async function extractSlideData(page) {
 }
 
 async function html2pptx(htmlFile, pres, options = {}) {
-  const {
-    tmpDir = process.env.TMPDIR || '/tmp',
-    slide = null
-  } = options;
+  const { slide = null } = options;
+  const tmpDir = options.tmpDir || fs.mkdtempSync(path.join(os.tmpdir(), 'html2pptx-'));
 
   try {
     // Use Chrome on macOS, default Chromium on Unix
@@ -932,6 +1063,7 @@ async function html2pptx(htmlFile, pres, options = {}) {
       });
 
       slideData = await extractSlideData(page);
+      await rasterizeGradients(page, slideData, bodyDimensions, tmpDir);
     } finally {
       await browser.close();
     }

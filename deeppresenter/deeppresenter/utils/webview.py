@@ -1,5 +1,8 @@
 import asyncio
+import os
+import subprocess
 import tempfile
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Literal
 
@@ -8,7 +11,7 @@ from pdf2image import convert_from_path
 from playwright.async_api import async_playwright
 from pypdf import PdfWriter
 
-from deeppresenter.utils.constants import PDF_OPTIONS
+from deeppresenter.utils.constants import PACKAGE_DIR, PDF_OPTIONS
 from deeppresenter.utils.log import error, info
 
 FAKE_UA = UserAgent()
@@ -76,6 +79,7 @@ class PlaywrightConverter:
         html_files: list[str],
         output_pdf: Path,
         aspect_ratio: Literal["widescreen", "normal", "A1"],
+        error_sink: list[str] | None = None,
     ):
         if isinstance(output_pdf, str):
             output_pdf = Path(output_pdf)
@@ -84,6 +88,17 @@ class PlaywrightConverter:
         folder.mkdir(exist_ok=True, parents=True)
 
         page = await self.context.new_page()
+        if error_sink is not None:
+            page.on(
+                "pageerror",
+                lambda exc: error_sink.append(f"Page error: {exc}"),
+            )
+            page.on(
+                "console",
+                lambda msg: error_sink.append(f"Console error: {msg.text}")
+                if msg.type == "error"
+                else None,
+            )
         try:
             for html, pdf in zip(sorted(html_files), pdf_files):
                 await page.goto(Path(html).resolve().as_uri(), wait_until="networkidle")
@@ -107,13 +122,59 @@ class PlaywrightConverter:
         return folder
 
 
-if __name__ == "__main__":
-    from glob import glob
+def convert_html_to_pptx(
+    html_inputs: Path | str | Iterable[Path | str],
+    output_pptx: Path | str,
+    aspect_ratio: Literal["widescreen", "normal", "A1"],
+) -> Path | None:
+    script_path = PACKAGE_DIR / "html2pptx" / "html2pptx_cli.js"
+    if not script_path.exists():
+        raise FileNotFoundError(f"html2pptx CLI not found at {script_path}")
 
-    async def main():
-        async with PlaywrightConverter() as converter:
-            htmls = glob("/opt/workspace/935b4e54/slides/*.html")
-            output_pdf = Path("output.pdf")
-            await converter.convert_to_pdf(htmls, output_pdf, "widescreen")
+    html_dir: Path | None = None
+    html_files: list[str] = []
+    if isinstance(html_inputs, (str, Path)):
+        input_path = Path(html_inputs)
+        if not input_path.exists():
+            raise FileNotFoundError(f"HTML input does not exist: {input_path}")
+        if input_path.is_dir():
+            html_dir = input_path
+        else:
+            html_files = [str(input_path.resolve())]
+    else:
+        for item in html_inputs:
+            item_path = Path(item)
+            if not item_path.exists():
+                raise FileNotFoundError(f"HTML input does not exist: {item_path}")
+            if item_path.is_dir():
+                if html_dir is not None or html_files:
+                    raise ValueError("html_inputs cannot mix directories and files")
+                html_dir = item_path
+            else:
+                html_files.append(str(item_path.resolve()))
 
-    asyncio.run(main())
+    if html_dir is None and not html_files:
+        raise ValueError("No HTML inputs provided")
+
+    cmd = ["node", str(script_path), "--layout", aspect_ratio]
+    if html_dir is not None:
+        cmd.extend(["--html_dir", str(html_dir.resolve())])
+    else:
+        for html_file in html_files:
+            cmd.extend(["--html", html_file])
+    if output_pptx is not None:
+        cmd.extend(["--output", str(output_pptx)])
+
+    result = subprocess.run(
+        cmd,
+        env=os.environ.copy(),
+        cwd=PACKAGE_DIR.parent.parent,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        details = (result.stderr or result.stdout or "").strip()
+        raise RuntimeError(f"html2pptx failed: {details}")
+
+    return Path(output_pptx)

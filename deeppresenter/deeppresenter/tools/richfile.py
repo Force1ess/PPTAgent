@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import re
+import tempfile
 from collections import defaultdict
 from pathlib import Path
 from typing import Literal
@@ -11,11 +12,10 @@ from fake_useragent import UserAgent
 from mcp.types import ImageContent
 from mistune import html as markdown_to_html
 from PIL import Image
-from playwright.async_api import TimeoutError
-from pptagent.utils import get_html_table_image
+from pptagent.utils import get_html_table_image, ppt_to_images
 
 from deeppresenter.utils.config import RETRY_TIMES
-from deeppresenter.utils.webview import PlaywrightConverter
+from deeppresenter.utils.webview import convert_html_to_pptx
 
 FAKE_UA = UserAgent()
 
@@ -90,19 +90,21 @@ async def inspect_slide(
     if aspect_ratio not in ["widescreen", "normal", "A1"]:
         return "aspect_ratio should be one of 'widescreen', 'normal', 'A1'"
     try:
-        async with PlaywrightConverter() as converter:
-            slide_image_folder = await converter.convert_to_pdf(
-                [html_file], html_file.with_suffix(".pdf"), aspect_ratio
-            )
-    except TimeoutError:
-        return "Slide inspection timed out during rendering, please remove external resources and try again."
-    with open(slide_image_folder / "slide_01.jpg", "rb") as f:
-        image_data = f.read()
+        pptx_path = convert_html_to_pptx(html_file, aspect_ratio=aspect_ratio)
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            output_dir = Path(tmp_dir)
+            ppt_to_images(str(pptx_path), str(output_dir))
+            image_path = output_dir / "slide_0001.jpg"
+            if not image_path.exists():
+                return "Slide inspection failed: PPTX to image conversion produced no output."
+            image_data = image_path.read_bytes()
         return ImageContent(
             type="image",
             data=f"data:image/jpeg;base64,{base64.b64encode(image_data).decode('utf-8')}",
             mimeType="image/jpeg",
         )
+    except Exception as e:
+        return e
 
 
 @mcp.tool()
