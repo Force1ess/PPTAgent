@@ -1,6 +1,5 @@
 import asyncio
 import json
-import traceback
 from itertools import product
 from pathlib import Path
 from typing import Any
@@ -12,8 +11,12 @@ from openai.types.chat import ChatCompletion
 from openai.types.images_response import ImagesResponse
 from pydantic import BaseModel, Field, PrivateAttr, ValidationError
 
-from deeppresenter.utils.constants import MIN_IMAGE_SIZE, PACKAGE_DIR, RETRY_TIMES
-from deeppresenter.utils.log import debug, error, logging_openai_exceptions
+from deeppresenter.utils.constants import (
+    PACKAGE_DIR,
+    PIXEL_MULTIPLE,
+    RETRY_TIMES,
+)
+from deeppresenter.utils.log import debug, logging_openai_exceptions
 
 
 def get_json_from_response(response: str) -> dict | list:
@@ -70,6 +73,10 @@ class LLM(BaseModel):
     base_url: str = Field(description="API base URL")
     model: str = Field(description="Model name")
     api_key: str = Field(description="API key")
+    identifier: str | None = Field(
+        default=None,
+        description="Optional identifier for the model instance, this will override property `model_name`",
+    )
     is_multimodal: bool = Field(
         default=False, description="Whether the model is multimodal"
     )
@@ -85,6 +92,10 @@ class LLM(BaseModel):
     soft_response_parsing: bool = Field(
         default=False,
         description="Enable soft parsing: parse response content as JSON directly instead of using completion.parse",
+    )
+    min_image_size: int | None = Field(
+        default=None,
+        description="Minimum image size (width * height) for generation, smaller images will be resized proportionally",
     )
 
     # Fallback configuration
@@ -108,9 +119,7 @@ class LLM(BaseModel):
 
     @property
     def model_name(self) -> str:
-        if "/" in self.model:
-            return self.model.split("/")[-1]
-        return self.model
+        return self.identifier or self.model.split("/")[-1].split(":")[0]
 
     @property
     def has_fallback(self) -> bool:
@@ -157,54 +166,44 @@ class LLM(BaseModel):
         sampling_params: dict[str, Any],
         response_format: type[BaseModel] | None = None,
         tools: list[dict[str, Any]] | None = None,
-        retry_times: int = RETRY_TIMES,
     ) -> ChatCompletion:
-        """Execute chat or tool call using the specified client"""
-        for retry_idx in range(retry_times):
-            await asyncio.sleep(2**retry_idx - 1)
-            try:
-                if tools is not None:
-                    response = await client.chat.completions.create(
-                        model=model,
-                        messages=messages,
-                        tools=tools,
-                        tool_choice="auto",
-                        **sampling_params,
-                    )
-                elif not self.soft_response_parsing and response_format is not None:
-                    response: ChatCompletion = await client.chat.completions.parse(
-                        model=model,
-                        messages=messages,
-                        response_format=response_format,
-                        **sampling_params,
-                    )
-                else:
-                    response: ChatCompletion = await client.chat.completions.create(
-                        model=model,
-                        messages=messages,
-                        **sampling_params,
-                    )
-                assert response.choices is not None and len(response.choices) > 0, (
-                    "No choices returned from the model"
-                )
-                message = response.choices[0].message
-                if response_format is not None:
-                    message.content = response_format(
-                        **get_json_from_response(message.content)
-                    ).model_dump_json(indent=2)
-                assert tools is None or len(message.tool_calls), (
-                    "No tool call returned from the model"
-                )
-                assert message.tool_calls or message.content, (
-                    "Empty content returned from the model"
-                )
-                return response
-            except (AssertionError, ValidationError):
-                pass
-            except Exception as e:
-                logging_openai_exceptions(model, e)
-        error(f"Model {model} failed for: {traceback.format_exc()}")
-        raise ValueError(f"{model} cannot get valid response from the model")
+        """Execute a chat or tool call using the specified client"""
+        if tools is not None:
+            response = await client.chat.completions.create(
+                model=model,
+                messages=messages,
+                tools=tools,
+                tool_choice="auto",
+                **sampling_params,
+            )
+        elif not self.soft_response_parsing and response_format is not None:
+            response: ChatCompletion = await client.chat.completions.parse(
+                model=model,
+                messages=messages,
+                response_format=response_format,
+                **sampling_params,
+            )
+        else:
+            response: ChatCompletion = await client.chat.completions.create(
+                model=model,
+                messages=messages,
+                **sampling_params,
+            )
+        assert response.choices is not None and len(response.choices) > 0, (
+            "No choices returned from the model"
+        )
+        message = response.choices[0].message
+        if response_format is not None:
+            message.content = response_format(
+                **get_json_from_response(message.content)
+            ).model_dump_json(indent=2)
+        assert tools is None or len(message.tool_calls or []), (
+            "No tool call returned from the model"
+        )
+        assert message.tool_calls or message.content, (
+            "Empty content returned from the model"
+        )
+        return response
 
     async def run(
         self,
@@ -213,35 +212,34 @@ class LLM(BaseModel):
         tools: list[dict[str, Any]] | None = None,
         retry_times: int = RETRY_TIMES,
     ) -> ChatCompletion:
-        """Unified interface for chat and tool calls"""
+        """Unified interface for chat and tool calls with alternating retry"""
         if isinstance(messages, str):
             messages = [{"role": "user", "content": messages}]
-        async with self._semaphore:
-            try:
-                return await self._call(
-                    self._client,
-                    self.model,
-                    messages,
-                    self.sampling_parameters,
-                    response_format,
-                    tools,
-                    retry_times,
+
+        clients = [(self._client, self.model, self.sampling_parameters)]
+        if self._fallback_client is not None:
+            clients.append(
+                (
+                    self._fallback_client,
+                    self.fallback_model,
+                    self.fallback_sampling_parameters,
                 )
-            except Exception as e:
-                if self._fallback_client is not None:
-                    debug(
-                        f"Primary model {self.model} failed, trying fallback model {self.fallback_model}"
-                    )
+            )
+
+        errors = []
+        async with self._semaphore:
+            for retry_idx in range(retry_times):
+                client, model, sampling_params = clients[retry_idx % len(clients)]
+                try:
                     return await self._call(
-                        self._fallback_client,
-                        self.fallback_model,
-                        messages,
-                        self.fallback_sampling_parameters,
-                        response_format,
-                        tools,
-                        retry_times,
+                        client, model, messages, sampling_params, response_format, tools
                     )
-                raise e
+                except (AssertionError, ValidationError) as e:
+                    errors.append(f"[{model}] {e}")
+                except Exception as e:
+                    errors.append(f"[{model}] {e}")
+                    logging_openai_exceptions(model, e)
+        raise ValueError(f"All models failed after {retry_times} retries:\n{errors}")
 
     async def generate_image(
         self,
@@ -249,15 +247,19 @@ class LLM(BaseModel):
         width: int,
         height: int,
         retry_times: int = RETRY_TIMES,
+        pixel_multiple: int = PIXEL_MULTIPLE,
     ) -> ImagesResponse:
         """Unified interface for image generation"""
-        if MIN_IMAGE_SIZE is not None and (width * height) < int(MIN_IMAGE_SIZE):
-            ratio = (int(MIN_IMAGE_SIZE) / (width * height)) ** 0.5
+        if self.min_image_size is not None and (width * height) < int(
+            self.min_image_size
+        ):
+            ratio = (int(self.min_image_size) / (width * height)) ** 0.5
             width = int(width * ratio)
             height = int(height * ratio)
-        width = ((width + 15) // 16) * 16
-        height = ((height + 15) // 16) * 16
+        width = ((width + pixel_multiple - 1) // pixel_multiple) * pixel_multiple
+        height = ((height + pixel_multiple - 1) // pixel_multiple) * pixel_multiple
         async with self._semaphore:
+            errors = []
             for retry_idx in range(retry_times):
                 await asyncio.sleep(retry_idx)
                 try:
@@ -268,8 +270,11 @@ class LLM(BaseModel):
                         **self.sampling_parameters,
                     )
                 except Exception as e:
+                    errors.append(e)
                     logging_openai_exceptions(self.model, e)
-            raise ValueError("Cannot generate image")
+            raise ValueError(
+                f"Model {self.model} failed after {retry_times} retries: {errors}"
+            )
 
     async def validate(self):
         models = await self._client.models.list()
@@ -283,6 +288,7 @@ class LLM(BaseModel):
 class DeepPresenterConfig(BaseModel):
     """DeepPresenter Global Configuration"""
 
+    file_path: str = Field(description="Configuration file path")
     mcp_config_file: str = Field(
         description="MCP configuration file", default=PACKAGE_DIR / "mcp.json"
     )
@@ -291,6 +297,15 @@ class DeepPresenterConfig(BaseModel):
     long_context_model: LLM = Field(description="Long context model configuration")
     vision_model: LLM = Field(description="Vision model configuration")
     t2i_model: LLM = Field(description="Text-to-image model configuration")
+    critic_agent: LLM | None = Field(
+        default=None, description="Critic agent model configuration"
+    )
+
+    def model_post_init(self, context):
+        assert self.critic_agent is None or self.critic_agent.is_multimodal, (
+            "Critic agent must be a multimodal model, set `is_multimodal` to True if necessary"
+        )
+        return super().model_post_init(context)
 
     @classmethod
     def load_from_file(cls, config_path: str | None = None) -> "DeepPresenterConfig":
@@ -306,15 +321,17 @@ class DeepPresenterConfig(BaseModel):
         with open(config_file, encoding="utf-8") as f:
             config_data = yaml.safe_load(f) or {}
 
+        config_data["file_path"] = str(config_file.resolve())
         return cls(**config_data)
 
     async def validate_llms(self):
-        # ? we do not valite t2i model since some providers like volcengine did not open this endpoint
+        # ? t2i endpoints might not support this api
         await asyncio.gather(
             self.research_agent.validate(),
             self.design_agent.validate(),
             self.long_context_model.validate(),
             self.vision_model.validate(),
+            self.t2i_model.validate(),
         )
 
     def __getitem__(self, key: str) -> Any:

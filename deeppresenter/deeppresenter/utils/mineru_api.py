@@ -23,7 +23,7 @@ async def parse_pdf(
 
     async with aiohttp.ClientSession() as session:
         batch_id, upload_url, upload_headers = await _request_upload_url(
-            session, pdf_path.name, pdf_path.stem, model_version, token
+            session, pdf_path.name, pdf_path.stem[:128], model_version, token
         )
 
         await _upload_file(session, upload_url, pdf_path, upload_headers)

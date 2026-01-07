@@ -26,7 +26,7 @@ MINERU_API_KEY = os.getenv("MINERU_API_KEY", "")
 
 
 @mcp.tool()
-async def convert_to_markdown(file_path: str, output_folder: str) -> dict | str:
+async def convert_to_markdown(file_path: str, output_folder: str) -> dict:
     """Convert a file to markdown, it could accept pdf, docx, doc, etc.
     Args:
         file_path: The path of the file to be converted
@@ -35,10 +35,16 @@ async def convert_to_markdown(file_path: str, output_folder: str) -> dict | str:
     Returns:
         The converted results, with file saved to the specified path
     """
+
     output_path = Path(output_folder)
     output_path.mkdir(parents=True, exist_ok=True)
     if len(os.listdir(output_path)) != 0:
-        return "Error: output folder should be empty or not exist"
+        return {
+            "success": False,
+            "error": "Error: output folder should be empty or not exist",
+        }
+    if not os.path.exists(file_path):
+        return {"success": False, "error": f"Error: file {file_path} does not exist"}
 
     markdown_file = output_path / f"{Path(file_path).stem}.md"
 
@@ -59,8 +65,15 @@ async def convert_to_markdown(file_path: str, output_folder: str) -> dict | str:
             conver_result.text_content, output_path / "images"
         )
 
-        with open(str(markdown_file), "w", encoding="utf-8") as f:
-            f.write(markdown)
+    for match in re.findall(r"!\[.*?\]\((.*?)\)", markdown):
+        local_path = match.split()[0].strip("\"'")
+        p = Path(local_path)
+        if (output_path / local_path).exists():
+            p = output_path / local_path
+        if p.exists():
+            markdown = markdown.replace(local_path, str(p.resolve()))
+    with open(str(markdown_file), "w", encoding="utf-8") as f:
+        f.write(markdown)
 
     images = output_path.glob("images/*")
     images_with_info = []

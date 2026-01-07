@@ -9,7 +9,7 @@ class PPTAgent(Agent):
                 markdown_file=markdown_file, prompt=req.pptagent_prompt
             )
             yield agent_message
-            outcome = await self.execute(agent_message.tool_calls)
+            outcome = await self.execute(self.chat_history[-1].tool_calls)
             if isinstance(outcome, list):
                 for item in outcome:
                     yield item

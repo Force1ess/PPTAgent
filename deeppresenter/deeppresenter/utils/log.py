@@ -3,8 +3,10 @@ import inspect
 import logging
 import time
 import traceback
+from collections.abc import Callable, Coroutine
 from contextvars import ContextVar
 from pathlib import Path
+from typing import Any, ParamSpec, TypeVar, overload
 
 import colorlog
 from openai import (
@@ -33,6 +35,8 @@ from deeppresenter.utils.constants import LOGGING_LEVEL
 _context_logger: ContextVar[logging.Logger | None] = ContextVar(
     "_context_logger", default=None
 )
+P = ParamSpec("P")
+R = TypeVar("R")
 
 
 def create_logger(
@@ -85,6 +89,7 @@ def set_logger(name: str = __name__, log_file: str | Path | None = None):
         "Context logger is already set."
     )
     logger = create_logger(name, log_file)
+    logger.debug("Setting new context logger with loglevel=%s", LOGGING_LEVEL)
     _context_logger.set(logger)
     return logger
 
@@ -126,7 +131,7 @@ def exception(msg, *args, **kwargs):
 class timer:
     """Timer context manager and decorator"""
 
-    def __init__(self, name: str):
+    def __init__(self, name: str = None):
         self.name = name
         self.start_time = None
 
@@ -138,6 +143,14 @@ class timer:
         elapsed = time.time() - self.start_time
         if elapsed > 1:
             debug(f"{self.name} took {elapsed:.2f} seconds")
+
+    @overload
+    def __call__(
+        self, func: Callable[P, Coroutine[Any, Any, R]]
+    ) -> Callable[P, Coroutine[Any, Any, R]]: ...
+
+    @overload
+    def __call__(self, func: Callable[P, R]) -> Callable[P, R]: ...
 
     def __call__(self, func):
         if inspect.iscoroutinefunction(func):

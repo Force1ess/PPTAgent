@@ -76,12 +76,14 @@ class ChatMessage(BaseModel):
     role: Role
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     content: None | str | list[dict]
+    reasoning_content: None | str = None
     created_at: str = Field(default_factory=lambda: datetime.now().isoformat())
     # This attribute mark if function call failed to execute
     is_error: bool = False
     from_tool: Function | None = None
     tool_call_id: str | None = None
     tool_calls: list[ChatCompletionMessageFunctionToolCall] | None = None
+    extra_info: dict[str, Any] = Field(default_factory=dict)
 
     def model_post_init(self, _):
         if not isinstance(self.content, list):
@@ -117,6 +119,13 @@ class ChatMessage(BaseModel):
         else:
             return str(texts)
 
+    @property
+    def has_image(self) -> bool:
+        for block in self.content:
+            if block["type"] == "image_url":
+                return True
+        return False
+
 
 class RoleConfig(BaseModel):
     """Role configuration model"""
@@ -148,7 +157,7 @@ class Cost(BaseModel):
 class ConvertType(StrEnum):
     DEEPPRESENTER = "deeppresenter"
     PPTAGENT = "pptagent"
-    NANOBANANA = "nanobanana"
+    # NANOBANANA = "nanobanana"
 
 
 class PowerPointType(StrEnum):

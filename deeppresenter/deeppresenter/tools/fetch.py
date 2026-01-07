@@ -5,8 +5,10 @@ import re
 import httpx
 import markdownify
 from appcore import mcp
+from playwright.async_api import TimeoutError
 from trafilatura import extract
 
+from deeppresenter.utils.constants import MCP_CALL_TIMEOUT
 from deeppresenter.utils.webview import PlaywrightConverter
 
 
@@ -42,8 +44,15 @@ async def fetch_url(url: str, body_only: bool = True) -> str:
             pass
 
     async with PlaywrightConverter() as converter:
-        await converter.page.goto(url, wait_until="domcontentloaded", timeout=30000)
-        html = await converter.page.content()
+        try:
+            await converter.page.goto(
+                url, wait_until="domcontentloaded", timeout=MCP_CALL_TIMEOUT // 2 * 1000
+            )
+            html = await converter.page.content()
+        except TimeoutError:
+            return f"Timeout when loading URL: {url}"
+        except Exception as e:
+            return f"Failed to load URL {url}: {e}"
 
     markdown = markdownify.markdownify(html, heading_style=markdownify.ATX)
     markdown = re.sub(r"\n{3,}", "\n\n", markdown).strip()

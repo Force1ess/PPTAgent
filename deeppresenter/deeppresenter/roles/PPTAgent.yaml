@@ -39,4 +39,3 @@ exclude_tools:
   - todo_create
   - todo_update
   - todo_list
-  - get_markdown_overview

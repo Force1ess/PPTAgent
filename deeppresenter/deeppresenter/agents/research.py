@@ -11,7 +11,7 @@ class Research(Agent):
                 attachments=req.attachments,
             )
             yield agent_message
-            outcome = await self.execute(agent_message.tool_calls, limit_len=True)
+            outcome = await self.execute(self.chat_history[-1].tool_calls)
             if isinstance(outcome, list):
                 for item in outcome:
                     yield item

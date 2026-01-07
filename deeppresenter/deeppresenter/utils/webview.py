@@ -124,12 +124,19 @@ class PlaywrightConverter:
 
 def convert_html_to_pptx(
     html_inputs: Path | str | Iterable[Path | str],
-    output_pptx: Path | str,
-    aspect_ratio: Literal["widescreen", "normal", "A1"],
-) -> Path | None:
+    output_pptx: Path | str | None = None,
+    aspect_ratio: Literal["widescreen", "normal", "A1"] = "widescreen",
+) -> Path:
     script_path = PACKAGE_DIR / "html2pptx" / "html2pptx_cli.js"
     if not script_path.exists():
         raise FileNotFoundError(f"html2pptx CLI not found at {script_path}")
+
+    if output_pptx is None:
+        fd, temp_path = tempfile.mkstemp(suffix=".pptx")
+        os.close(fd)
+        output_path = Path(temp_path)
+    else:
+        output_path = Path(output_pptx)
 
     html_dir: Path | None = None
     html_files: list[str] = []
@@ -162,8 +169,8 @@ def convert_html_to_pptx(
     else:
         for html_file in html_files:
             cmd.extend(["--html", html_file])
-    if output_pptx is not None:
-        cmd.extend(["--output", str(output_pptx)])
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    cmd.extend(["--output", str(output_path)])
 
     result = subprocess.run(
         cmd,
@@ -175,6 +182,11 @@ def convert_html_to_pptx(
     )
     if result.returncode != 0:
         details = (result.stderr or result.stdout or "").strip()
+        if "Cannot find module 'pptxgenjs'" in details:
+            raise RuntimeError(
+                "html2pptx dependency 'pptxgenjs' is not installed. "
+                "Run `npm install` in the repo root."
+            )
         raise RuntimeError(f"html2pptx failed: {details}")
 
-    return Path(output_pptx)
+    return output_path

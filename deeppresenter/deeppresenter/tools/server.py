@@ -29,9 +29,7 @@ if __name__ == "__main__":
     import tool_agents  # noqa: F401
 
     if os.getenv("TAVILY_API_KEY", None):
-        import tavily_search  # noqa: F401
-    elif os.getenv("FIRECRAWL_API_KEY", None):
-        import firecrawl_search  # noqa: F401
+        import search  # noqa: F401
     else:
         warning("No search tool is configured.")
 

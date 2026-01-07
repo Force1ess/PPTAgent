@@ -76,7 +76,6 @@ def get_scholar_details(
     author_id: str,
     paper_start_index: int = 0,
     sort_by: Literal["citationCount", "year"] | None = None,
-    sort_order: Literal["asc", "desc"] = "desc",
 ) -> dict[str, Any]:
     """
     Get the details of a scholar by author ID.
@@ -85,7 +84,6 @@ def get_scholar_details(
         author_id: The Semantic Scholar author ID of the scholar
         paper_start_index: Starting index for paper pagination (default: 0)
         sort_by: Sort papers by "citationCount" or "year" (default: None - no sorting)
-        sort_order: Sort order "asc" or "desc" (default: "desc")
 
     Returns:
         Dictionary containing scholar details including:
@@ -113,13 +111,9 @@ def get_scholar_details(
         p.pop("paperId", "")
         processed_papers.append({k: v for k, v in p.items() if v is not None})
     if sort_by == "citationCount":
-        processed_papers.sort(
-            key=lambda x: x.get("citationCount", 0), reverse=sort_order == "desc"
-        )
+        processed_papers.sort(key=lambda x: x.get("citationCount", 0), reverse=True)
     elif sort_by == "year":
-        processed_papers.sort(
-            key=lambda x: x.get("year", 0), reverse=sort_order == "desc"
-        )
+        processed_papers.sort(key=lambda x: x.get("year", 0), reverse=True)
     author["papers"] = processed_papers[
         paper_start_index : paper_start_index + PAGE_SIZE
     ]

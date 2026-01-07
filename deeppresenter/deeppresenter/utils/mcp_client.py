@@ -1,15 +1,16 @@
 import asyncio
 import copy
-import os
 from contextlib import AsyncExitStack
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.sse import sse_client
-from mcp.client.stdio import stdio_client
+from mcp.client.stdio import logger, stdio_client
 
 from deeppresenter.utils.constants import MCP_CALL_TIMEOUT, MCP_CONNECT_TIMEOUT
 from deeppresenter.utils.log import error, exception, info, warning
 from deeppresenter.utils.typings import MCPServer
+
+logger.setLevel("WARNING")
 
 
 class MCPClient:

@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 from abc import abstractmethod
 from collections.abc import AsyncGenerator
 from datetime import datetime
@@ -17,7 +18,6 @@ from openai.types.chat.chat_completion_message_tool_call import (
 from pydantic import BaseModel
 
 from deeppresenter.agents.env import AgentEnv
-from deeppresenter.utils import PACKAGE_DIR, ChatMessage, Role
 from deeppresenter.utils.config import (
     LLM,
     DeepPresenterConfig,
@@ -27,6 +27,7 @@ from deeppresenter.utils.constants import (
     AGENT_PROMPT,
     CONTEXT_LENGTH_LIMIT,
     MAX_LOGGING_LENGTH,
+    PACKAGE_DIR,
 )
 from deeppresenter.utils.log import (
     debug,
@@ -34,16 +35,23 @@ from deeppresenter.utils.log import (
     timer,
     warning,
 )
-from deeppresenter.utils.typings import Cost, InputRequest, RoleConfig
+from deeppresenter.utils.typings import (
+    ChatMessage,
+    Cost,
+    InputRequest,
+    Role,
+    RoleConfig,
+)
 
-HALF_NOTICE_MESSAGE = ChatMessage(
-    role=Role.USER,
-    content="NOTICE: You have used about half of your working budget. Now focused on the core task and skipping unnecessary steps or explorations.",
-)
-URGENT_NOTICE_MESSAGE = ChatMessage(
-    role=Role.USER,
-    content="URGENT: Working budget nearly exhausted. You must finish the core task and call `finalize` now, or your work will fail. Skip extras like inspection and validation.",
-)
+HALF_NOTICE_MESSAGE = {
+    "text": "<NOTICE>You have used about half of your working budget. Now focused on the core task and skipping unnecessary steps or explorations.</NOTICE>",
+    "type": "text",
+}
+URGENT_NOTICE_MESSAGE = {
+    "text": "<URGENT>Working budget nearly exhausted. You must finish the core task and call `finalize` now, or your work will fail. Skip extras like inspection and validation.</URGENT>",
+    "type": "text",
+}
+REASON_TOOLS = ["inspect_slide", "inspect_manuscript", "thinking"]
 
 
 class Agent:
@@ -52,8 +60,11 @@ class Agent:
         config: DeepPresenterConfig,
         agent_env: AgentEnv,
         workspace: Path,
+        language: Literal["zh", "en"],
+        allow_reflection: bool,
         config_file: str | None = None,
-        language: Literal["zh", "en"] = "zh",
+        keep_reasoning: bool = True,
+        context_window: int = CONTEXT_LENGTH_LIMIT,
     ):
         self.name = self.__class__.__name__
         self.cost = Cost()
@@ -62,6 +73,8 @@ class Agent:
         self.workspace = workspace
         self.agent_env = agent_env
         self.language = language
+        self.keep_reasoning = keep_reasoning
+        self.context_window = context_window
         config_file = (
             Path(config_file)
             if config_file
@@ -78,13 +91,6 @@ class Agent:
         self.prompt: Template = Template(
             role_config.instruction, undefined=StrictUndefined
         )
-        # ? we only provide tools return image to multimodal models
-        if not self.llm.is_multimodal:
-            if (
-                "inspect_slide" in agent_env._tools_dict
-                and "inspect_slide" not in role_config.exclude_tools
-            ):
-                role_config.exclude_tools.append("inspect_slide")
 
         if role_config.include_tool_servers == "all":
             role_config.include_tool_servers = list(agent_env._server_tools)
@@ -108,6 +114,15 @@ class Agent:
         if language not in role_config.system:
             raise ValueError(f"Language '{language}' not found in system prompts")
         self.system = role_config.system[language]
+        if not allow_reflection:
+            self.system = re.sub(
+                r"<REFLECTION>.*?</REFLECTION>", "", self.system, flags=re.DOTALL
+            )
+            self.tools = [
+                t
+                for t in self.tools
+                if not t["function"]["name"].startswith(("think", "inspect"))
+            ]
 
         # ? for those agents equipped with sandbox only
         if any(t["function"]["name"] == "execute_command" for t in self.tools):
@@ -149,6 +164,9 @@ class Agent:
                 ChatMessage(
                     role=response.choices[0].message.role,
                     content=response.choices[0].message.content,
+                    reasoning_content=getattr(
+                        response.choices[0].message, "reasoning_content", None
+                    ),
                 )
             )
             self.log_message(self.chat_history[-1])
@@ -168,22 +186,7 @@ class Agent:
                 )
             )
             self.log_message(self.chat_history[-1])
-        if self.context_length > CONTEXT_LENGTH_LIMIT:
-            raise RuntimeError(
-                f"{self.name} agent exceeded context budget: {self.context_length}/{CONTEXT_LENGTH_LIMIT}"
-            )
-        elif (
-            self.context_warning == 0
-            and self.context_length > CONTEXT_LENGTH_LIMIT * 0.5
-        ):
-            self.context_warning += 1
-            self.chat_history.append(HALF_NOTICE_MESSAGE)
-        elif (
-            self.context_warning == 1
-            and self.context_length > CONTEXT_LENGTH_LIMIT * 0.8
-        ):
-            self.chat_history.append(URGENT_NOTICE_MESSAGE)
-            self.context_warning = 2
+
         with timer(f"{self.name} Agent LLM call"):
             response = await self.llm.run(
                 messages=self.chat_history,
@@ -193,11 +196,16 @@ class Agent:
                 self.cost += response.usage
                 self.context_length = response.usage.total_tokens
             agent_message: ChatCompletionMessage = response.choices[0].message
+        if self.keep_reasoning and hasattr(agent_message, "reasoning_content"):
+            reasoning = agent_message.reasoning_content
+        else:
+            reasoning = None
         self.chat_history.append(
             ChatMessage(
                 role=agent_message.role,
                 content=agent_message.content,
                 tool_calls=agent_message.tool_calls,
+                reasoning_content=reasoning,
             )
         )
         self.log_message(self.chat_history[-1])
@@ -210,21 +218,12 @@ class Agent:
         """
         Loop interface, return the message or the outcome filepath of the agent.
         """
-        pass
-
-    async def loop_silently(self, req: InputRequest, *args, **kwargs):
-        async for r in self.loop(req, *args, **kwargs):
-            pass
-        return r
 
     @abstractmethod
     async def finish(self, result: str):
         """This function defines when and how should an agent finish their tasks, combined with outcome check"""
-        pass
 
-    async def execute(
-        self, tool_calls: list[ToolCall], limit_len: bool = False
-    ) -> str | list[ChatMessage]:
+    async def execute(self, tool_calls: list[ToolCall]) -> str | list[ChatMessage]:
         coros = []
         observations: list[ChatMessage] = []
         used_tools = set()
@@ -241,30 +240,45 @@ class Agent:
                         arguments["agent_name"] = self.name
                         finish_id = t.id
                         outcome = arguments["outcome"]
+                    elif t.function.name in REASON_TOOLS:
+                        assert len(tool_calls) == 1, (
+                            "When using reasoning tools, only one tool call is allowed"
+                        )
+                    assert isinstance(arguments, dict), (
+                        f"Tool call arguments must be a dict or empty, while {arguments} is given"
+                    )
                     t.function.arguments = json.dumps(arguments, ensure_ascii=False)
-                    assert isinstance(arguments, dict)
-                except:
+                except AssertionError as e:
                     observations.append(
                         ChatMessage(
                             role=Role.TOOL,
-                            content=f"Tool call arguments must be a dict or empty, while {t.function.arguments} is given",
+                            content=str(e),
                             tool_call_id=t.id,
                         )
                     )
-                    warning(
-                        f"Tool call arguments must be a dict or empty, while {t.function.arguments} is given"
-                    )
+                    warning(f"Tool call `{t.function}` encountered error: {e}")
                     continue
             used_tools.add(t.function.name)
-            coros.append(self.agent_env.tool_execute(t, limit_len))
+            coros.append(self.agent_env.tool_execute(t))
 
         observations.extend(await asyncio.gather(*coros))
-        # ? gemini image must in user message
         for obs in observations:
-            if isinstance(obs.content, list) and any(
-                o["type"].startswith("image") for o in obs.content
-            ):
-                obs.role = Role.USER
+            if obs.has_image:
+                if "gemini" in self.llm.model.lower():
+                    obs.role = Role.USER
+                if "claude" in self.llm.model.lower():
+                    oai_b64 = obs.content[0]["image_url"]["url"]
+                    obs.content = [
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": oai_b64.split(";")[0].split(":")[1],
+                                "data": oai_b64.split(",")[1],
+                            },
+                        }
+                    ]
+
         self.chat_history.extend(observations)
 
         if finish_id is not None:
@@ -273,13 +287,30 @@ class Agent:
                     info(f"{self.name} Agent finished with result: {obs.text}")
                     return obs.text
 
+        if (
+            self.context_warning == 0
+            and self.context_length > self.context_window * 0.5
+        ):
+            self.context_warning += 1
+            observations[0].content.insert(0, HALF_NOTICE_MESSAGE)
+        elif (
+            self.context_warning == 1
+            and self.context_length > self.context_window * 0.8
+        ):
+            observations[0].content.insert(0, URGENT_NOTICE_MESSAGE)
+            self.context_warning = 2
+
         for obs in observations:
             self.log_message(obs)
+
+        if self.context_length > self.context_window:
+            raise RuntimeError(
+                f"{self.name} agent exceeded context window: {self.context_length}/{self.context_window}"
+            )
+
         return observations
 
     def log_message(self, msg: ChatMessage):
-        if len(msg.text) < 20 and msg.role == Role.ASSISTANT:
-            return
         if len(msg.text) < MAX_LOGGING_LENGTH:
             info(f"{self.name}: {msg.text}")
         else:

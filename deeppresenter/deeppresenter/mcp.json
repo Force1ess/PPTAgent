@@ -46,7 +46,7 @@
             "$WORKSPACE:$WORKSPACE",
             "-w",
             "$WORKSPACE",
-            "desktop-commander-deeppresenter"
+            "desktop-commander-deeppresenter:0.1.0"
         ]
     }
 ]

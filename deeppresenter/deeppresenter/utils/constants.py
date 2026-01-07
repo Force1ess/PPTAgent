@@ -14,12 +14,13 @@ LOGGING_LEVEL = int(os.getenv("DEEPPRESENTER_LOG_LEVEL", logging.WARNING))
 MAX_LOGGING_LENGTH = int(os.getenv("DEEPPRESENTER_MAX_LOGGING_LENGTH", 1024))
 
 # ============ Agent  ============
-RETRY_TIMES = int(os.getenv("RETRY_TIMES", 5))
-# count in chars, this is about the first 12 page of a dual-column paper
-TOOL_CUTOFF_LEN = int(os.getenv("TOOL_CUTOFF_LEN", 8000))
+RETRY_TIMES = int(os.getenv("RETRY_TIMES", 6))
+MAX_RETRY_INTERVAL = int(os.getenv("MAX_RETRY_INTERVAL", 60))
+# count in chars, this is about the first 4 page of a dual-column paper
+TOOL_CUTOFF_LEN = int(os.getenv("TOOL_CUTOFF_LEN", 4192))
 # count in tokens
 CONTEXT_LENGTH_LIMIT = int(os.getenv("CONTEXT_LENGTH_LIMIT", 64_000))
-MIN_IMAGE_SIZE = os.getenv("MIN_IMAGE_SIZE", None)
+CUTOFF_WARNING = "NOTE: Output truncated (showing {line} lines). Use `read_file` with `offset` parameter to continue reading from {resource_id}."
 AGENT_PROMPT = """
 <Environment>
 Current time: {time}
@@ -34,19 +35,19 @@ You can freely install any required tools, packages, or command-line utilities t
 
 <Task Guidelines>
 - Exploration Principle: A warning is issued at 10% remaining computation budget, Until then, explore thoroughly and give your best effort.
-- Max Length: {cutoff_len} per tool call. Truncated content is saved locally and accessible via `read_file` with offset.
+- Max Length: Tool Call Output exceeding {cutoff_len} characters will be truncated at the preceding line break. Full content is saved locally and accessible via `read_file` with `offset`.
 - Response Format: Every response must include reasoning content and a valid tool call.
 </Task Guidelines>
 """
 
 # ============ Environment ============
+PIXEL_MULTIPLE = int(os.getenv("PIXEL_MULTIPLE", 16))
 MCP_CONNECT_TIMEOUT = int(os.getenv("MCP_CONNECT_TIMEOUT", 120))
-MCP_CALL_TIMEOUT = int(os.getenv("MCP_CALL_TIMEOUT", 300))
+MCP_CALL_TIMEOUT = int(os.getenv("MCP_CALL_TIMEOUT", 600))
 WORKSPACE_BASE = Path(
     os.getenv("DEEPPRESENTER_WORKSPACE_BASE", user_cache_dir("deeppresenter"))
 )
 TOOL_CACHE = PACKAGE_DIR / ".tools.json"
-CUTOFF_WARNING = f"NOTE: Output truncated (showing first {TOOL_CUTOFF_LEN} characters). Use `read_file` with `offset` parameter to read more from {{resource_id}}."
 
 GLOBAL_ENV_LIST = [
     "HTTP_PROXY",

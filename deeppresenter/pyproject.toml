@@ -21,6 +21,7 @@ dynamic = ["version"]
 
 
 dependencies = [
+    "aiohttp>=3.9.0",
     "arxiv>=2.2.0",
     "colorlog>=6.9.0",
     "docker>=7.1.0",

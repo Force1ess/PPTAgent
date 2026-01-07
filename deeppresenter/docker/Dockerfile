@@ -11,8 +11,8 @@ WORKDIR /usr/src/app
 RUN apt-get update --allow-insecure-repositories && \
     apt-get install -y --fix-missing  --no-install-recommends --allow-unauthenticated ca-certificates && \
     update-ca-certificates && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends git bash
+    git \
+    bash
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -72,6 +72,22 @@ COPY improved-process-tools.ts src/tools/improved-process-tools.ts
 # Rebuild the package
 RUN npm run build
 
-RUN apt install -y --no-install-recommends imagemagick
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        fonts-dejavu \
+        fonts-noto \
+        fonts-noto-cjk \
+        fonts-noto-cjk-extra \
+        fonts-noto-color-emoji \
+        fonts-freefont-ttf \
+        fonts-urw-base35 \
+        fonts-roboto \
+        fonts-wqy-zenhei \
+        fonts-wqy-microhei \
+        fonts-arphic-ukai \
+        fonts-arphic-uming \
+        fonts-ipafont \
+        fonts-ipaexfont \
+        fonts-comic-neue \
+        imagemagick
 
 CMD ["node",  "/usr/src/app/dist/index.js", "--no-onboarding"]

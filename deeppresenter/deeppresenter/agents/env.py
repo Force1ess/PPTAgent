@@ -13,7 +13,7 @@ from openai.types.chat.chat_completion_message_tool_call import (
 )
 
 import docker
-from deeppresenter.utils import GLOBAL_CONFIG, ChatMessage
+from deeppresenter.utils.config import GLOBAL_CONFIG, DeepPresenterConfig
 from deeppresenter.utils.constants import (
     CUTOFF_WARNING,
     LOGGING_LEVEL,
@@ -29,41 +29,39 @@ from deeppresenter.utils.log import (
     warning,
 )
 from deeppresenter.utils.mcp_client import MCPClient
-from deeppresenter.utils.typings import MCPServer, Role
+from deeppresenter.utils.typings import ChatMessage, MCPServer, Role
 
 
 class AgentEnv:
     def __init__(
         self,
         workspace: Path,
-        hci_enable: bool = False,
-        config_file: str = GLOBAL_CONFIG.mcp_config_file,
+        config: DeepPresenterConfig = GLOBAL_CONFIG,
+        cutoff_len: int = TOOL_CUTOFF_LEN,
     ):
         if isinstance(workspace, str):
             workspace = Path(workspace)
         self.workspace = workspace.absolute()
-        self.hci_enable = hci_enable
-        with open(config_file, encoding="utf-8") as f:
+        self.cutoff_len = cutoff_len
+        with open(config.mcp_config_file, encoding="utf-8") as f:
             raw_conf = json.load(f)
             self.config: list[MCPServer] = [MCPServer(**s) for s in raw_conf]
         # Pass workspace-specific variables to client to avoid global env pollution
         self.client = MCPClient(
             WORKSPACE=str(self.workspace),
             WORKSPACE_ID=self.workspace.stem,
+            LLM_CONFIG_FILE=str(config.file_path),
         )
-        self.cutoff_len = TOOL_CUTOFF_LEN
         # caching overlong content
         self._tools_dict: dict[str, dict] = {}
         self._server_tools = defaultdict(list)
         self._tool_to_server = {}
-
         self.tool_history: list[tuple[ToolCall, ChatMessage]] = []
         self.tool_history_file = self.workspace / "history" / "tool_history.jsonl"
 
     async def tool_execute(
         self,
         tool_call: ToolCall,
-        limit_len: bool = False,
     ):
         try:
             server_id = self._tool_to_server[tool_call.function.name]
@@ -107,45 +105,54 @@ class AgentEnv:
             )
         if result.isError:
             warning(
-                f"Tool `{tool_call.function.name}` with params:`{arguments}` encountered error:\n {result.content}"
+                f"Tool `{tool_call.function.name}` with params:`{tool_call.function.arguments}` encountered error:\n {result.content}"
             )
 
-        is_error = False
+        if len(result.content) != 1 and any(
+            c.type not in ["image", "text"] for c in result.content
+        ):
+            raise ValueError("Only one text/image block is supported currently.")
         content = []
-        for block in result.content:
-            is_error = is_error or result.isError
-            if block.type == "text":
-                if limit_len and len(block.text) > self.cutoff_len:
-                    hash_id = uuid.uuid4().hex[:8]
+        block = result.content[0]
+        if block.type == "text":
+            if len(block.text) > self.cutoff_len:
+                truncated = block.text[: self.cutoff_len]
+                truncated = truncated[: truncated.rfind("\n")]
+
+                # checking if we are reading from local file
+                if tool_call.function.name == "read_file":
+                    local_file = arguments["path"]
+                else:
+                    hash_id = uuid.uuid4().hex[:4]
                     local_file = (
                         self.workspace / f"{tool_call.function.name}_{hash_id}.txt"
                     )
                     local_file.write_text(block.text)
-                    block.text = block.text[: self.cutoff_len] + CUTOFF_WARNING.format(
-                        resource_id=str(local_file)
-                    )
 
-                content.append(
-                    {
-                        "type": "text",
-                        "text": block.text,
-                    }
+                truncated += CUTOFF_WARNING.format(
+                    line=truncated.count("\n") + 1, resource_id=str(local_file)
                 )
-            elif block.type == "image":
-                content.append(
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": block.data},
-                    }
-                )
-            else:
-                raise ValueError(f"Unsupported block type: {block.type}")
+                block.text = truncated
+
+            content.append(
+                {
+                    "type": "text",
+                    "text": block.text,
+                }
+            )
+        elif block.type == "image":
+            content.append(
+                {
+                    "type": "image_url",
+                    "image_url": {"url": block.data},
+                }
+            )
         msg = ChatMessage(
             role=Role.TOOL,
             content=content,
             from_tool=tool_call.function,
             tool_call_id=tool_call.id,
-            is_error=is_error,
+            is_error=result.isError,
         )
         self.tool_history.append((tool_call, msg))
         return msg
@@ -154,8 +161,10 @@ class AgentEnv:
         try:
             client = docker.from_env()
             container = client.containers.get(self.workspace.stem)
-            warning(f"Found duplicate {self.workspace.stem}, killed.")
-            container.kill()
+            warning(
+                f"Found duplicated sandbox container id={self.workspace.stem}, killed."
+            )
+            container.remove(force=True)
         # happend if cannot find the container
         except NotFound:
             pass
@@ -163,7 +172,7 @@ class AgentEnv:
             error(f"Docker is not accessible: {e}.")
             sys.exit(1)
         except Exception as e:
-            error(f"Unexpected error when checking Docker containers: {e}.")
+            error(f"Unexpected error when launching docker containers: {e}.")
             sys.exit(1)
 
         with timer("Connecting MCP servers"):
@@ -200,7 +209,7 @@ class AgentEnv:
                         self._server_tools[name].append(tool_name)
                         self._tool_to_server[tool_name] = name
 
-        if LOGGING_LEVEL == logging.INFO:
+        if LOGGING_LEVEL <= logging.INFO:
             debug(
                 f"Found {len(self._tools_dict)} tools, writing to {TOOL_CACHE}\nTools: {', '.join(self._tools_dict.keys())}"
             )
@@ -251,8 +260,13 @@ if __name__ == "__main__":
             result = await tool_execute.tool_execute(
                 ToolCall(
                     function=Function(
-                        name="execute_command",
-                        arguments=json.dumps({"command": "pip install aiohttp"}),
+                        name="convert_to_markdown",
+                        arguments=json.dumps(
+                            {
+                                "file_path": "/Users/forcelss/Code/PPTea/data/arxiv/0706.0028.pdf",
+                                "output_folder": "/Users/forcelss/Code/PPTea/test_output",
+                            }
+                        ),
                     ),
                     id="test-tool-call-001",
                     type="function",

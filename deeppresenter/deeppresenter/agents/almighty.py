@@ -1,13 +1,14 @@
+import asyncio
+from pathlib import Path
+
 from deeppresenter.agents.agent import Agent
 from deeppresenter.utils.typings import InputRequest
 
 
-class Design(Agent):
-    async def loop(self, req: InputRequest, markdown_file: str):
+class Almighty(Agent):
+    async def loop(self, request: InputRequest):
         while True:
-            agent_message = await self.action(
-                markdown_file=markdown_file, prompt=req.webagent_prompt
-            )
+            agent_message = await self.action(prompt=request.deepresearch_prompt)
             yield agent_message
             outcome = await self.execute(self.chat_history[-1].tool_calls)
             if isinstance(outcome, list):
