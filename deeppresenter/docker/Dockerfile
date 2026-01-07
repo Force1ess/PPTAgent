@@ -61,6 +61,8 @@ RUN apt-get install -y --no-install-recommends \
         xdg-utils
 
 RUN npm install -g @mermaid-js/mermaid-cli
+RUN npm install -g pptxgenjs playwright sharp react react-dom react-icons
+RUN npx playwright install chromium
 
 # Copying config and tailored server files (moved to end, removed CACHEBUST)
 COPY config.json /root/.claude-server-commander/config.json
