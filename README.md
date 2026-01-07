@@ -71,8 +71,7 @@ https://github.com/user-attachments/assets/938889e8-d7d8-4f4f-b2a1-07ee3ef3991a
 - **Agent sandbox (Docker)**: Build the sandbox image using the provided [Dockerfile](deeppresenter/docker/Dockerfile):
 
   ```bash
-  cd deeppresenter/docker
-  docker build -t desktop-commander-deeppresenter .
+  bash deeppresenter/docker/build.sh
   ```
 
 - **MCP server**: Configure the MCP server according to [mcp.json](deeppresenter/deeppresenter/mcp.json).

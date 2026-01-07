@@ -67,6 +67,7 @@ RUN npx playwright install chromium
 # Copying config and tailored server files (moved to end, removed CACHEBUST)
 COPY config.json /root/.claude-server-commander/config.json
 COPY server.ts src/server.ts
+COPY improved-process-tools.ts src/tools/improved-process-tools.ts
 
 # Rebuild the package
 RUN npm run build

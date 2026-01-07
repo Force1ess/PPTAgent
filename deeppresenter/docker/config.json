@@ -12,7 +12,8 @@
         "usermod",
         "groupadd"
     ],
-    "fileWriteLineLimit": 1000,
+    "fileWriteLineLimit": 50000,
+    "fileReadLineLimit": 50000,
     "allowedDirectories": [
         "/"
     ],

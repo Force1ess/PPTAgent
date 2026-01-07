@@ -160,20 +160,20 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                 {
                     name: "read_file",
                     description: `
-                        Read the contents of a text file from the file system with optional offset and length parameters.
+                        Read contents of a text file with optional line range.
 
-                        Supports partial file reading with:
-                        - 'offset' (start line, default: 0)
-                          * Positive: Start from line N (0-based indexing)
-                          * Negative: Read last N lines from end (tail behavior)
-                        - 'length' (max lines to read, initially 1000)
-                          * Used with positive offsets for range reading
-                          * Ignored when offset is negative (reads all requested tail lines)
+                        Parameters:
+                        - 'offset': Starting line (default: 0, 0-indexed)
+                        * Positive N: Start from line N
+                        * Negative N: Start N lines from end (e.g., -20 = last 20 lines)
+                        - 'length': Max lines to read (default: all remaining lines)
 
                         Examples:
-                        - offset: 0, length: 10     → First 10 lines
-                        - offset: 100, length: 5    → Lines 100-104
-                        - offset: -20               → Last 20 lines`,
+                        - (no params)             → Read entire file
+                        - offset: 0, length: 10   → Lines 0-9 (first 10 lines)
+                        - offset: 100, length: 5  → Lines 100-104
+                        - offset: -20             → Last 20 lines
+                    `,
                     inputSchema: zodToJsonSchema(ReadFileArgsSchema),
                     annotations: {
                         title: "Read Text File",
