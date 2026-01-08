@@ -45,7 +45,7 @@ class AgentEnv:
         self.cutoff_len = cutoff_len
         with open(config.mcp_config_file, encoding="utf-8") as f:
             raw_conf = json.load(f)
-            self.config: list[MCPServer] = [MCPServer(**s) for s in raw_conf]
+            self.mcp_configs: list[MCPServer] = [MCPServer(**s) for s in raw_conf]
         # Pass workspace-specific variables to client to avoid global env pollution
         self.client = MCPClient(
             WORKSPACE=str(self.workspace),
@@ -179,7 +179,7 @@ class AgentEnv:
             connect_tasks = []
             server_configs = []
 
-            for server in self.config:
+            for server in self.mcp_configs:
                 name = server.name
                 connect_tasks.append(self.client.connect_server(name, server))
                 keep_tools = server.keep_tools

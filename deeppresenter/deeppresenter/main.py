@@ -4,7 +4,6 @@ from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Literal
 
-from deeppresenter.agents.almighty import Almighty
 from deeppresenter.agents.design import Design
 from deeppresenter.agents.env import AgentEnv
 from deeppresenter.agents.pptagent import PPTAgent

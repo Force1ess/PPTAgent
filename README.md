@@ -46,8 +46,8 @@ https://github.com/user-attachments/assets/938889e8-d7d8-4f4f-b2a1-07ee3ef3991a
 </div>
 
 ## 📅 News
-- [2025/12]: 🔥 PPTAgent V2/Major update released! Now featuring Deep Research Integration, Free-Form Visual Design, Autonomous Asset Creation, Text-to-Image Generation, and an Agent Environment with sandbox and 30+ tools.
-- [2025/09]: 🛠️ We support MCP server now, see [MCP Server](./DOC.md#mcp-server-) for details
+- [2025/12]: 🔥 Released V2 with major improvements - Deep Research Integration, Free-Form Visual Design, Autonomous Asset Creation, Text-to-Image Generation, and Agent Environment with sandbox & 20+ tools. Both freeform and template generation support PPTX export.
+- [2025/09]: 🛠️ MCP server support added - see [MCP Server](./DOC.md#mcp-server-) for configuration details
 - [2025/09]: 🚀 Released v2 with major improvements - see [release notes](https://github.com/icip-cas/PPTAgent/releases/tag/v0.2.0) for details
 - [2025/08]: 🎉 Paper accepted to **EMNLP 2025**!
 - [2025/05]: ✨ Released v1 with core functionality and 🌟 breakthrough: reached 1,000 stars on GitHub! - see [release notes](https://github.com/icip-cas/PPTAgent/releases/tag/v0.1.0) for details

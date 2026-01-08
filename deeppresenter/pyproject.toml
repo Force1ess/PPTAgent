@@ -27,6 +27,7 @@ dependencies = [
     "docker>=7.1.0",
     "fake-useragent>=2.2.0",
     "fastmcp>=2.10.0",
+    "fasttext>=0.9.3",
     "filelock>=3.0.0",
     "firecrawl-py>=4.10.2",
     "gradio>=5.47.2,<6.0",
