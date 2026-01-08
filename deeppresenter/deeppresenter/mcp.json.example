@@ -1,0 +1,45 @@
+[
+  {
+    "name": "deeppresenter",
+    "description": "DeepPresenter Tools",
+    "command": "uv",
+    "args": ["run", "deeppresenter/tools/server.py", "$WORKSPACE"],
+    "env": {
+      "MINERU_API_KEY": "your_key",
+      "TAVILY_API_KEY": "your_key",
+      "TAVILY_BACKUP": "your_key",
+      "LLM_CONFIG_FILE": "$LLM_CONFIG_FILE"
+    }
+  },
+  {
+    "name": "pptagent",
+    "description": "https://github.com/icip-cas/PPTAgent",
+    "command": "uv",
+    "args": ["run", "pptagent-mcp"],
+    "env": {
+      "PPTAGENT_MODEL": "glm-4.6",
+      "PPTAGENT_API_KEY": "your_key",
+      "PPTAGENT_API_BASE": "https://open.bigmodel.cn/api/paas/v4/"
+    }
+  },
+  {
+    "name": "desktop_commander",
+    "description": "https://github.com/wonderwhy-er/DesktopCommanderMCP",
+    "command": "docker",
+    "args": [
+      "run",
+      "--security-opt",
+      "seccomp=unconfined",
+      "--init",
+      "--name",
+      "$WORKSPACE_ID",
+      "-i",
+      "--rm",
+      "-v",
+      "$WORKSPACE:$WORKSPACE",
+      "-w",
+      "$WORKSPACE",
+      "desktop-commander-deeppresenter:0.1.0"
+    ]
+  }
+]

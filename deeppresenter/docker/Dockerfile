@@ -11,8 +11,7 @@ WORKDIR /usr/src/app
 RUN apt-get update --allow-insecure-repositories && \
     apt-get install -y --fix-missing  --no-install-recommends --allow-unauthenticated ca-certificates && \
     update-ca-certificates && \
-    git \
-    bash
+    apt-get install -y --no-install-recommends git bash
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -58,21 +57,7 @@ RUN apt-get install -y --no-install-recommends \
         libxcomposite1 \
         libxdamage1 \
         libxrandr2 \
-        xdg-utils
-
-RUN npm install -g @mermaid-js/mermaid-cli
-RUN npm install -g pptxgenjs playwright sharp react react-dom react-icons
-RUN npx playwright install chromium
-
-# Copying config and tailored server files (moved to end, removed CACHEBUST)
-COPY config.json /root/.claude-server-commander/config.json
-COPY server.ts src/server.ts
-COPY improved-process-tools.ts src/tools/improved-process-tools.ts
-
-# Rebuild the package
-RUN npm run build
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
+        xdg-utils \
         fonts-dejavu \
         fonts-noto \
         fonts-noto-cjk \
@@ -89,5 +74,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         fonts-ipaexfont \
         fonts-comic-neue \
         imagemagick
+
+RUN npm install -g @mermaid-js/mermaid-cli
+RUN npm install -g pptxgenjs playwright sharp react react-dom react-icons
+RUN npx playwright install chromium
+
+# Copying config and tailored server files (moved to end, removed CACHEBUST)
+COPY config.json /root/.claude-server-commander/config.json
+COPY server.ts src/server.ts
+COPY improved-process-tools.ts src/tools/improved-process-tools.ts
+
+# Rebuild the package
+RUN npm run build
 
 CMD ["node",  "/usr/src/app/dist/index.js", "--no-onboarding"]

@@ -62,9 +62,9 @@ https://github.com/user-attachments/assets/938889e8-d7d8-4f4f-b2a1-07ee3ef3991a
 
 ### 1. Prepare external services
 
-- **MinerU (Optional)**: Apply for an API key at https://mineru.net/apiManage/docs. Note that each key is valid for 14 days.
+- **MinerU**: Apply for an API key at https://mineru.net/apiManage/docs. Note that each key is valid for 14 days.
 - **Tavily**: Apply for an API key at https://www.tavily.com/.
-- **LLM**: Configure your model endpoint, API keys, and related parameters in [config.yaml](deeppresenter/deeppresenter/config.yaml).
+- **LLM**: Copy `deeppresenter/deeppresenter/config.yaml.example` to `deeppresenter/deeppresenter/config.yaml`, then set your model endpoint, API keys, and related parameters.
 
 ### 2. Set up agent environment & MCP
 
@@ -74,7 +74,7 @@ https://github.com/user-attachments/assets/938889e8-d7d8-4f4f-b2a1-07ee3ef3991a
   bash deeppresenter/docker/build.sh
   ```
 
-- **MCP server**: Configure the MCP server according to [mcp.json](deeppresenter/deeppresenter/mcp.json).
+- **MCP server**: Copy `deeppresenter/deeppresenter/mcp.json.example` to `deeppresenter/deeppresenter/mcp.json`, then configure the MCP server.
 - **Additional tools**:
 
   ```bash
