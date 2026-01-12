@@ -1,4 +1,3 @@
-import asyncio
 import base64
 import os
 import re
@@ -7,59 +6,18 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Literal
 
-import httpx
 from appcore import mcp
-from fake_useragent import UserAgent
+from deeppresenter.utils.critic import slide_oversight
 from mcp.types import ImageContent
 from mistune import html as markdown_to_html
-from PIL import Image
 from pptagent.model_utils import _get_lid_model
 from pptagent.utils import get_html_table_image, ppt_to_images
 
-from deeppresenter.utils.config import RETRY_TIMES, DeepPresenterConfig
-from deeppresenter.utils.critic import slide_oversight
+from deeppresenter.utils.config import DeepPresenterConfig
 from deeppresenter.utils.webview import convert_html_to_pptx
 
 LID_MODEL = _get_lid_model()
-FAKE_UA = UserAgent()
 LLM_CONFIG = DeepPresenterConfig.load_from_file(os.getenv("LLM_CONFIG_FILE"))
-
-
-@mcp.tool()
-async def download_file(url: str, output_path: str) -> str:
-    """
-    Download a file from a URL and save it to a local path.
-    """
-    # Create directory if it doesn't exist
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-    for retry in range(RETRY_TIMES):
-        try:
-            await asyncio.sleep(retry)
-            async with httpx.AsyncClient(
-                headers={"User-Agent": FAKE_UA.random},
-                follow_redirects=True,
-                verify=False,
-            ) as client:
-                async with client.stream("GET", url) as response:
-                    response.raise_for_status()
-                    with open(output_path, "wb") as f:
-                        async for chunk in response.aiter_bytes(8192):
-                            f.write(chunk)
-                    break
-        except:
-            pass
-    else:
-        return f"Failed to download file from {url}"
-
-    result = f"File downloaded to {output_path}"
-    if output_path.lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp")):
-        try:
-            with Image.open(output_path) as img:
-                width, height = img.size
-                result += f" (resolution: {width}x{height})"
-        except Exception as e:
-            return f"The provided URL does not point to a valid image file: {e}"
-    return result
 
 
 @mcp.tool()
@@ -122,16 +80,6 @@ async def inspect_slide(
             f"data:image/jpeg;base64,{base64.b64encode(image_data).decode('utf-8')}"
         )
 
-        if (
-            LLM_CONFIG.critic_agent is not None
-            and not LLM_CONFIG.design_agent.is_multimodal
-        ):
-            critic = await slide_oversight(
-                LLM_CONFIG.critic_agent,
-                base64_data,
-                html_path.read_text(encoding="utf-8"),
-            )
-            return critic.content
         return ImageContent(
             type="image",
             data=base64_data,

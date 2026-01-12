@@ -288,6 +288,9 @@ class LLM(BaseModel):
 class DeepPresenterConfig(BaseModel):
     """DeepPresenter Global Configuration"""
 
+    offline_mode: bool = Field(
+        default=False, description="Enable offline mode, disable all network requests"
+    )
     file_path: str = Field(description="Configuration file path")
     mcp_config_file: str = Field(
         description="MCP configuration file", default=PACKAGE_DIR / "mcp.json"
@@ -296,15 +299,11 @@ class DeepPresenterConfig(BaseModel):
     design_agent: LLM = Field(description="Design agent model configuration")
     long_context_model: LLM = Field(description="Long context model configuration")
     vision_model: LLM = Field(description="Vision model configuration")
-    t2i_model: LLM = Field(description="Text-to-image model configuration")
-    critic_agent: LLM | None = Field(
-        default=None, description="Critic agent model configuration"
+    t2i_model: LLM | None = Field(
+        default=None, description="Text-to-image model configuration"
     )
 
     def model_post_init(self, context):
-        assert self.critic_agent is None or self.critic_agent.is_multimodal, (
-            "Critic agent must be a multimodal model, set `is_multimodal` to True if necessary"
-        )
         return super().model_post_init(context)
 
     @classmethod

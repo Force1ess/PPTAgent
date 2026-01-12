@@ -47,11 +47,14 @@ class AgentEnv:
             raw_conf = json.load(f)
             self.mcp_configs: list[MCPServer] = [MCPServer(**s) for s in raw_conf]
         # Pass workspace-specific variables to client to avoid global env pollution
-        self.client = MCPClient(
-            WORKSPACE=str(self.workspace),
-            WORKSPACE_ID=self.workspace.stem,
-            LLM_CONFIG_FILE=str(config.file_path),
-        )
+        envs = {
+            "WORKSPACE": str(self.workspace),
+            "WORKSPACE_ID": self.workspace.stem,
+            "LLM_CONFIG_FILE": str(config.file_path),
+        }
+        if config.offline_mode:
+            envs["OFFLINE_MODE"] = "1"
+        self.client = MCPClient(envs=envs)
         # caching overlong content
         self._tools_dict: dict[str, dict] = {}
         self._server_tools = defaultdict(list)

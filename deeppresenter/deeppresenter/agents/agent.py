@@ -27,6 +27,7 @@ from deeppresenter.utils.constants import (
     AGENT_PROMPT,
     CONTEXT_LENGTH_LIMIT,
     MAX_LOGGING_LENGTH,
+    OFFLINE_PROMPT,
     PACKAGE_DIR,
 )
 from deeppresenter.utils.log import (
@@ -119,9 +120,7 @@ class Agent:
                 r"<REFLECTION>.*?</REFLECTION>", "", self.system, flags=re.DOTALL
             )
             self.tools = [
-                t
-                for t in self.tools
-                if not t["function"]["name"].startswith(("think", "inspect"))
+                t for t in self.tools if not t["function"]["name"].startswith("inspect")
             ]
 
         # ? for those agents equipped with sandbox only
@@ -131,6 +130,9 @@ class Agent:
                 cutoff_len=self.agent_env.cutoff_len,
                 time=datetime.now().strftime("%Y-%m-%d"),
             )
+
+        if config.offline_mode:
+            self.system += OFFLINE_PROMPT
 
         self.chat_history: list[ChatMessage] = [
             ChatMessage(role=Role.SYSTEM, content=self.system)

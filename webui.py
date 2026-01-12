@@ -2,6 +2,7 @@ import sys
 import time
 import uuid
 from datetime import datetime
+from pathlib import Path
 
 import gradio as gr
 from deeppresenter.main import AgentLoop
@@ -209,7 +210,7 @@ class ChatDemo:
                         convert_type=selected_convert_type,
                     )
                 ):
-                    if isinstance(yield_msg, str):
+                    if isinstance(yield_msg, (str, Path)):
                         file_content = "📄 幻灯片生成完成，点击下方按钮下载文件"
                         aggregated_parts.append(file_content)
                         aggregated_text = "\n\n".join(aggregated_parts).strip()
@@ -218,7 +219,7 @@ class ChatDemo:
                             history,
                             "",
                             gr.update(value=None),
-                            gr.update(value=yield_msg),
+                            gr.update(value=str(yield_msg)),
                         )
 
                     elif isinstance(yield_msg, ChatMessage):

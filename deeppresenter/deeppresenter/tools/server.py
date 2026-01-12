@@ -22,16 +22,18 @@ if __name__ == "__main__":
     import os
 
     import any2markdown  # noqa: F401
-    import fetch  # noqa: F401
-    import research  # noqa: F401
     import richfile  # noqa: F401
     import task  # noqa: F401
     import tool_agents  # noqa: F401
 
-    if os.getenv("TAVILY_API_KEY", None):
-        import search  # noqa: F401
-    else:
-        warning("No search tool is configured.")
+    if not os.getenv("OFFLINE_MODE", False):
+        import fetch  # noqa: F401
+        import research  # noqa: F401
+
+        if os.getenv("TAVILY_API_KEY", False):
+            import search  # noqa: F401
+        else:
+            warning("No search tool is configured.")
 
     info(f"Starting MCP server with workspace: {work_dir}")
 

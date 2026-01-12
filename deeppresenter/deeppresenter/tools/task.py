@@ -1,14 +1,53 @@
 import csv
+import math
 import re
+import shutil
 from pathlib import Path
 from typing import Literal
 
 from appcore import mcp
 from filelock import FileLock
+from PIL import Image
 from pptx import Presentation
 from pydantic import BaseModel
 
 from deeppresenter.utils.log import info, warning
+
+
+def _rewrite_image_link(match: re.Match[str], md_dir: Path) -> str:
+    alt_text = match.group(1)
+    target = match.group(2).strip()
+    if not target:
+        return match.group(0)
+    parts = re.match(r"([^\s]+)(.*)", target)
+    if not parts:
+        return match.group(0)
+    local_path = parts.group(1).strip("\"'")
+    rest = parts.group(2)
+    p = Path(local_path)
+    if not p.is_absolute() and (md_dir / local_path).exists():
+        p = md_dir / local_path
+    if not p.exists():
+        return match.group(0)
+
+    updated_alt = alt_text
+    try:
+        with Image.open(p) as img:
+            width, height = img.size
+        if width > 0 and height > 0 and not re.search(r"\b\d+:\d+\b", updated_alt):
+            factor = math.gcd(width, height)
+            ratio = f"{width // factor}:{height // factor}"
+            updated_alt = f"{updated_alt}, {ratio}" if updated_alt else ratio
+    except OSError:
+        pass
+
+    resolved = p.resolve()
+    base_dir = md_dir.resolve()
+    if resolved.is_relative_to(base_dir):
+        new_path = resolved.relative_to(base_dir).as_posix()
+    else:
+        new_path = resolved.as_posix()
+    return f"![{updated_alt}]({new_path}{rest})"
 
 
 class Todo(BaseModel):
@@ -144,15 +183,15 @@ def finalize(outcome: str, agent_name: str = "") -> str:
             return "Outcome file should be a markdown file"
         with open(path, encoding="utf-8") as f:
             content = f.read()
-        for match in re.findall(r"!\[.*?\]\((.*?)\)", content):
-            local_path = match.split()[0].strip("\"'")
-            p = Path(local_path)
-            if (md_dir / local_path).exists():
-                p = md_dir / local_path
-            if p.exists():
-                content = content.replace(local_path, str(p.resolve()))
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(content)
+
+        content = re.sub(
+            r"!\[(.*?)\]\((.*?)\)",
+            lambda match: _rewrite_image_link(match, md_dir),
+            content,
+        )
+        shutil.copyfile(path, path.with_suffix(".bak.md"))
+        path.write_text(content, encoding="utf-8")
+
     elif agent_name == "PPTAgent":
         if not (path.is_file() and path.suffix == ".pptx"):
             return "Outcome file should be a pptx file"

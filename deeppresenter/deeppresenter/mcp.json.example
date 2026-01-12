@@ -5,9 +5,9 @@
     "command": "uv",
     "args": ["run", "deeppresenter/tools/server.py", "$WORKSPACE"],
     "env": {
-      "MINERU_API_KEY": "your_key",
+      "MINERU_API_URL": "your_deployed_mineru_url_for_offline_mode",
+      "MINERU_API_KEY": "your_mineru_api_key_for_online_mode",
       "TAVILY_API_KEY": "your_key",
-      "TAVILY_BACKUP": "your_key",
       "LLM_CONFIG_FILE": "$LLM_CONFIG_FILE"
     }
   },

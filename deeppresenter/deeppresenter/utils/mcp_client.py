@@ -1,6 +1,7 @@
 import asyncio
 import copy
 from contextlib import AsyncExitStack
+from typing import Any
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.sse import sse_client
@@ -14,7 +15,7 @@ logger.setLevel("WARNING")
 
 
 class MCPClient:
-    def __init__(self, **envs):
+    def __init__(self, envs: dict[str, Any]):
         # Initialize session and client objects
         self.sessions: dict[str, ClientSession] = {}
         # for avoid error

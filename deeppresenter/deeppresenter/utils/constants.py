@@ -40,6 +40,14 @@ You can freely install any required tools, packages, or command-line utilities t
 </Task Guidelines>
 """
 
+OFFLINE_PROMPT = """
+<Network Tips>
+- You are currently in offline mode without internet access.
+- You can only use pre-installed tools and packages in the environment.
+- Tool calling patterns mentioned earlier may no longer apply. Focus on the provided tools and adjust your plan accordingly.
+</Network Tips>
+"""
+
 # ============ Environment ============
 PIXEL_MULTIPLE = int(os.getenv("PIXEL_MULTIPLE", 16))
 MCP_CONNECT_TIMEOUT = int(os.getenv("MCP_CONNECT_TIMEOUT", 120))

@@ -84,6 +84,13 @@ COPY config.json /root/.claude-server-commander/config.json
 COPY server.ts src/server.ts
 COPY improved-process-tools.ts src/tools/improved-process-tools.ts
 
+# Ensure fontconfig picks up CJK fonts and set a sane default for matplotlib.
+RUN fc-cache -f && \
+    printf '%s\n' \
+      'font.family: sans-serif' \
+      'font.sans-serif: Noto Sans CJK SC, Noto Sans CJK, DejaVu Sans' \
+      > /etc/matplotlibrc
+
 # Rebuild the package
 RUN npm run build
 

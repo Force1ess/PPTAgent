@@ -1,15 +1,21 @@
 """Web content fetching tool"""
 
+import asyncio
 import re
+from pathlib import Path
 
 import httpx
 import markdownify
 from appcore import mcp
+from fake_useragent import UserAgent
+from PIL import Image
 from playwright.async_api import TimeoutError
 from trafilatura import extract
 
-from deeppresenter.utils.constants import MCP_CALL_TIMEOUT
+from deeppresenter.utils.constants import MCP_CALL_TIMEOUT, RETRY_TIMES
 from deeppresenter.utils.webview import PlaywrightConverter
+
+FAKE_UA = UserAgent()
 
 
 @mcp.tool()
@@ -70,12 +76,38 @@ async def fetch_url(url: str, body_only: bool = True) -> str:
     return markdown
 
 
-if __name__ == "__main__":
-    import asyncio
+@mcp.tool()
+async def download_file(url: str, output_path: str) -> str:
+    """
+    Download a file from a URL and save it to a local path.
+    """
+    # Create directory if it doesn't exist
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    for retry in range(RETRY_TIMES):
+        try:
+            await asyncio.sleep(retry)
+            async with httpx.AsyncClient(
+                headers={"User-Agent": FAKE_UA.random},
+                follow_redirects=True,
+                verify=False,
+            ) as client:
+                async with client.stream("GET", url) as response:
+                    response.raise_for_status()
+                    with open(output_path, "wb") as f:
+                        async for chunk in response.aiter_bytes(8192):
+                            f.write(chunk)
+                    break
+        except:
+            pass
+    else:
+        return f"Failed to download file from {url}"
 
-    async def main():
-        url = "https://www.baidu.com"
-        content = await fetch_url(url, body_only=False)
-        print(content)
-
-    asyncio.run(main())
+    result = f"File downloaded to {output_path}"
+    if output_path.lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp")):
+        try:
+            with Image.open(output_path) as img:
+                width, height = img.size
+                result += f" (resolution: {width}x{height})"
+        except Exception as e:
+            return f"The provided URL does not point to a valid image file: {e}"
+    return result

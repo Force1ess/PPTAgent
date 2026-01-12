@@ -29,9 +29,6 @@ class AgentLoop:
             session_id = str(uuid.uuid4())[:8]
         self.workspace = workspace or WORKSPACE_BASE / session_id
         self.intermediate_output = {}
-        assert config.design_agent.is_multimodal or config.critic_agent is not None, (
-            "Reflection requires a multimodal model or a separate critic agent"
-        )
         set_logger(
             f"deeppresenter-loop-{self.workspace.stem}",
             self.workspace / "history" / "deeppresenter-loop.log",
@@ -56,6 +53,9 @@ class AgentLoop:
         Yields:
             ChatMessage or str: Messages or final output path.
         """
+        assert self.config.design_agent.is_multimodal or not allow_reflection, (
+            "Reflective design requires a multimodal LLM in the design agent."
+        )
         if check_llms:
             self.config.validate_llms()
         with open(self.workspace / ".input_request.json", "w") as f:

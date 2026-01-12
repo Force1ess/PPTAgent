@@ -46,8 +46,9 @@ https://github.com/user-attachments/assets/938889e8-d7d8-4f4f-b2a1-07ee3ef3991a
 </div>
 
 ## 📅 News
-- [2025/12]: 🔥 Released V2 with major improvements - Deep Research Integration, Free-Form Visual Design, Autonomous Asset Creation, Text-to-Image Generation, and Agent Environment with sandbox & 20+ tools. Both freeform and template generation support PPTX export.
-- [2025/09]: 🛠️ MCP server support added - see [MCP Server](./DOC.md#mcp-server-) for configuration details
+- [2026/01]: We support freeform and template generation support PPTX export, offline mode now! .
+- [2025/12]: 🔥 Released V2 with major improvements - Deep Research Integration, Free-Form Visual Design, Autonomous Asset Creation, Text-to-Image Generation, and Agent Environment with sandbox & 20+ tools.
+- [2025/09]: 🛠️ MCP server support added - see [MCP Server](PPTAgent/DOC.md#mcp-server-) for configuration details
 - [2025/09]: 🚀 Released v2 with major improvements - see [release notes](https://github.com/icip-cas/PPTAgent/releases/tag/v0.2.0) for details
 - [2025/08]: 🎉 Paper accepted to **EMNLP 2025**!
 - [2025/05]: ✨ Released v1 with core functionality and 🌟 breakthrough: reached 1,000 stars on GitHub! - see [release notes](https://github.com/icip-cas/PPTAgent/releases/tag/v0.1.0) for details
@@ -58,21 +59,23 @@ https://github.com/user-attachments/assets/938889e8-d7d8-4f4f-b2a1-07ee3ef3991a
 > [!IMPORTANT]
 > 1. All these API keys, configurations, and services are **required**.
 > 2. Agent Backbone Recommendation: Use Claude for the Research Agent and Gemini for the Design Agent. GLM-4.7 is also a good choice in open-source models.
-> 3. We do not support offline serving for now.
+> 3. Offline mode is supported with limited capabilities (see Offline Setup below).
 
-### 1. Prepare external services
 
-- **MinerU**: Apply for an API key at https://mineru.net/apiManage/docs. Note that each key is valid for 14 days.
-- **Tavily**: Apply for an API key at https://www.tavily.com/.
-- **LLM**: Copy `deeppresenter/deeppresenter/config.yaml.example` to `deeppresenter/deeppresenter/config.yaml`, then set your model endpoint, API keys, and related parameters.
-
-### 2. Set up agent environment & MCP
+### 1. Set up agent environment & MCP
 
 - **Agent sandbox (Docker)**: Build the sandbox image using the provided [Dockerfile](deeppresenter/docker/Dockerfile):
 
   ```bash
   bash deeppresenter/docker/build.sh
   ```
+### 2. Prepare external services
+
+##### Online Setup:
+
+- **MinerU**: Apply for an API key at [mineru.net](https://mineru.net/apiManage/docs). Note that each key is valid for 14 days.
+- **Tavily (optional)**: Apply for an API key at [tavily.com](https://www.tavily.com/).
+- **LLM**: Copy `deeppresenter/deeppresenter/config.yaml.example` to `deeppresenter/deeppresenter/config.yaml`, then set your model endpoint, API keys, and related parameters.
 
 - **MCP server**: Copy `deeppresenter/deeppresenter/mcp.json.example` to `deeppresenter/deeppresenter/mcp.json`, then configure the MCP server.
 - **Additional tools**:
@@ -84,6 +87,12 @@ https://github.com/user-attachments/assets/938889e8-d7d8-4f4f-b2a1-07ee3ef3991a
   npm install
   npx playwright install chromium
   ```
+
+##### Offline Setup:
+
+- **MinerU**: Deploy the MinerU server by following the instructions at [MinerU docker guide](https://opendatalab.github.io/MinerU/quick_start/docker_deployment/#start-services-directly-with-docker-compose)
+- **Config switch**: Set `offline_mode: true` in [`config.yaml`](deeppresenter/deeppresenter/config.yaml) to avoid loading network-dependent tools (e.g., `research`, `fetch`, `search`).
+- **MinerU endpoint**: Set `MINERU_API_URL` in [`mcp.json`](deeppresenter/deeppresenter/mcp.json) to your local MinerU service URL
 
 ### 3. Install Python dependencies
 

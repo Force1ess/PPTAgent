@@ -9,7 +9,7 @@ from markitdown import MarkItDown
 from PIL import Image
 
 from deeppresenter.utils.log import warning
-from deeppresenter.utils.mineru_api import parse_pdf
+from deeppresenter.utils.mineru_api import parse_pdf_offline, parse_pdf_online
 
 IMAGE_EXTENSIONS = [
     "bmp",
@@ -22,7 +22,8 @@ IMAGE_EXTENSIONS = [
     "tiff",
     "webp",
 ]
-MINERU_API_KEY = os.getenv("MINERU_API_KEY", "")
+MINERU_API_URL = os.getenv("MINERU_API_URL", None)
+MINERU_API_KEY = os.getenv("MINERU_API_KEY", None)
 
 
 @mcp.tool()
@@ -48,10 +49,11 @@ async def convert_to_markdown(file_path: str, output_folder: str) -> dict:
 
     markdown_file = output_path / f"{Path(file_path).stem}.md"
 
-    if file_path.lower().endswith(".pdf") and MINERU_API_KEY:
-        await parse_pdf(
-            file_path, str(output_path), MINERU_API_KEY, model_version="vlm"
-        )
+    if file_path.lower().endswith(".pdf") and (MINERU_API_KEY or MINERU_API_URL):
+        if MINERU_API_KEY:
+            await parse_pdf_online(file_path, str(output_path), MINERU_API_KEY)
+        elif MINERU_API_URL:
+            await parse_pdf_offline(file_path, str(output_path), MINERU_API_URL)
         for f in output_path.glob("*"):
             if f.name.lower().endswith(".md"):
                 os.rename(f, str(markdown_file))
@@ -116,14 +118,3 @@ def parse_base64_images(markdown: str, image_dir: Path) -> str:
         markdown = markdown.replace(data_uri, str(image_path))
 
     return markdown
-
-
-if __name__ == "__main__":
-    import asyncio
-
-    asyncio.run(
-        convert_to_markdown(
-            "file:///Users/forcelss/Code/PPTea/test.pdf",
-            "workspace/micar/小米造车毛利率已超特斯拉.md",
-        )
-    )

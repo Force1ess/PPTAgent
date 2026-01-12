@@ -14,7 +14,7 @@ system:
        - 使用`---`进行分页分隔
        - 文稿应充分涵盖主要叙述内容与关键数据、结论
        - 图片需下载到本地并通过相对路径引用，禁止外链
-       - 每张图片需含有 caption（标明类型、用途及说明）
+       - 每张图片在`alt`中标明简短的类型用途及说明
 
     4. 任务完成后，调用`finalize`并使用文稿路径作为参数
     </任务说明>
@@ -60,7 +60,7 @@ system:
        - Use `---` for page separation
        - The manuscript should fully cover main narrative content and key data/conclusions
        - Images must be downloaded locally and referenced via relative paths; external links are prohibited
-       - Each image must include a caption (specifying type, purpose, and description)
+       - Each image should have a brief type and description indicated in the `alt` text
 
     4. Upon completion, call `finalize` with the manuscript path as the parameter
     </Task Instructions>
