@@ -10,9 +10,9 @@ from deeppresenter.agents.pptagent import PPTAgent
 from deeppresenter.agents.research import Research
 from deeppresenter.utils.config import GLOBAL_CONFIG, DeepPresenterConfig
 from deeppresenter.utils.constants import WORKSPACE_BASE
-from deeppresenter.utils.log import debug, error, info, set_logger, timer
+from deeppresenter.utils.log import debug, error, info, set_logger, timer, warning
 from deeppresenter.utils.typings import ChatMessage, ConvertType, InputRequest, Role
-from deeppresenter.utils.webview import convert_html_to_pptx
+from deeppresenter.utils.webview import PlaywrightConverter, convert_html_to_pptx
 
 
 class AgentLoop:
@@ -64,6 +64,8 @@ class AgentLoop:
             self.agent_env = agent_env
             request.copy_to_workspace(self.workspace)
             hello_message = f"DeepPresenter running in {self.workspace}, with {len(request.attachments)} attachments, prompt={request.instruction}"
+            if self.config.offline_mode:
+                hello_message += " [Offline Mode]"
             info(hello_message)
             yield ChatMessage(role=Role.SYSTEM, content=hello_message)
             self.research_agent = Research(
@@ -144,12 +146,25 @@ class AgentLoop:
                     self.designagent.save_history()
                     self.save_results()
                 pptx_path = self.workspace / f"{md_file.stem}.pptx"
-                convert_html_to_pptx(
-                    slide_html_dir,
-                    pptx_path,
-                    aspect_ratio=request.aspect_ratio,
-                )
-                self.intermediate_output["pptx"] = pptx_path
+                try:
+                    # ? this feature is in experimental stage
+                    convert_html_to_pptx(
+                        slide_html_dir,
+                        pptx_path,
+                        aspect_ratio=request.aspect_ratio,
+                    )
+                except Exception as e:
+                    warning(
+                        f"html2pptx conversion failed, falling back to pdf conversion\n{e}"
+                    )
+                    pptx_path = pptx_path.with_suffix(".pdf")
+                    async with PlaywrightConverter() as pc:
+                        pc.convert_to_pdf(
+                            slide_html_dir,
+                            pptx_path,
+                            aspect_ratio=request.aspect_ratio,
+                        )
+
                 self.intermediate_output["final"] = str(pptx_path)
                 msg = pptx_path
             self.save_results()

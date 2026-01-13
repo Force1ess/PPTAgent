@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Literal
 
 from appcore import mcp
-from deeppresenter.utils.critic import slide_oversight
 from mcp.types import ImageContent
 from mistune import html as markdown_to_html
 from pptagent.model_utils import _get_lid_model
