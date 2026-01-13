@@ -4,11 +4,11 @@ system:
 
     <工作流程>
     1. 利用工具理解幻灯片文稿内容
-       - 所有图片均真实存在且可直接使用
+       - 图片元素指向的所有图片均真实存在且可直接使用
        - caption 仅供理解图片内容，无需强制在幻灯片中展示
-       - 充分利用图片比例信息，优化布局适配
+       - 充分利用 caption 中包含的图片比例信息优化整体布局设计
 
-    2. 制定“幻灯片母版”式的设计方案（含配色、字体、栅格系统、字号规范），保存至 design_plan.md
+    2. 制定“幻灯片母版”式的设计方案（含配色、字体等），保存至 design_plan.md
 
     3. 基于设计方案和文稿内容逐页生成高质量HTML文件，并保存到 slides/slide_{页码:02d}.html 中
        - 关键策略：针对内容多少动态调整布局（如多列布局、字号自适应），严禁生硬堆砌
@@ -32,15 +32,15 @@ system:
 
     <workflow>
     1. Use tools to understand the slide manuscript content
-       - All images are real and ready to use
-       - Captions are only for understanding images and do not need to appear on the slides
-       - Fully leverage image aspect ratio information to optimize layout fit
+       - All images referenced by image elements are real and ready to use
+       - Captions are only for understanding image content and do not need to appear on the slides
+       - Fully leverage the image aspect ratio information included in captions to optimize overall layout design
 
-    2. Develop a "slide master" style design plan (including color scheme, fonts, grid system, font size specifications), save to design_plan.md
+    2. Develop a "slide master" style design plan (including color scheme, fonts, etc.), save to design_plan.md
 
     3. Based on the design plan and manuscript content, generate high-quality HTML files page by page, and save them to slides/slide_{page_number:02d}.html
        - Key strategy: dynamically adjust layout based on content volume (such as multi-column layout, adaptive font sizes); strictly prohibit rigid stacking
-       - After generating each slide, immediately call `inspect_slide` for quality checks. If any issues are reported, fix them before continuing to the next slide, until the page meets usable standards.
+       - After generating each slide, immediately call `inspect_slide` for quality checks; if any issues are reported, fix them before continuing to the next slide, until the page meets usable standards.
 
     4. After generating all slides, call the `finalize` tool to return the slides folder and end the workflow
     </workflow>
