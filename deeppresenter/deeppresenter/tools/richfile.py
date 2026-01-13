@@ -13,6 +13,7 @@ from pptagent.model_utils import _get_lid_model
 from pptagent.utils import get_html_table_image, ppt_to_images
 
 from deeppresenter.utils.config import DeepPresenterConfig
+from deeppresenter.utils.critic import slide_oversight
 from deeppresenter.utils.webview import convert_html_to_pptx
 
 LID_MODEL = _get_lid_model()
@@ -79,11 +80,21 @@ async def inspect_slide(
             f"data:image/jpeg;base64,{base64.b64encode(image_data).decode('utf-8')}"
         )
 
-        return ImageContent(
-            type="image",
-            data=base64_data,
-            mimeType="image/jpeg",
-        )
+        if LLM_CONFIG.design_agent.is_multimodal:
+            return ImageContent(
+                type="image",
+                data=base64_data,
+                mimeType="image/jpeg",
+            )
+        elif LLM_CONFIG.critic_agent is not None:
+            critic = await slide_oversight(
+                LLM_CONFIG.critic_agent,
+                base64_data,
+                html_path.read_text(encoding="utf-8"),
+            )
+            return critic.content
+        else:
+            return "This slide looks good with no apparent quality issues."
     except Exception as e:
         return e
 

@@ -53,9 +53,10 @@ class AgentLoop:
         Yields:
             ChatMessage or str: Messages or final output path.
         """
-        assert self.config.design_agent.is_multimodal or not allow_reflection, (
-            "Reflective design requires a multimodal LLM in the design agent."
-        )
+        if not self.config.design_agent.is_multimodal and allow_reflection:
+            warning(
+                "Reflective design requires a multimodal LLM in the design agent, reflection will only enable on Research Agent."
+            )
         if check_llms:
             self.config.validate_llms()
         with open(self.workspace / ".input_request.json", "w") as f:

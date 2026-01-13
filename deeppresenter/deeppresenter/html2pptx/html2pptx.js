@@ -178,6 +178,40 @@ async function rasterizeGradients(page, slideData, bodyDimensions, tmpDir) {
     return filePath;
   };
 
+  const renderImage = async (src, style, widthPx, heightPx, leftPx = 0, topPx = 0) => {
+    const id = makeId();
+    await page.evaluate(({ id, src, widthPx, heightPx, leftPx, topPx, style }) => {
+      const img = document.createElement('img');
+      img.id = id;
+      img.src = src;
+      img.style.position = 'fixed';
+      img.style.left = `${leftPx}px`;
+      img.style.top = `${topPx}px`;
+      img.style.width = `${widthPx}px`;
+      img.style.height = `${heightPx}px`;
+      img.style.objectFit = style.objectFit || 'fill';
+      img.style.objectPosition = style.objectPosition || '50% 50%';
+      if (style.borderRadius) img.style.borderRadius = style.borderRadius;
+      img.style.pointerEvents = 'none';
+      img.style.zIndex = '2147483647';
+      document.body.appendChild(img);
+    }, { id, src, widthPx, heightPx, leftPx, topPx, style });
+
+    await page.waitForFunction((id) => {
+      const el = document.getElementById(id);
+      return el && el.complete;
+    }, id);
+
+    const handle = await page.$(`#${id}`);
+    const filePath = makePath();
+    await handle.screenshot({ path: filePath, omitBackground: true });
+    await page.evaluate((id) => {
+      const el = document.getElementById(id);
+      if (el) el.remove();
+    }, id);
+    return filePath;
+  };
+
   if (slideData.background && slideData.background.type === 'css') {
     const filePath = await renderBackground(
       slideData.background.style || {},
@@ -210,6 +244,20 @@ async function rasterizeGradients(page, slideData, bodyDimensions, tmpDir) {
       const filePath = await renderBackground(el.style || {}, widthPx, heightPx, leftPx, topPx);
       el.type = 'image';
       el.src = filePath;
+      delete el.style;
+    } else if (el.type === 'image' && el.style) {
+      const objectFit = el.style.objectFit || 'fill';
+      const objectPosition = el.style.objectPosition || '50% 50%';
+      const borderRadius = el.style.borderRadius;
+      const shouldRender = objectFit !== 'fill' || objectPosition !== '50% 50%' || borderRadius;
+      if (shouldRender) {
+        const widthPx = Math.round(el.position.w * PX_PER_IN);
+        const heightPx = Math.round(el.position.h * PX_PER_IN);
+        const leftPx = Math.round(el.position.x * PX_PER_IN);
+        const topPx = Math.round(el.position.y * PX_PER_IN);
+        const filePath = await renderImage(el.src, el.style, widthPx, heightPx, leftPx, topPx);
+        el.src = filePath;
+      }
       delete el.style;
     } else if (el.type === 'gradient') {
       const widthPx = Math.round(el.position.w * PX_PER_IN);
@@ -521,7 +569,22 @@ async function extractSlideData(page) {
     };
 
     // Parse inline formatting tags (<b>, <i>, <u>, <strong>, <em>, <span>) into text runs
-    const parseInlineFormatting = (element, baseOptions = {}, runs = [], baseTextTransform = (x) => x) => {
+    const parseInlineFormatting = (
+      element,
+      baseOptions = {},
+      runs = [],
+      baseTextTransform = (x) => x,
+      allowBlock = false
+    ) => {
+      const hasFollowingText = (node) => {
+        let next = node.nextSibling;
+        while (next) {
+          if (next.nodeType === Node.TEXT_NODE && next.textContent.trim()) return true;
+          if (next.nodeType === Node.ELEMENT_NODE && next.textContent.trim()) return true;
+          next = next.nextSibling;
+        }
+        return false;
+      };
       let prevNodeIsText = false;
 
       element.childNodes.forEach((node) => {
@@ -574,8 +637,21 @@ async function extractSlideData(page) {
               errors.push(`Inline element <${node.tagName.toLowerCase()}> has margin-bottom which is not supported in PowerPoint. Remove margin from inline elements.`);
             }
 
+            const isBlockLike = allowBlock && computed.display && !computed.display.startsWith('inline') && computed.display !== 'contents';
+            const beforeLen = runs.length;
             // Recursively process the child node. This will flatten nested spans into multiple runs.
-            parseInlineFormatting(node, options, runs, textTransform);
+            parseInlineFormatting(node, options, runs, textTransform, allowBlock);
+            if (isBlockLike && hasFollowingText(node) && runs.length > beforeLen) {
+              runs[runs.length - 1].options.breakLine = true;
+            }
+          } else if (allowBlock) {
+            const isBlockLike = computed.display && !computed.display.startsWith('inline') && computed.display !== 'contents';
+            const beforeLen = runs.length;
+            parseInlineFormatting(node, baseOptions, runs, textTransform, allowBlock);
+            const afterLen = runs.length;
+            if (isBlockLike && afterLen > beforeLen && hasFollowingText(node)) {
+              runs[runs.length - 1].options.breakLine = true;
+            }
           }
         }
 
@@ -618,26 +694,6 @@ async function extractSlideData(page) {
         value: rgbToHex(bgColor)
       };
     }
-
-    const wrapTextNodesInDivs = () => {
-      document.querySelectorAll('div').forEach((el) => {
-        const nodes = Array.from(el.childNodes);
-        nodes.forEach((node) => {
-          if (node.nodeType !== Node.TEXT_NODE) return;
-          const text = node.textContent;
-          if (!text || !text.trim()) return;
-          const p = document.createElement('p');
-          p.textContent = text;
-          p.setAttribute('data-html2pptx-auto', '1');
-          p.style.margin = '0';
-          p.style.padding = '0';
-          p.style.display = 'inline';
-          el.replaceChild(p, node);
-        });
-      });
-    };
-
-    wrapTextNodesInDivs();
 
     // Process all elements
     const elements = [];
@@ -691,6 +747,7 @@ async function extractSlideData(page) {
 
       // Extract images
       if (el.tagName === 'IMG') {
+        const computed = window.getComputedStyle(el);
         const rect = el.getBoundingClientRect();
         if (rect.width > 0 && rect.height > 0) {
           elements.push({
@@ -701,6 +758,11 @@ async function extractSlideData(page) {
               y: pxToInch(rect.top),
               w: pxToInch(rect.width),
               h: pxToInch(rect.height)
+            },
+            style: {
+              objectFit: computed.objectFit,
+              objectPosition: computed.objectPosition,
+              borderRadius: computed.borderRadius
             }
           });
           processed.add(el);
@@ -876,19 +938,26 @@ async function extractSlideData(page) {
         const items = [];
         const ulComputed = window.getComputedStyle(el);
         const ulPaddingLeftPt = pxToPoints(ulComputed.paddingLeft);
+        const listStyleType = ulComputed.listStyleType;
+        const useBullet = listStyleType !== 'none';
+        const firstLi = liElements[0] || el;
+        const liComputed = window.getComputedStyle(firstLi);
+        const liPaddingLeftPt = pxToPoints(liComputed.paddingLeft);
 
         // Split: margin-left for bullet position, indent for text position
         // margin-left + indent = ul padding-left
-        const marginLeft = ulPaddingLeftPt * 0.5;
-        const textIndent = ulPaddingLeftPt * 0.5;
+        const marginLeft = useBullet ? ulPaddingLeftPt * 0.5 : liPaddingLeftPt;
+        const textIndent = useBullet ? ulPaddingLeftPt * 0.5 : 0;
 
         liElements.forEach((li, idx) => {
           const isLast = idx === liElements.length - 1;
-          const runs = parseInlineFormatting(li, { breakLine: false });
+          const runs = parseInlineFormatting(li, { breakLine: false }, [], (x) => x, true);
           // Clean manual bullets from first run
           if (runs.length > 0) {
             runs[0].text = runs[0].text.replace(/^[•\-\*▪▸]\s*/, '');
-            runs[0].options.bullet = { indent: textIndent };
+            if (useBullet) {
+              runs[0].options.bullet = { indent: textIndent };
+            }
           }
           // Set breakLine on last run
           if (runs.length > 0 && !isLast) {
@@ -974,7 +1043,7 @@ async function extractSlideData(page) {
       if (hasFormatting) {
         // Text with inline formatting
         const transformStr = computed.textTransform;
-        const runs = parseInlineFormatting(el, {}, [], (str) => applyTextTransform(str, transformStr));
+      const runs = parseInlineFormatting(el, {}, [], (str) => applyTextTransform(str, transformStr), false);
 
         // Adjust lineSpacing based on largest fontSize in runs
         const adjustedStyle = { ...baseStyle };

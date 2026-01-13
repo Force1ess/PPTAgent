@@ -302,6 +302,7 @@ class DeepPresenterConfig(BaseModel):
     t2i_model: LLM | None = Field(
         default=None, description="Text-to-image model configuration"
     )
+    critic_agent: LLM = Field(description="Critic agent, used for slide refinement")
 
     def model_post_init(self, context):
         return super().model_post_init(context)
