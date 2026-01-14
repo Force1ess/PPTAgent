@@ -605,7 +605,17 @@ async function extractSlideData(page) {
           const computed = window.getComputedStyle(node);
 
           // Handle inline elements with computed styles
-          if (node.tagName === 'SPAN' || node.tagName === 'B' || node.tagName === 'STRONG' || node.tagName === 'I' || node.tagName === 'EM' || node.tagName === 'U') {
+          const isInlineTag = node.tagName === 'SPAN'
+            || node.tagName === 'B'
+            || node.tagName === 'STRONG'
+            || node.tagName === 'I'
+            || node.tagName === 'EM'
+            || node.tagName === 'U';
+          const allowInlineBreak = allowBlock
+            && node.style.display
+            && !node.style.display.startsWith('inline')
+            && node.style.display !== 'contents';
+          if (isInlineTag) {
             const isBold = computed.fontWeight === 'bold' || parseInt(computed.fontWeight) >= 600;
             if (isBold && !shouldSkipBold(computed.fontFamily)) options.bold = true;
             if (computed.fontStyle === 'italic') options.italic = true;
@@ -637,11 +647,10 @@ async function extractSlideData(page) {
               errors.push(`Inline element <${node.tagName.toLowerCase()}> has margin-bottom which is not supported in PowerPoint. Remove margin from inline elements.`);
             }
 
-            const isBlockLike = allowBlock && computed.display && !computed.display.startsWith('inline') && computed.display !== 'contents';
             const beforeLen = runs.length;
             // Recursively process the child node. This will flatten nested spans into multiple runs.
             parseInlineFormatting(node, options, runs, textTransform, allowBlock);
-            if (isBlockLike && hasFollowingText(node) && runs.length > beforeLen) {
+            if (allowInlineBreak && hasFollowingText(node) && runs.length > beforeLen) {
               runs[runs.length - 1].options.breakLine = true;
             }
           } else if (allowBlock) {
