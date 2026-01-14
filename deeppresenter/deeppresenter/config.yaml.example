@@ -15,17 +15,11 @@ long_context_model:
   base_url: "https://open.bigmodel.cn/api/paas/v4/"
   model: "glm-4.5"
   api_key: "your_key"
-  fallback_base_url: "https://openrouter.ai/api/v1"
-  fallback_model: "anthropic/claude-sonnet-4.5"
-  fallback_api_key: "your_key"
 
 vision_model:
   base_url: "https://open.bigmodel.cn/api/paas/v4/"
   model: "glm-4.6v-flash"
   api_key: "your_key"
-  fallback_base_url: "https://openrouter.ai/api/v1"
-  fallback_model: "nvidia/nemotron-nano-12b-v2-vl:free"
-  fallback_api_key: "your_key"
 
 # # this is not neccessarily required,
 # t2i_model:

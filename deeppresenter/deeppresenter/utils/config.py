@@ -67,127 +67,55 @@ def get_json_from_response(response: str) -> dict | list:
     return json_repair.loads(response)
 
 
-class LLM(BaseModel):
-    """LLM Client Manager"""
+class Endpoint(BaseModel):
+    """LLM Endpoint Configuration"""
 
     base_url: str = Field(description="API base URL")
     model: str = Field(description="Model name")
     api_key: str = Field(description="API key")
-    identifier: str | None = Field(
-        default=None,
-        description="Optional identifier for the model instance, this will override property `model_name`",
-    )
-    is_multimodal: bool = Field(
-        default=False, description="Whether the model is multimodal"
-    )
-    max_concurrent: int | None = Field(
-        default=None, description="Maximum concurrency limit"
-    )
     client_kwargs: dict[str, Any] = Field(
         default_factory=dict, description="Client parameters"
     )
     sampling_parameters: dict[str, Any] = Field(
         default_factory=dict, description="Sampling parameters"
     )
-    soft_response_parsing: bool = Field(
-        default=False,
-        description="Enable soft parsing: parse response content as JSON directly instead of using completion.parse",
-    )
-    min_image_size: int | None = Field(
-        default=None,
-        description="Minimum image size (width * height) for generation, smaller images will be resized proportionally",
-    )
-
-    # Fallback configuration
-    fallback_base_url: str | None = Field(
-        default=None, description="Fallback API base URL"
-    )
-    fallback_model: str | None = Field(default=None, description="Fallback model name")
-    fallback_api_key: str | None = Field(default=None, description="Fallback API key")
-    fallback_client_kwargs: dict[str, Any] = Field(
-        default_factory=dict, description="Fallback client parameters"
-    )
-    fallback_sampling_parameters: dict[str, Any] = Field(
-        default_factory=dict, description="Fallback sampling parameters"
-    )
-
-    _semaphore: asyncio.Semaphore = PrivateAttr()
     _client: AsyncOpenAI = PrivateAttr()
-    _fallback_client: AsyncOpenAI | None = PrivateAttr(default=None)
-
-    model_config = {"arbitrary_types_allowed": True}
-
-    @property
-    def model_name(self) -> str:
-        return self.identifier or self.model.split("/")[-1].split(":")[0]
-
-    @property
-    def has_fallback(self) -> bool:
-        """Check if fallback is configured"""
-        return all(
-            [
-                self.fallback_base_url,
-                self.fallback_model,
-                self.fallback_api_key,
-            ]
-        )
 
     def model_post_init(self, _) -> None:
-        """Initialize semaphore and clients"""
-        self._semaphore = asyncio.Semaphore(self.max_concurrent or 10000)
         self._client = AsyncOpenAI(
             api_key=self.api_key,
             base_url=self.base_url,
             **self.client_kwargs,
         )
 
-        # 初始化 fallback client
-        if self.has_fallback:
-            self._fallback_client = AsyncOpenAI(
-                api_key=self.fallback_api_key,
-                base_url=self.fallback_base_url,
-                **self.fallback_client_kwargs,
-            )
-
-        model_lower = self.model.lower()
-        if not self.is_multimodal and any(
-            word in model_lower for word in ("gpt", "claude", "gemini", "vl")
-        ):
-            self.is_multimodal = True
-            debug(
-                f"Model {self.model} is detected as multimodal model, setting `is_multimodal` to True"
-            )
-
-    async def _call(
+    async def call(
         self,
-        client: AsyncOpenAI,
-        model: str,
         messages: list[dict[str, Any]],
-        sampling_params: dict[str, Any],
+        soft_response_parsing: bool,
         response_format: type[BaseModel] | None = None,
         tools: list[dict[str, Any]] | None = None,
     ) -> ChatCompletion:
-        """Execute a chat or tool call using the specified client"""
+        """Execute a chat or tool call using the endpoint client"""
         if tools is not None:
-            response = await client.chat.completions.create(
-                model=model,
+            response = await self._client.chat.completions.create(
+                model=self.model,
                 messages=messages,
                 tools=tools,
                 tool_choice="auto",
-                **sampling_params,
+                **self.sampling_parameters,
             )
-        elif not self.soft_response_parsing and response_format is not None:
-            response: ChatCompletion = await client.chat.completions.parse(
-                model=model,
+        elif not soft_response_parsing and response_format is not None:
+            response: ChatCompletion = await self._client.chat.completions.parse(
+                model=self.model,
                 messages=messages,
                 response_format=response_format,
-                **sampling_params,
+                **self.sampling_parameters,
             )
         else:
-            response: ChatCompletion = await client.chat.completions.create(
-                model=model,
+            response: ChatCompletion = await self._client.chat.completions.create(
+                model=self.model,
                 messages=messages,
-                **sampling_params,
+                **self.sampling_parameters,
             )
         assert response.choices is not None and len(response.choices) > 0, (
             "No choices returned from the model"
@@ -205,6 +133,78 @@ class LLM(BaseModel):
         )
         return response
 
+
+class LLM(BaseModel):
+    """LLM Client Manager"""
+
+    base_url: str | None = Field(default=None, description="API base URL")
+    model: str | None = Field(default=None, description="Model name")
+    api_key: str | None = Field(default=None, description="API key")
+    identifier: str | None = Field(
+        default=None,
+        description="Optional identifier for the model instance, this will override property `model_name`",
+    )
+    is_multimodal: bool | None = Field(
+        default=None, description="Whether the model is multimodal"
+    )
+    max_concurrent: int | None = Field(
+        default=None, description="Maximum concurrency limit"
+    )
+    client_kwargs: dict[str, Any] = Field(
+        default_factory=dict, description="Client parameters"
+    )
+    sampling_parameters: dict[str, Any] = Field(
+        default_factory=dict, description="Sampling parameters"
+    )
+    endpoints: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Additional endpoints for alternating retries",
+    )
+    soft_response_parsing: bool = Field(
+        default=False,
+        description="Enable soft parsing: parse response content as JSON directly instead of using completion.parse",
+    )
+    min_image_size: int | None = Field(
+        default=None,
+        description="Minimum image size (width * height) for generation, smaller images will be resized proportionally",
+    )
+
+    _semaphore: asyncio.Semaphore = PrivateAttr()
+    _endpoints: list[Endpoint] = PrivateAttr(default_factory=list)
+
+    model_config = {"arbitrary_types_allowed": True}
+
+    @property
+    def model_name(self) -> str:
+        return self.identifier or self._endpoints[0].model.split("/")[-1].split(":")[0]
+
+    def model_post_init(self, _) -> None:
+        """Initialize semaphore and endpoints"""
+        self._semaphore = asyncio.Semaphore(self.max_concurrent or 10000)
+        if self.model:
+            self._endpoints.insert(
+                0,
+                Endpoint(
+                    base_url=self.base_url,
+                    model=self.model,
+                    api_key=self.api_key,
+                    client_kwargs=self.client_kwargs,
+                    sampling_parameters=self.sampling_parameters,
+                ),
+            )
+        for endpoint in self.endpoints:
+            self._endpoints.append(Endpoint(**endpoint))
+        assert len(self._endpoints) >= 1, "At least one endpoint must be configured"
+
+        model_lower = self._endpoints[0].model.lower()
+        if self.is_multimodal is None and any(
+            word in model_lower for word in ("gpt", "claude", "gemini", "vl")
+        ):
+            self.is_multimodal = True
+            debug(
+                f"Model {self._endpoints[0].model} is detected as multimodal model, setting `is_multimodal` to True"
+            )
+
     async def run(
         self,
         messages: list[dict[str, Any]] | str,
@@ -216,29 +216,22 @@ class LLM(BaseModel):
         if isinstance(messages, str):
             messages = [{"role": "user", "content": messages}]
 
-        clients = [(self._client, self.model, self.sampling_parameters)]
-        if self._fallback_client is not None:
-            clients.append(
-                (
-                    self._fallback_client,
-                    self.fallback_model,
-                    self.fallback_sampling_parameters,
-                )
-            )
-
         errors = []
         async with self._semaphore:
             for retry_idx in range(retry_times):
-                client, model, sampling_params = clients[retry_idx % len(clients)]
+                endpoint = self._endpoints[retry_idx % len(self._endpoints)]
                 try:
-                    return await self._call(
-                        client, model, messages, sampling_params, response_format, tools
+                    return await endpoint.call(
+                        messages,
+                        self.soft_response_parsing,
+                        response_format,
+                        tools,
                     )
                 except (AssertionError, ValidationError) as e:
-                    errors.append(f"[{model}] {e}")
+                    errors.append(f"[{endpoint.model}] {e}")
                 except Exception as e:
-                    errors.append(f"[{model}] {e}")
-                    logging_openai_exceptions(model, e)
+                    errors.append(f"[{endpoint.model}] {e}")
+                    logging_openai_exceptions(endpoint.model, e)
         raise ValueError(f"All models failed after {retry_times} retries:\n{errors}")
 
     async def generate_image(
@@ -262,26 +255,26 @@ class LLM(BaseModel):
             errors = []
             for retry_idx in range(retry_times):
                 await asyncio.sleep(retry_idx)
+                endpoint = self._endpoints[retry_idx % len(self._endpoints)]
                 try:
-                    return await self._client.images.generate(
+                    return await endpoint._client.images.generate(
                         prompt=prompt,
-                        model=self.model,
+                        model=endpoint.model,
                         size=f"{width}x{height}",
-                        **self.sampling_parameters,
+                        **endpoint.sampling_parameters,
                     )
                 except Exception as e:
-                    errors.append(e)
-                    logging_openai_exceptions(self.model, e)
-            raise ValueError(
-                f"Model {self.model} failed after {retry_times} retries: {errors}"
-            )
+                    errors.append(f"[{endpoint.model}] {e}")
+                    logging_openai_exceptions(endpoint.model, e)
+            raise ValueError(f"All models failed after {retry_times} retries: {errors}")
 
     async def validate(self):
-        models = await self._client.models.list()
+        endpoint = self._endpoints[0]
+        models = await endpoint._client.models.list()
         # ? This for compatibility with google generative ai
-        if not any(model.id.endswith(self.model) for model in models.data):
+        if not any(model.id.endswith(endpoint.model) for model in models.data):
             raise Exception(
-                f"Model {self.model} is not available at {self.base_url}, please check your apikey or {PACKAGE_DIR / 'config.yaml'}\n"
+                f"Model {endpoint.model} is not available at {endpoint.base_url}, please check your apikey or {PACKAGE_DIR / 'config.yaml'}\n"
             )
 
 
@@ -302,7 +295,9 @@ class DeepPresenterConfig(BaseModel):
     t2i_model: LLM | None = Field(
         default=None, description="Text-to-image model configuration"
     )
-    critic_agent: LLM = Field(description="Critic agent, used for slide refinement")
+    critic_agent: LLM | None = Field(
+        default=None, description="Critic agent, used for slide refinement"
+    )
 
     def model_post_init(self, context):
         return super().model_post_init(context)

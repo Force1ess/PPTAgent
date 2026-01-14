@@ -124,8 +124,8 @@ class Agent:
                 time=datetime.now().strftime("%Y-%m-%d"),
             )
 
-        if config.offline_mode:
-            self.system += OFFLINE_PROMPT
+            if config.offline_mode:
+                self.system += OFFLINE_PROMPT
 
         self.chat_history: list[ChatMessage] = [
             ChatMessage(role=Role.SYSTEM, content=self.system)
