@@ -296,8 +296,8 @@ class DeepPresenterConfig(BaseModel):
     t2i_model: LLM | None = Field(
         default=None, description="Text-to-image model configuration"
     )
-    critic_agent: LLM | None = Field(
-        default=None, description="Critic agent, used for slide refinement"
+    nano_banana: LLM | None = Field(
+        default=None, description="Google Nano Banana model for slide creation"
     )
 
     def model_post_init(self, context):
