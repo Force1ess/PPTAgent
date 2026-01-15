@@ -8,7 +8,7 @@ from typing import Literal
 from appcore import mcp
 from filelock import FileLock
 from PIL import Image
-from pptx import Presentation
+from pptagent_pptx import Presentation
 from pydantic import BaseModel
 
 from deeppresenter.utils.log import error, info, warning
@@ -41,12 +41,8 @@ def _rewrite_image_link(match: re.Match[str], md_dir: Path) -> str:
     except OSError:
         pass
 
-    resolved = p.resolve()
-    base_dir = md_dir.resolve()
-    if resolved.is_relative_to(base_dir):
-        new_path = resolved.relative_to(base_dir).as_posix()
-    else:
-        new_path = resolved.as_posix()
+    # ? since slides were placed in an independent folder, we convert image path to absolute path to avoid broken links
+    new_path = p.resolve().as_posix()
     return f"![{updated_alt}]({new_path}{rest})"
 
 

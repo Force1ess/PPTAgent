@@ -149,21 +149,22 @@ class AgentLoop:
                 pptx_path = self.workspace / f"{md_file.stem}.pptx"
                 try:
                     # ? this feature is in experimental stage
-                    convert_html_to_pptx(
+                    await convert_html_to_pptx(
                         slide_html_dir,
                         pptx_path,
-                        aspect_ratio=request.aspect_ratio,
+                        aspect_ratio=request.powerpoint_type,
                     )
                 except Exception as e:
                     warning(
                         f"html2pptx conversion failed, falling back to pdf conversion\n{e}"
                     )
                     pptx_path = pptx_path.with_suffix(".pdf")
+                finally:
                     async with PlaywrightConverter() as pc:
-                        pc.convert_to_pdf(
+                        await pc.convert_to_pdf(
                             slide_html_dir,
-                            pptx_path,
-                            aspect_ratio=request.aspect_ratio,
+                            pptx_path.with_suffix(".pdf"),
+                            aspect_ratio=request.powerpoint_type,
                         )
 
                 self.intermediate_output["final"] = str(pptx_path)

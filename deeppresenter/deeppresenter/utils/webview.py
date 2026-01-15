@@ -1,6 +1,5 @@
 import asyncio
 import os
-import subprocess
 import tempfile
 from collections.abc import Iterable
 from pathlib import Path
@@ -35,9 +34,9 @@ ANTI_DETECTION = """
 """
 
 ASPECT_RATIOS = {
-    "widescreen": {"width": "338.67mm", "height": "190.5mm"},  # 16:9
-    "normal": {"width": "254mm", "height": "190.5mm"},  # 4:3
-    "A1": {"width": "594mm", "height": "841mm"},  # A1
+    "16:9": {"width": "1280px", "height": "720px"},
+    "4:3": {"width": "960px", "height": "720px"},
+    "A1": {"width": "2244px", "height": "3178px"},
 }
 
 
@@ -78,7 +77,7 @@ class PlaywrightConverter:
         self,
         html_files: list[str],
         output_pdf: Path,
-        aspect_ratio: Literal["widescreen", "normal", "A1"],
+        aspect_ratio: Literal["16:9", "4:3", "A1"],
         error_sink: list[str] | None = None,
     ):
         if isinstance(output_pdf, str):
@@ -122,10 +121,10 @@ class PlaywrightConverter:
         return folder
 
 
-def convert_html_to_pptx(
+async def convert_html_to_pptx(
     html_inputs: Path | str | Iterable[Path | str],
     output_pptx: Path | str | None = None,
-    aspect_ratio: Literal["widescreen", "normal", "A1"] = "widescreen",
+    aspect_ratio: Literal["16:9", "4:3", "A1"] = "16:9",
 ) -> Path:
     script_path = PACKAGE_DIR / "html2pptx" / "html2pptx_cli.js"
     if not script_path.exists():
@@ -172,21 +171,21 @@ def convert_html_to_pptx(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     cmd.extend(["--output", str(output_path)])
 
-    result = subprocess.run(
-        cmd,
+    process = await asyncio.create_subprocess_exec(
+        *cmd,
         env=os.environ.copy(),
         cwd=PACKAGE_DIR.parent.parent,
-        capture_output=True,
-        text=True,
-        check=False,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
     )
-    if result.returncode != 0:
-        details = (result.stderr or result.stdout or "").strip()
+    stdout, stderr = await process.communicate()
+    if process.returncode != 0:
+        details = (stderr or stdout or b"").decode("utf-8", errors="replace").strip()
         if "Cannot find module 'pptxgenjs'" in details:
             raise RuntimeError(
                 "html2pptx dependency 'pptxgenjs' is not installed. "
                 "Run `npm install` in the repo root."
             )
-        raise RuntimeError(f"html2pptx failed: {details}")
+        raise RuntimeError(f"html2pptx failed: {details.split('at html2pptx (')[0]}")
 
     return output_path

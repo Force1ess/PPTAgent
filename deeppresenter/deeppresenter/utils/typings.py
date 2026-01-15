@@ -161,9 +161,9 @@ class ConvertType(StrEnum):
 
 
 class PowerPointType(StrEnum):
-    WIDE_SCREEN = "16:9 Widescreen"
-    STANDARD_SCREEN = "4:3 Standard"
-    POSTER = "A1 Poster (Single Page)"
+    WIDE_SCREEN = "16:9"
+    STANDARD_SCREEN = "4:3"
+    POSTER = "A1"
 
 
 class InputRequest(BaseModel):
@@ -186,6 +186,7 @@ class InputRequest(BaseModel):
             dest_path = workspace / "attachments" / Path(att).name
             if dest_path.exists():
                 warning(f"Attachment {att} already exists in workspace")
+                continue
             shutil.copy(att, str(dest_path))
             new_attachments.append(str(dest_path))
         self.attachments = new_attachments
@@ -200,15 +201,8 @@ class InputRequest(BaseModel):
         prompt = [self.instruction]
         if self.num_pages is not None and self.num_pages not in self.instruction:
             prompt.append("Number of pages: " + self.num_pages)
-        if self.attachments and not all(
-            a in self.instruction for a in self.attachments
-        ):
+        if self.attachments:
             prompt.append("Attachments: " + ", ".join(self.attachments))
-        if (
-            self.powerpoint_type is not None
-            and self.powerpoint_type.value not in self.instruction
-        ):
-            prompt.append("PPT format: " + self.powerpoint_type.value)
         return "\n".join(prompt)
 
     @property
@@ -221,22 +215,8 @@ class InputRequest(BaseModel):
         return "\n".join(prompt)
 
     @property
-    def webagent_prompt(self):
+    def designagent_prompt(self):
         prompt = [self.instruction]
-        if (
-            self.powerpoint_type is not None
-            and self.powerpoint_type.value not in self.instruction
-        ):
-            prompt.append("PPT format: " + self.powerpoint_type.value)
+        if self.powerpoint_type is not None:
+            prompt.append("Aspect Ratio: " + self.powerpoint_type.value)
         return "\n".join(prompt)
-
-    @property
-    def aspect_ratio(self):
-        if self.powerpoint_type == PowerPointType.STANDARD_SCREEN:
-            return "normal"
-        elif self.powerpoint_type == PowerPointType.POSTER:
-            return "A1"
-        elif self.powerpoint_type == PowerPointType.WIDE_SCREEN:
-            return "widescreen"
-        else:
-            raise ValueError("Unknow powerpoint type")

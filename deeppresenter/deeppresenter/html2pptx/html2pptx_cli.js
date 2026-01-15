@@ -6,8 +6,8 @@ const pptxgen = require("pptxgenjs");
 const html2pptx = require("./html2pptx");
 
 const LAYOUT_MAP = {
-  widescreen: "LAYOUT_WIDE",
-  normal: "LAYOUT_4x3",
+  "16:9": "LAYOUT_WIDE",
+  "4:3": "LAYOUT_4x3",
 };
 
 const A1_LAYOUT = {
@@ -18,7 +18,7 @@ const A1_LAYOUT = {
 
 async function run() {
   const args = minimist(process.argv.slice(2));
-  const layout = args.layout || "widescreen";
+  const layout = args.layout || "16:9";
   const outputFile = args.output;
   const validateOnly = Boolean(args.validate);
   const htmlDir = args.html_dir || args["html-dir"];
@@ -44,7 +44,7 @@ async function run() {
 
   if (!htmlFiles.length) {
     console.error(
-      "Usage: node html2pptx_cli.js --html_dir <dir> | --html <file> [--html <file2>] --output <file.pptx> --layout <widescreen|normal|A1> [--validate]"
+      "Usage: node html2pptx_cli.js --html_dir <dir> | --html <file> [--html <file2>] --output <file.pptx> --layout <16:9|4:3|A1> [--validate]"
     );
     process.exit(1);
   }

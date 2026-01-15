@@ -6,6 +6,7 @@ from pathlib import Path
 from random import shuffle
 
 from fastmcp import FastMCP
+from mistune import html as markdown_to_html
 
 from pptagent.llms import AsyncLLM
 from pptagent.multimodal import ImageLabler
@@ -16,7 +17,13 @@ from pptagent.response.pptgen import (
     EditorOutput,
     SlideElement,
 )
-from pptagent.utils import Config, Language, get_logger, package_join
+from pptagent.utils import (
+    Config,
+    Language,
+    get_html_table_image,
+    get_logger,
+    package_join,
+)
 
 logger = get_logger(__name__)
 
@@ -116,6 +123,25 @@ class PPTAgentServer(PPTAgent):
         return [p.name for p in templates_dir.iterdir() if p.is_dir()]
 
     def register_tools(self):
+        @self.mcp.tool()
+        def markdown_table_to_image(markdown_table: str, path: str, css: str) -> str:
+            """
+            Convert a markdown table to an image and save it to the specified path.
+
+            Args:
+                markdown_table (str): The markdown table content to convert
+                path (str): The file path where the image will be saved
+                css (str): Custom CSS styles for the table. Use class selectors
+                                    (table, thead, th, td) to style the table elements. Avoid
+                                    changing background colors outside the table area.
+
+            Returns:
+                str: Confirmation message with the path to the saved image
+            """
+            html = markdown_to_html(markdown_table)
+            get_html_table_image(html, path, css)
+            return f"Markdown table converted to image and saved to {path}"
+
         @self.mcp.tool()
         def list_templates() -> list[dict]:
             """List all available templates."""

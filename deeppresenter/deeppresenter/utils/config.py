@@ -178,7 +178,7 @@ class LLM(BaseModel):
     def model_name(self) -> str:
         return self.identifier or self._endpoints[0].model.split("/")[-1].split(":")[0]
 
-    def model_post_init(self, _) -> None:
+    def model_post_init(self, context) -> None:
         """Initialize semaphore and endpoints"""
         self._semaphore = asyncio.Semaphore(self.max_concurrent or 10000)
         if self.model:
@@ -204,6 +204,7 @@ class LLM(BaseModel):
             debug(
                 f"Model {self._endpoints[0].model} is detected as multimodal model, setting `is_multimodal` to True"
             )
+        return super().model_post_init(context)
 
     async def run(
         self,
