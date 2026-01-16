@@ -11,9 +11,8 @@ from .model_utils import ModelManager
 from .presentation import Presentation
 from .utils import Config, package_join, ppt_to_images_async
 
-manager = ModelManager()
-language_model = manager.language_model
-vision_model = manager.vision_model
+language_model = None
+vision_model = None
 
 text_scorer = Template(
     open(
@@ -166,3 +165,9 @@ async def eval_parsed_ppts(prs_files: list[str], slide_folders: list[str]):
         print(f"Overall: {overall_avg:.2f}")
 
     return avg_scores
+
+
+if __name__ == "__main__":
+    manager = ModelManager()
+    language_model = manager.language_model
+    vision_model = manager.vision_model

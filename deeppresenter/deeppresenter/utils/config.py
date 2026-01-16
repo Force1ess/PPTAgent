@@ -168,6 +168,9 @@ class LLM(BaseModel):
         default=None,
         description="Minimum image size (width * height) for generation, smaller images will be resized proportionally",
     )
+    secret_logging: bool = Field(
+        default=False, description="Logging detailed endpoint (API key included)"
+    )
 
     _semaphore: asyncio.Semaphore = PrivateAttr()
     _endpoints: list[Endpoint] = PrivateAttr(default_factory=list)
@@ -232,7 +235,11 @@ class LLM(BaseModel):
                     errors.append(f"[{endpoint.model}] {e}")
                 except Exception as e:
                     errors.append(f"[{endpoint.model}] {e}")
-                    logging_openai_exceptions(endpoint.model, e)
+                    if self.secret_logging:
+                        identifider = endpoint
+                    else:
+                        identifider = endpoint.model
+                    logging_openai_exceptions(identifider, e)
         raise ValueError(f"All models failed after {retry_times} retries:\n{errors}")
 
     async def generate_image(
@@ -266,7 +273,11 @@ class LLM(BaseModel):
                     )
                 except Exception as e:
                     errors.append(f"[{endpoint.model}] {e}")
-                    logging_openai_exceptions(endpoint.model, e)
+                    if self.secret_logging:
+                        identifider = endpoint
+                    else:
+                        identifider = endpoint.model
+                    logging_openai_exceptions(identifider, e)
             raise ValueError(f"All models failed after {retry_times} retries: {errors}")
 
     async def validate(self):

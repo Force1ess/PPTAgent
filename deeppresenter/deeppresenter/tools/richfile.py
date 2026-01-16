@@ -9,7 +9,7 @@ from typing import Literal
 from appcore import mcp
 from mcp.types import ImageContent
 from pptagent.model_utils import _get_lid_model
-from pptagent.utils import ppt_to_images
+from pptagent.utils import ppt_to_images_async
 
 from deeppresenter.utils.config import DeepPresenterConfig
 from deeppresenter.utils.webview import convert_html_to_pptx
@@ -37,7 +37,7 @@ async def inspect_slide(
         pptx_path = await convert_html_to_pptx(html_path, aspect_ratio=aspect_ratio)
         with tempfile.TemporaryDirectory() as tmp_dir:
             output_dir = Path(tmp_dir)
-            ppt_to_images(str(pptx_path), str(output_dir))
+            await ppt_to_images_async(str(pptx_path), str(output_dir))
             image_path = output_dir / "slide_0001.jpg"
             image_data = image_path.read_bytes()
         base64_data = (
@@ -51,7 +51,7 @@ async def inspect_slide(
                 mimeType="image/jpeg",
             )
         else:
-            return "This slide looks good with no apparent quality issues."
+            return "This slide looks good."
     except Exception as e:
         return e
 

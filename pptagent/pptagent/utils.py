@@ -362,7 +362,7 @@ def get_html_table_image(html: str, output_path: str, css: str = None):
 def ppt_to_images(file: str, output_dir: str):
     assert exists(file), f"File {file} does not exist"
     if exists(output_dir):
-        logger.warning(f"ppt2images: {output_dir} already exists")
+        logger.debug(f"ppt2images: {output_dir} already exists")
     os.makedirs(output_dir, exist_ok=True)
     with tempfile.TemporaryDirectory() as temp_dir:
         command_list = [

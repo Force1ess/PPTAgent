@@ -185,7 +185,7 @@ class timer:
             return sync_wrapper
 
 
-def logging_openai_exceptions(model: str, exc: Exception):
+def logging_openai_exceptions(identifider: str | Any, exc: Exception):
     """Log OpenAI exceptions"""
     if isinstance(exc, RateLimitError):
         msg = f"RateLimitError (HTTP 429): {str(exc)}"
@@ -229,5 +229,5 @@ def logging_openai_exceptions(model: str, exc: Exception):
     else:
         msg = f"Exception: {str(exc)}\n{traceback.format_exc()}"
 
-    warning(f"{model} encountered {msg}")
+    debug(f"{identifider} encountered {msg}")
     return msg

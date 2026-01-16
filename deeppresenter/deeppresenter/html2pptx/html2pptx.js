@@ -392,7 +392,7 @@ function addElements(slideData, targetSlide, pres) {
         bold: el.style.bold,
         italic: el.style.italic,
         underline: el.style.underline,
-        valign: 'top',
+        valign: el.style.valign || 'top',
         lineSpacing: el.style.lineSpacing,
         paraSpaceBefore: el.style.paraSpaceBefore,
         paraSpaceAfter: el.style.paraSpaceAfter,
@@ -784,11 +784,14 @@ async function extractSlideData(page) {
     const buildInlineTextElement = (el, rect, computed) => {
       const rotation = getRotation(computed.transform, computed.writingMode);
       const { x, y, w, h } = getPositionAndSize(el, rect, rotation);
+      const isFlex = computed.display === 'flex' || computed.display === 'inline-flex';
+      const justifyCenter = isFlex && computed.justifyContent === 'center';
+      const alignCenter = isFlex && computed.alignItems === 'center';
       const baseStyle = {
         fontSize: pxToPoints(computed.fontSize),
         fontFace: computed.fontFamily.split(',')[0].replace(/['"]/g, '').trim(),
         color: rgbToHex(computed.color),
-        align: computed.textAlign === 'start' ? 'left' : computed.textAlign,
+        align: justifyCenter ? 'center' : (computed.textAlign === 'start' ? 'left' : computed.textAlign),
         lineSpacing: computed.lineHeight && computed.lineHeight !== 'normal' ? pxToPoints(computed.lineHeight) : null,
         paraSpaceBefore: pxToPoints(computed.marginTop),
         paraSpaceAfter: pxToPoints(computed.marginBottom),
@@ -798,7 +801,8 @@ async function extractSlideData(page) {
           pxToPoints(computed.paddingRight),
           pxToPoints(computed.paddingBottom),
           pxToPoints(computed.paddingTop)
-        ]
+        ],
+        valign: alignCenter ? 'middle' : null
       };
 
       const transparency = extractAlpha(computed.color);

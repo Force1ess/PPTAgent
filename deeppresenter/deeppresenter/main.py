@@ -166,6 +166,9 @@ class AgentLoop:
                         f"html2pptx conversion failed, falling back to pdf conversion\n{e}"
                     )
                     pptx_path = pptx_path.with_suffix(".pdf")
+                    (self.workspace / ".html2pptx-error.txt").write_text(
+                        str(e) + "\n" + traceback.format_exc()
+                    )
                 finally:
                     async with PlaywrightConverter() as pc:
                         await pc.convert_to_pdf(

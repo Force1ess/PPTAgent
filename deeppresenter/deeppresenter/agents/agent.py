@@ -1,6 +1,5 @@
 import asyncio
 import json
-import re
 from abc import abstractmethod
 from collections.abc import AsyncGenerator
 from datetime import datetime
