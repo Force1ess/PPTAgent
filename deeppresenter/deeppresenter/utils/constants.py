@@ -20,7 +20,7 @@ MAX_RETRY_INTERVAL = int(os.getenv("MAX_RETRY_INTERVAL", 60))
 TOOL_CUTOFF_LEN = int(os.getenv("TOOL_CUTOFF_LEN", 4096))
 # count in tokens
 CONTEXT_LENGTH_LIMIT = int(os.getenv("CONTEXT_LENGTH_LIMIT", 65_536))
-CUTOFF_WARNING = "NOTE: Output truncated (showing {line} lines). Use `read_file` with `offset` parameter to continue reading from {resource_id}."
+CUTOFF_WARNING = "NOTE: Output truncated (showing first {line} lines). Use `read_file` with `offset` parameter to continue reading from {resource_id}."
 AGENT_PROMPT = """
 <Environment>
 Current time: {time}
@@ -41,11 +41,10 @@ You can freely install any required tools, packages, or command-line utilities t
 """
 
 OFFLINE_PROMPT = """
-<Network Tips>
-- You are currently in offline mode without internet access.
-- You can only use pre-installed tools and packages in the environment.
-- Tool calling patterns mentioned earlier may no longer apply. Focus on the provided tools and adjust your plan accordingly.
-</Network Tips>
+<Offline Mode>
+- You are operating in offline mode without internet access. All network-dependent tools have been removed.
+- Focus on the available tools and adjust your plan accordingly.
+</Offline Mode>
 """
 
 # ============ Environment ============

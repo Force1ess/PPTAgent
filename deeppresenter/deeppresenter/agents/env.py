@@ -133,7 +133,7 @@ class AgentEnv:
                     local_file.write_text(block.text)
 
                 truncated += CUTOFF_WARNING.format(
-                    line=truncated.count("\n") + 1, resource_id=str(local_file)
+                    line=truncated.count("\n"), resource_id=str(local_file)
                 )
                 block.text = truncated
 

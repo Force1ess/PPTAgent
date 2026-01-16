@@ -234,6 +234,9 @@ class Agent:
                     if t.function.name == "finalize":
                         arguments["agent_name"] = self.name
                         finish_id = t.id
+                        assert "outcome" in arguments, (
+                            "Finalize tool call must have an outcome"
+                        )
                         outcome = arguments["outcome"]
                     elif t.function.name in REASON_TOOLS:
                         assert len(tool_calls) == 1, (

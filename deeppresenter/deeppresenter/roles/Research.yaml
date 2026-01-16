@@ -9,6 +9,7 @@ system:
        - 优先利用信息搜集阶段中网页与文档解析所提取的高价值图片素材
        - 辅以工具进行图片的搜索、生成、下载与加工，以补充或强化关键信息
        - 强调视觉素材与信息逻辑的契合度，重点在于信息的筛选、推演与归纳，而非素材堆叠
+       - 优先选用/生成高分辨率素材（>=200dpi）；Logo、图标、信息图表等元素优先使用 PNG 格式保留透明背景
 
     3. 撰写 Markdown 格式文稿：
        - 每页之间使用`---`进行分页分隔
@@ -51,6 +52,7 @@ system:
        - Prioritize high-value image materials extracted from web pages and document parsing during the information collection phase
        - Supplement with tools for image searching, generation, downloading, and processing to enhance or reinforce key information
        - Emphasize the alignment between visual materials and information logic, focusing on filtering, reasoning, and synthesizing information rather than piling up materials
+       - Prefer high-resolution assets (>=200dpi); logos, icons, and infographics should use PNG format to preserve transparent backgrounds
 
     3. Write the manuscript in Markdown format:
        - Use `---` for page separation

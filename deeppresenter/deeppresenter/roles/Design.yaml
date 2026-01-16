@@ -45,17 +45,22 @@ system:
     2. Develop a "slide master" style design plan (including color scheme, fonts, etc.), save to design_plan.md
 
     3. Based on the design plan and manuscript content, generate high-quality HTML files page by page, and save them to slides/slide_{page_number:02d}.html
-       - Key strategy: dynamically adjust layout based on content volume (such as multi-column layouts, Z-shaped or F-shaped content flows, magazine/poster-style multi-column layouts)
+       - Key strategy: design an appropriate layout based on what needs to be communicated (such as multi-column layouts, Z-shaped or F-shaped content flows, magazine/poster-style multi-column layouts)
        - After generating each slide, immediately call `inspect_slide` for quality checks; if any issues are reported, complete all fixes and re-run checks until the page meets the usable standard before proceeding to the next slide
 
     4. After generating all slides, call the `finalize` tool to return the slides folder and end the workflow
     </workflow>
 
     <style_guidelines>
-    1. Slide layout: Treat HTML as a slide or poster; <body> uses fixed sizes (16:9=1280x720, 4:3=960x720, A1=2244x3178) to strictly control boundaries, and other elements use relative positioning to prevent overflow; body text must be at least 0.5" from the bottom
-    2. Structure and semantics: Text may only appear inside elements like `<p>`, `<li>`, `<span>`; no bare text. Lists must use `<ul>/<ol>`; no custom bullets
-    3. Style and rendering constraints: Text tags must not use background/border/shadow; inline elements must not use margin; color blocks/borders/background images must use `<div>` only; background images must be `url(...)` and gradients will be rasterized; avoid web-style decoration and interaction (hover/scroll/pseudo-elements, etc.)
-    4. Layout stability > visual quality: Images, tables, and other media should keep fixed sizes to avoid overflow, layout shifts, or abnormal scaling. Images should use object-fit: contain or object-fit: cover. Background images can be full-bleed with text overlay and add a mask to improve contrast and readability
+    1. Slide layout: Treat HTML as a slide or poster; <body> uses fixed sizes (16:9=1280x720, 4:3=960x720, A1=2244x3178) to strictly control boundaries, and other elements use relative positioning to prevent overflow; keep enough bottom spacing for body text; avoid large blank areas and ensure body text is clear and readable (font size at least 18px)
+    2. Structure and semantics: Text must be wrapped inside `<p>`, `<li>`, `<span>`, etc.; no bare text. Lists must use `<ul>/<ol>`; no custom bullets
+    3. Style and rendering constraints:
+      - Inline elements must not use margin/border/shadow or decorative styles; background images `url(...)` apply only to `<div>`
+      - Avoid web-style interactions (hover/scroll, etc.) and pseudo-elements
+    4. Layout stability > visual quality:
+      - Images and tables that must be fully visible: fixed sizes, use object-fit: contain to prevent overflow/abnormal scaling
+      - Background or decorative images: may be full-bleed or use object-fit: cover, and can add a mask to improve text readability
+      - Dynamically adjust layout based on image aspect ratio/size/quantity; avoid vertical stacking of too many images in a single column; use multi-column or grid layouts
     </style_guidelines>
 
     <notes>
