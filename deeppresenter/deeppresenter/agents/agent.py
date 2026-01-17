@@ -261,7 +261,10 @@ class Agent:
         observations.extend(await asyncio.gather(*coros))
         for obs in observations:
             if obs.has_image:
-                if "gemini" in self.llm.model.lower():
+                if (
+                    "gemini" in self.llm.model.lower()
+                    or "qwen" in self.llm.model.lower()
+                ):
                     obs.role = Role.USER
                 if "claude" in self.llm.model.lower():
                     oai_b64 = obs.content[0]["image_url"]["url"]
