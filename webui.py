@@ -178,7 +178,7 @@ class ChatDemo:
                         elem_classes=["file-container"],
                     )
 
-            def collect_token_stats(loop) -> str:
+            def collect_token_stats(loop: AgentLoop) -> str:
                 """收集所有 agents 的 token 统计并生成显示文本"""
                 all_agent_costs = {}
 
@@ -189,7 +189,7 @@ class ChatDemo:
                             loop.research_agent.cost, "completion", 0
                         ),
                         "total": getattr(loop.research_agent.cost, "total", 0),
-                        "model": getattr(loop.research_agent, "model", "N/A"),
+                        "model": loop.config.research_agent.model_name,
                     }
 
                 if hasattr(loop, "designagent") and loop.designagent:
@@ -197,14 +197,14 @@ class ChatDemo:
                         "prompt": getattr(loop.designagent.cost, "prompt", 0),
                         "completion": getattr(loop.designagent.cost, "completion", 0),
                         "total": getattr(loop.designagent.cost, "total", 0),
-                        "model": getattr(loop.designagent, "model", "N/A"),
+                        "model": loop.config.design_agent.model_name,
                     }
                 elif hasattr(loop, "pptagent") and loop.pptagent:
                     all_agent_costs["PPT Agent"] = {
                         "prompt": getattr(loop.pptagent.cost, "prompt", 0),
                         "completion": getattr(loop.pptagent.cost, "completion", 0),
                         "total": getattr(loop.pptagent.cost, "total", 0),
-                        "model": getattr(loop.pptagent, "model", "N/A"),
+                        "model": loop.config.research_agent.model_name,
                     }
 
                 token_lines = ["## Token 使用统计\n"]
