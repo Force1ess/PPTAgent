@@ -33,7 +33,7 @@ instruction: |
 
   {{prompt}}
 
-use_model: agent
+use_model: research_agent
 include_tool_servers: all
 exclude_tools:
   - todo_create

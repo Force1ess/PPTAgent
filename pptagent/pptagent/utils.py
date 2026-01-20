@@ -90,6 +90,8 @@ logger = get_logger(__name__)
 
 if which("unoconvert"):
     logger.info("using `unoconvert` for pptx to images conversion")
+    unoserver_url = os.environ.get("UNOSERVER_URL", "http://127.0.0.1")
+    unoserver_port = os.environ.get("UNOSERVER_PORT", "2003")
 elif which("soffice"):
     logger.info("using `soffice` for pptx to images conversion")
 else:
@@ -369,7 +371,7 @@ def get_html_table_image(html: str, output_path: str, css: str = None):
 async def _is_unoserver_running(host: str = "127.0.0.1", port: int = 2003) -> bool:
     try:
         _, writer = await asyncio.wait_for(
-            asyncio.open_connection(host, port), timeout=10.0
+            asyncio.open_connection(unoserver_url, unoserver_port), timeout=10.0
         )
         writer.close()
         await writer.wait_closed()
