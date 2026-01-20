@@ -403,6 +403,7 @@ if __name__ == "__main__":
     )
 
     serve_url = "localhost" if len(sys.argv) == 1 else sys.argv[1]
+    print("Please visit http://localhost:7861")
     demo.launch(
         debug=True,
         server_name=serve_url,

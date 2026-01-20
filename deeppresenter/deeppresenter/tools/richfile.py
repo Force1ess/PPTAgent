@@ -9,9 +9,10 @@ from typing import Literal
 from appcore import mcp
 from mcp.types import ImageContent
 from pptagent.model_utils import _get_lid_model
-from pptagent.utils import ppt_to_images_async
+from pptagent.utils import ppt_to_images
 
 from deeppresenter.utils.config import DeepPresenterConfig
+from deeppresenter.utils.log import error
 from deeppresenter.utils.webview import convert_html_to_pptx
 
 LID_MODEL = _get_lid_model()
@@ -35,25 +36,27 @@ async def inspect_slide(
         return f"HTML path {html_path} does not exist or is not an HTML file"
     try:
         pptx_path = await convert_html_to_pptx(html_path, aspect_ratio=aspect_ratio)
+    except Exception as e:
+        return e
+
+    if LLM_CONFIG.design_agent.is_multimodal:
         with tempfile.TemporaryDirectory() as tmp_dir:
             output_dir = Path(tmp_dir)
-            await ppt_to_images_async(str(pptx_path), str(output_dir))
+            await ppt_to_images(str(pptx_path), str(output_dir))
             image_path = output_dir / "slide_0001.jpg"
+            if not image_path.exists():
+                error(f"Image not found: {image_path}")
             image_data = image_path.read_bytes()
         base64_data = (
             f"data:image/jpeg;base64,{base64.b64encode(image_data).decode('utf-8')}"
         )
-
-        if LLM_CONFIG.design_agent.is_multimodal:
-            return ImageContent(
-                type="image",
-                data=base64_data,
-                mimeType="image/jpeg",
-            )
-        else:
-            return "This slide looks good."
-    except Exception as e:
-        return e
+        return ImageContent(
+            type="image",
+            data=base64_data,
+            mimeType="image/jpeg",
+        )
+    else:
+        return "This slide looks good."
 
 
 @mcp.tool()

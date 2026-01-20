@@ -31,6 +31,7 @@ dependencies = [
     "aiofiles",
     "aiohttp",
     "beautifulsoup4",
+    "filelock",
     "fastapi[all]",
     "fastmcp>=2.10.0",
     "func_argparse",
@@ -108,7 +109,7 @@ markers = [
 ]
 
 [tool.ruff.lint]
-ignore = ["F403", "F405", "E741"]
+ignore = ["F403", "F405", "E741", "E722"]
 
 
 [tool.setuptools.dynamic]

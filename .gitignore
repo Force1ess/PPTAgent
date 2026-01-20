@@ -1,6 +1,7 @@
 __pycache__
 tmp
 build
+workspace
 *ipynb
 .vscode
 oaib.txt
@@ -12,6 +13,8 @@ runs
 node_modules
 CLAUDE.md
 AGENTS.md
+**/images/*.png
+**/images/*.jpg
 
 # Copy from vuejs
 

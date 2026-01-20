@@ -8,7 +8,7 @@ from pptagent.induct import SlideInducter
 from pptagent.model_utils import ModelManager
 from pptagent.multimodal import ImageLabler
 from pptagent.presentation import Presentation
-from pptagent.utils import Config, ppt_to_images_async
+from pptagent.utils import Config, ppt_to_images
 
 pr_folders = glob("data/*/pptx/*")
 
@@ -21,13 +21,13 @@ async def test_induct(pr_folder: str, sem: asyncio.Semaphore):
     prs.save(join(pr_folder, "source.pptx"))
     async with sem:
         if len(glob(join(pr_folder, "slide_images", "*"))) == 0:
-            await ppt_to_images_async(
+            await ppt_to_images(
                 join(pr_folder, "source.pptx"),
                 join(pr_folder, "slide_images"),
             )
         if len(glob(join(pr_folder, "template_images", "*"))) == 0:
             prs.save(join(pr_folder, "template.pptx"), layout_only=True)
-            await ppt_to_images_async(
+            await ppt_to_images(
                 join(pr_folder, "template.pptx"), join(pr_folder, "template_images")
             )
         prs = Presentation.from_file(join(pr_folder, "source.pptx"), config)

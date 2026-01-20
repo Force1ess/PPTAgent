@@ -114,7 +114,7 @@ Important: Only respond with content directly related to the task and document a
 
 
 @mcp.tool()
-async def document_analyze(task: str, document_path: str) -> str:
+async def document_summary(task: str, document_path: str) -> str:
     """
     Generate a report according to the given task and long document.
 

@@ -24,10 +24,17 @@ from deeppresenter.utils.config import (
 )
 from deeppresenter.utils.constants import (
     AGENT_PROMPT,
-    CONTEXT_LENGTH_LIMIT,
+    CONTEXT_MODE_PROMPT,
+    CONTINUE_MSG,
+    HALF_BUDGET_NOTICE_MSG,
+    HIST_LOST_MSG,
+    LAST_ITER_MSG,
     MAX_LOGGING_LENGTH,
+    MAX_TOOLCALL_PER_TURN,
+    MEMORY_COMPACT_MSG,
     OFFLINE_PROMPT,
     PACKAGE_DIR,
+    URGENT_BUDGET_NOTICE_MSG,
 )
 from deeppresenter.utils.log import (
     debug,
@@ -43,16 +50,6 @@ from deeppresenter.utils.typings import (
     RoleConfig,
 )
 
-HALF_NOTICE_MESSAGE = {
-    "text": "<NOTICE>You have used about half of your working budget. Now focused on the core task and skipping unnecessary steps or explorations.</NOTICE>",
-    "type": "text",
-}
-URGENT_NOTICE_MESSAGE = {
-    "text": "<URGENT>Working budget nearly exhausted. You must finish the core task and call `finalize` now, or your work will fail. Skip extras like inspection and validation.</URGENT>",
-    "type": "text",
-}
-REASON_TOOLS = ["inspect_slide", "inspect_manuscript", "thinking"]
-
 
 class Agent:
     def __init__(
@@ -61,10 +58,9 @@ class Agent:
         agent_env: AgentEnv,
         workspace: Path,
         language: Literal["zh", "en"],
-        allow_reflection: bool,
+        allow_reflection: bool = True,
         config_file: str | None = None,
         keep_reasoning: bool = True,
-        context_window: int = CONTEXT_LENGTH_LIMIT,
     ):
         self.name = self.__class__.__name__
         self.cost = Cost()
@@ -74,7 +70,8 @@ class Agent:
         self.agent_env = agent_env
         self.language = language
         self.keep_reasoning = keep_reasoning
-        self.context_window = context_window
+        self.context_window = config.context_window
+        self.max_context_turns = config.max_context_folds
         config_file = (
             Path(config_file)
             if config_file
@@ -108,9 +105,20 @@ class Agent:
                 for tool in agent_env._server_tools[server]:
                     if tool not in role_config.exclude_tools:
                         self.tools.append(agent_env._tools_dict[tool])
+
         for tool_name, tool in agent_env._tools_dict.items():
             if tool_name in role_config.include_tools:
                 self.tools.append(tool)
+
+        if not allow_reflection:
+            if any(t["function"]["name"].startswith("inspect_") for t in self.tools):
+                self.system += "<Tips>You are not allowed to reflect and invoking inspect tools, please focus on provided tools and adjust your plan accordingly</Tips>"
+                self.tools = [
+                    t
+                    for t in self.tools
+                    if not t["function"]["name"].startswith("inspect_")
+                ]
+
         if language not in role_config.system:
             raise ValueError(f"Language '{language}' not found in system prompts")
         self.system = role_config.system[language]
@@ -121,15 +129,22 @@ class Agent:
                 workspace=self.workspace,
                 cutoff_len=self.agent_env.cutoff_len,
                 time=datetime.now().strftime("%Y-%m-%d"),
+                max_toolcall_per_turn=MAX_TOOLCALL_PER_TURN,
             )
 
             if config.offline_mode:
                 self.system += OFFLINE_PROMPT
 
+        if config.context_folding:
+            self.system += CONTEXT_MODE_PROMPT
+
         self.chat_history: list[ChatMessage] = [
             ChatMessage(role=Role.SYSTEM, content=self.system)
         ]
-        info(f"{self.name} Agent got {len(self.tools)} tools")
+        self.research_iter = -1
+        if config.context_folding:
+            self.context_warning = -1
+        debug(f"{self.name} Agent got {len(self.tools)} tools")
         available_tools = [tool["function"]["name"] for tool in self.tools]
         debug(f"Available tools: {', '.join(available_tools)}")
 
@@ -229,6 +244,9 @@ class Agent:
                 arguments = None
             else:
                 try:
+                    assert len(tool_calls) <= MAX_TOOLCALL_PER_TURN, (
+                        f"Too many tool calls ({len(tool_calls)}), max allowed is {MAX_TOOLCALL_PER_TURN}"
+                    )
                     arguments = get_json_from_response(t.function.arguments)
                     if t.function.name == "finalize":
                         arguments["agent_name"] = self.name
@@ -237,10 +255,6 @@ class Agent:
                             "Finalize tool call must have an outcome"
                         )
                         outcome = arguments["outcome"]
-                    elif t.function.name in REASON_TOOLS:
-                        assert len(tool_calls) == 1, (
-                            "When using reasoning tools, only one tool call is allowed"
-                        )
                     assert isinstance(arguments, dict), (
                         f"Tool call arguments must be a dict or empty, while {arguments} is given"
                     )
@@ -292,40 +306,114 @@ class Agent:
             and self.context_length > self.context_window * 0.5
         ):
             self.context_warning += 1
-            observations[0].content.insert(0, HALF_NOTICE_MESSAGE)
+            observations[0].content.insert(0, HALF_BUDGET_NOTICE_MSG)
         elif (
             self.context_warning == 1
             and self.context_length > self.context_window * 0.8
         ):
-            observations[0].content.insert(0, URGENT_NOTICE_MESSAGE)
+            observations[0].content.insert(0, URGENT_BUDGET_NOTICE_MSG)
             self.context_warning = 2
 
         for obs in observations:
             self.log_message(obs)
 
         if self.context_length > self.context_window:
-            raise RuntimeError(
-                f"{self.name} agent exceeded context window: {self.context_length}/{self.context_window}"
-            )
-
+            if self.context_warning == -1:
+                await self.compact_history()
+            else:
+                raise RuntimeError(
+                    f"{self.name} agent exceeded context window: {self.context_length}/{self.context_window}"
+                )
         return observations
 
     def log_message(self, msg: ChatMessage):
         if len(msg.text) < MAX_LOGGING_LENGTH:
-            info(f"{self.name}: {msg.text}")
+            debug(f"{self.name}: {msg.text}")
         else:
-            info(f"{self.name}: {msg.text[:MAX_LOGGING_LENGTH]}...")
+            debug(f"{self.name}: {msg.text[:MAX_LOGGING_LENGTH]}...")
 
-    def save_history(self, dir: Path | None = None):
-        dir = dir or self.workspace / "history"
-        dir.mkdir(parents=True, exist_ok=True)
+    async def compact_history(self, keep_head: int = 10, keep_tail: int = 8):
+        """Summarize the history."""
+        # ? it's 10 = system + user + (thinking, read, design, write)*2
+        if keep_head + keep_tail > len(self.chat_history):
+            return
 
-        history_file = dir / f"{self.name}-history.jsonl"
+        self.research_iter += 1
+        if self.research_iter > self.max_context_turns:
+            return
+
+        head, tail = self._split_history(keep_head, keep_tail)
+        summary_ask = ChatMessage(
+            role=Role.USER, content=MEMORY_COMPACT_MSG.format(language=self.language)
+        )
+        response = await self.llm.run(
+            self.chat_history + [summary_ask],
+            tools=self.tools,
+        )
+        agent_message = response.choices[0].message
+        if self.keep_reasoning and hasattr(agent_message, "reasoning_content"):
+            reasoning = agent_message.reasoning_content
+        else:
+            reasoning = None
+        summary_message = ChatMessage(
+            role=agent_message.role,
+            content=agent_message.content,
+            tool_calls=agent_message.tool_calls,
+            reasoning_content=reasoning,
+        )
+        tasks = [
+            self.agent_env.tool_execute(tc) for tc in summary_message.tool_calls or []
+        ]
+        observations = await asyncio.gather(*tasks)
+        observations[-1].content.append(CONTINUE_MSG)
+        if self.research_iter == self.max_context_turns:
+            observations[-1].content.append(LAST_ITER_MSG)
+        new_tail = [
+            summary_ask,
+            summary_message,
+            *observations,
+        ]
+        self.chat_history.extend(new_tail)
+        self.save_history(message_only=True)
+        self.chat_history = head + tail + new_tail
+
+    def _split_history(self, keep_head, keep_tail):
+        # ensure the left context window contains the paired tool call and tool call result
+        head = []
+        for msg in self.chat_history:
+            if len(head) < keep_head or msg.role == Role.TOOL:
+                head.append(msg)
+            else:
+                break
+        head[-1].content.append(HIST_LOST_MSG)
+
+        tail = self.chat_history[-keep_tail:]
+        for i, m in enumerate(tail):
+            if m.role == Role.ASSISTANT and m not in head:
+                tail = tail[i:]
+                break
+        else:
+            tail = []
+
+        return head, tail
+
+    def save_history(self, hist_dir: Path | None = None, message_only: bool = False):
+        hist_dir = hist_dir or self.workspace / "history"
+        hist_dir.mkdir(parents=True, exist_ok=True)
+
+        history_file = hist_dir / f"{self.name}-history.jsonl"
+        if self.research_iter >= 0:
+            history_file = (
+                hist_dir / f"{self.name}-{self.research_iter:02d}-history.jsonl"
+            )
         with jsonlines.open(history_file, mode="w") as writer:
             for message in self.chat_history:
                 writer.write(message.model_dump())
 
-        config_file = dir / f"{self.name}-config.json"
+        if message_only:
+            return
+
+        config_file = hist_dir / f"{self.name}-config.json"
         with open(config_file, "w", encoding="utf-8") as f:
             json.dump(
                 {
@@ -346,7 +434,7 @@ class Agent:
                 error_history.append(self.chat_history[idx - 1 : idx + 2])
 
         if error_history:
-            error_file = dir / f"{self.name}-errors.jsonl"
+            error_file = hist_dir / f"{self.name}-errors.jsonl"
             with jsonlines.open(error_file, mode="w") as writer:
                 for context in error_history:
                     writer.write([msg.model_dump() for msg in context])

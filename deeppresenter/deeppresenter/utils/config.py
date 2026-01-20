@@ -1,6 +1,8 @@
 import asyncio
 import json
-from itertools import product
+import random
+from itertools import cycle, product
+from math import ceil, gcd, lcm
 from pathlib import Path
 from typing import Any
 
@@ -12,11 +14,13 @@ from openai.types.images_response import ImagesResponse
 from pydantic import BaseModel, Field, PrivateAttr, ValidationError
 
 from deeppresenter.utils.constants import (
+    CONTEXT_LENGTH_LIMIT,
+    MCP_CALL_TIMEOUT,
     PACKAGE_DIR,
     PIXEL_MULTIPLE,
     RETRY_TIMES,
 )
-from deeppresenter.utils.log import debug, logging_openai_exceptions
+from deeppresenter.utils.log import debug, error, info, logging_openai_exceptions
 
 
 def get_json_from_response(response: str) -> dict | list:
@@ -67,6 +71,24 @@ def get_json_from_response(response: str) -> dict | list:
     return json_repair.loads(response)
 
 
+def _align_image_size(width: int, height: int, pixel_multiple: int) -> tuple[int, int]:
+    if pixel_multiple <= 1:
+        return width, height
+
+    g = gcd(width, height)
+    base_w, base_h = width // g, height // g
+
+    k = lcm(
+        pixel_multiple // gcd(pixel_multiple, base_w),
+        pixel_multiple // gcd(pixel_multiple, base_h),
+    )
+    unit_w, unit_h = base_w * k, base_h * k
+
+    scale = max(1, ceil(max(width / unit_w, height / unit_h)))
+
+    return unit_w * scale, unit_h * scale
+
+
 class Endpoint(BaseModel):
     """LLM Endpoint Configuration"""
 
@@ -101,7 +123,7 @@ class Endpoint(BaseModel):
                 model=self.model,
                 messages=messages,
                 tools=tools,
-                tool_choice="auto",
+                tool_choice="required",
                 **self.sampling_parameters,
             )
         elif not soft_response_parsing and response_format is not None:
@@ -221,9 +243,10 @@ class LLM(BaseModel):
             messages = [{"role": "user", "content": messages}]
 
         errors = []
+        iter_endpoints = cycle(self._endpoints)
+        endpoint = next(iter_endpoints)
         async with self._semaphore:
-            for retry_idx in range(retry_times):
-                endpoint = self._endpoints[retry_idx % len(self._endpoints)]
+            for _ in range(retry_times):
                 try:
                     return await endpoint.call(
                         messages,
@@ -234,6 +257,7 @@ class LLM(BaseModel):
                 except (AssertionError, ValidationError) as e:
                     errors.append(f"[{endpoint.model}] {e}")
                 except Exception as e:
+                    endpoint = next(iter_endpoints)
                     errors.append(f"[{endpoint.model}] {e}")
                     if self.secret_logging:
                         identifider = endpoint
@@ -257,18 +281,18 @@ class LLM(BaseModel):
             ratio = (int(self.min_image_size) / (width * height)) ** 0.5
             width = int(width * ratio)
             height = int(height * ratio)
-        width = ((width + pixel_multiple - 1) // pixel_multiple) * pixel_multiple
-        height = ((height + pixel_multiple - 1) // pixel_multiple) * pixel_multiple
+        width, height = _align_image_size(width, height, pixel_multiple)
         async with self._semaphore:
             errors = []
+            random.shuffle(self._endpoints)
             for retry_idx in range(retry_times):
-                await asyncio.sleep(retry_idx)
                 endpoint = self._endpoints[retry_idx % len(self._endpoints)]
                 try:
                     return await endpoint._client.images.generate(
                         prompt=prompt,
                         model=endpoint.model,
                         size=f"{width}x{height}",
+                        timeout=MCP_CALL_TIMEOUT // 5,
                         **endpoint.sampling_parameters,
                     )
                 except Exception as e:
@@ -278,6 +302,7 @@ class LLM(BaseModel):
                     else:
                         identifider = endpoint.model
                     logging_openai_exceptions(identifider, e)
+            error(f"All models failed after {retry_times} retries: {errors}")
             raise ValueError(f"All models failed after {retry_times} retries: {errors}")
 
     async def validate(self):
@@ -293,6 +318,7 @@ class LLM(BaseModel):
 class DeepPresenterConfig(BaseModel):
     """DeepPresenter Global Configuration"""
 
+    # config
     offline_mode: bool = Field(
         default=False, description="Enable offline mode, disable all network requests"
     )
@@ -300,6 +326,18 @@ class DeepPresenterConfig(BaseModel):
     mcp_config_file: str = Field(
         description="MCP configuration file", default=PACKAGE_DIR / "mcp.json"
     )
+    context_folding: bool = Field(
+        default=False, description="Enable context management and auto summarization"
+    )
+    context_window: int | None = Field(
+        default=None,
+        description="Context window for context management, if not set, use the default value",
+    )
+    max_context_folds: int = Field(
+        default=8, description="Maximum number of folds for context management"
+    )
+
+    # llms
     research_agent: LLM = Field(description="Research agent model configuration")
     design_agent: LLM = Field(description="Design agent model configuration")
     long_context_model: LLM = Field(description="Long context model configuration")
@@ -312,6 +350,19 @@ class DeepPresenterConfig(BaseModel):
     )
 
     def model_post_init(self, context):
+        if self.context_window is None:
+            if self.context_folding:
+                self.context_window = CONTEXT_LENGTH_LIMIT // self.max_context_folds
+            else:
+                self.context_window = CONTEXT_LENGTH_LIMIT
+
+        if self.context_folding:
+            info(
+                f"Context folding is enabled, context window: {self.context_window}, max folds: {self.max_context_folds}"
+            )
+        else:
+            info(f"Context folding is disabled, context window: {self.context_window}")
+
         return super().model_post_init(context)
 
     @classmethod

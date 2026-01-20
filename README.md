@@ -46,7 +46,7 @@ https://github.com/user-attachments/assets/938889e8-d7d8-4f4f-b2a1-07ee3ef3991a
 </div>
 
 ## 📅 News
-- [2026/01]: We support freeform and template generation support PPTX export, offline mode now! .
+- [2026/01]: We support freeform and template generation support PPTX export, offline mode now! Context management is added to avoid context overflow.
 - [2025/12]: 🔥 Released V2 with major improvements - Deep Research Integration, Free-Form Visual Design, Autonomous Asset Creation, Text-to-Image Generation, and Agent Environment with sandbox & 20+ tools.
 - [2025/09]: 🛠️ MCP server support added - see [MCP Server](PPTAgent/DOC.md#mcp-server-) for configuration details
 - [2025/09]: 🚀 Released v2 with major improvements - see [release notes](https://github.com/icip-cas/PPTAgent/releases/tag/v0.2.0) for details
@@ -62,53 +62,45 @@ https://github.com/user-attachments/assets/938889e8-d7d8-4f4f-b2a1-07ee3ef3991a
 > 3. Offline mode is supported with limited capabilities (see Offline Setup below).
 
 
-### 1. Set up agent environment & MCP
+### 1. Environment Configuration
 
-- **Agent sandbox (Docker)**: Build the sandbox image using the provided [Dockerfile](deeppresenter/docker/Dockerfile):
+- **Create configuration files** (from project root):
 
   ```bash
-  bash deeppresenter/docker/build.sh
+  cp deeppresenter/deeppresenter/config.yaml.example deeppresenter/deeppresenter/config.yaml
+  cp deeppresenter/deeppresenter/mcp.json.example deeppresenter/deeppresenter/mcp.json
   ```
-### 2. Prepare external services
 
-##### Online Setup:
+- **Online setup**:
+  - **MinerU**: Apply for an API key at [mineru.net](https://mineru.net/apiManage/docs). Note that each key is valid for 14 days.
+  - **Tavily**: Apply for an API key at [tavily.com](https://www.tavily.com/).
+  - **LLM**: Set your model endpoint, API keys, and related parameters in `config.yaml`.
 
-- **MinerU**: Apply for an API key at [mineru.net](https://mineru.net/apiManage/docs). Note that each key is valid for 14 days.
-- **Tavily (optional)**: Apply for an API key at [tavily.com](https://www.tavily.com/).
-- **LLM**: Copy `deeppresenter/deeppresenter/config.yaml.example` to `deeppresenter/deeppresenter/config.yaml`, then set your model endpoint, API keys, and related parameters.
+- **Offline setup**:
+  - **MinerU**: Deploy the MinerU server by following the instructions at [MinerU docker guide](https://opendatalab.github.io/MinerU/quick_start/docker_deployment/#start-services-directly-with-docker-compose)
+  - **Config switch**: Set `offline_mode: true` in [`config.yaml`](deeppresenter/deeppresenter/config.yaml) to avoid loading network-dependent tools (e.g., `fetch`, `search`).
+  - **MinerU endpoint**: Set `MINERU_API_URL` in [`mcp.json`](deeppresenter/deeppresenter/mcp.json) to your local MinerU service URL
 
-- **MCP server**: Copy `deeppresenter/deeppresenter/mcp.json.example` to `deeppresenter/deeppresenter/mcp.json`, then configure the MCP server.
-- **Additional tools**:
+### 2. Service Startup
+
+Build docker images: `docker compose build`
+
+- **From Docker Compose**:
 
   ```bash
-  pip install playwright
+  docker compose up -d
+  ```
+
+- **Running locally**:
+
+  ```bash
+  pip install -e deeppresenter
   playwright install-deps
   playwright install chromium
   npm install
   npx playwright install chromium
+  python webui.py
   ```
-
-##### Offline Setup:
-
-- **MinerU**: Deploy the MinerU server by following the instructions at [MinerU docker guide](https://opendatalab.github.io/MinerU/quick_start/docker_deployment/#start-services-directly-with-docker-compose)
-- **Config switch**: Set `offline_mode: true` in [`config.yaml`](deeppresenter/deeppresenter/config.yaml) to avoid loading network-dependent tools (e.g., `research`, `fetch`, `search`).
-- **MinerU endpoint**: Set `MINERU_API_URL` in [`mcp.json`](deeppresenter/deeppresenter/mcp.json) to your local MinerU service URL
-
-### 3. Install Python dependencies
-
-From the project root directory, run:
-
-```bash
-pip install -e deeppresenter
-```
-
-### 4. Launch the web demo
-
-Also from the project root directory, run:
-
-```bash
-python webui.py
-```
 
 > [!TIP]
 > 🚀 All configurable variables can be found in [constants.py](deeppresenter/deeppresenter/utils/constants.py).

@@ -9,7 +9,7 @@ from tqdm.asyncio import tqdm
 
 from .model_utils import ModelManager
 from .presentation import Presentation
-from .utils import Config, package_join, ppt_to_images_async
+from .utils import Config, package_join, ppt_to_images
 
 language_model = None
 vision_model = None
@@ -111,7 +111,7 @@ async def eval_coherence(prs_source: str):
 async def eval_ppt(prs_source: str):
     slide_folder = prs_source.replace(".pptx", "")
     if not exists(slide_folder):
-        await ppt_to_images_async(prs_source, slide_folder)
+        await ppt_to_images(prs_source, slide_folder)
     await eval_coherence(prs_source)
     await eval_slide(prs_source, slide_folder)
     return get_eval(prs_source)[0]

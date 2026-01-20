@@ -212,6 +212,41 @@ async function rasterizeGradients(page, slideData, bodyDimensions, tmpDir) {
     return filePath;
   };
 
+  const renderSvg = async (svgMarkup, widthPx, heightPx, leftPx = 0, topPx = 0) => {
+    const id = makeId();
+    await page.evaluate(({ id, svgMarkup, widthPx, heightPx, leftPx, topPx }) => {
+      const container = document.createElement('div');
+      container.id = id;
+      container.style.position = 'fixed';
+      container.style.left = `${leftPx}px`;
+      container.style.top = `${topPx}px`;
+      container.style.width = `${widthPx}px`;
+      container.style.height = `${heightPx}px`;
+      container.style.pointerEvents = 'none';
+      container.style.zIndex = '2147483647';
+      container.innerHTML = svgMarkup;
+      document.body.appendChild(container);
+
+      const svg = container.querySelector('svg');
+      if (svg) {
+        svg.setAttribute('width', `${widthPx}px`);
+        svg.setAttribute('height', `${heightPx}px`);
+        svg.style.width = '100%';
+        svg.style.height = '100%';
+        svg.style.display = 'block';
+      }
+    }, { id, svgMarkup, widthPx, heightPx, leftPx, topPx });
+
+    const handle = await page.$(`#${id}`);
+    const filePath = makePath();
+    await handle.screenshot({ path: filePath, omitBackground: true });
+    await page.evaluate((id) => {
+      const el = document.getElementById(id);
+      if (el) el.remove();
+    }, id);
+    return filePath;
+  };
+
   if (slideData.background && slideData.background.type === 'css') {
     const filePath = await renderBackground(
       slideData.background.style || {},
@@ -246,10 +281,12 @@ async function rasterizeGradients(page, slideData, bodyDimensions, tmpDir) {
       el.src = filePath;
       delete el.style;
     } else if (el.type === 'image' && el.style) {
+      const isSvgImage = typeof el.src === 'string'
+        && (el.src.toLowerCase().endsWith('.svg') || el.src.startsWith('data:image/svg'));
       const objectFit = el.style.objectFit || 'fill';
       const objectPosition = el.style.objectPosition || '50% 50%';
       const borderRadius = el.style.borderRadius;
-      const shouldRender = objectFit !== 'fill' || objectPosition !== '50% 50%' || borderRadius;
+      const shouldRender = isSvgImage || objectFit !== 'fill' || objectPosition !== '50% 50%' || borderRadius;
       if (shouldRender) {
         const widthPx = Math.round(el.position.w * PX_PER_IN);
         const heightPx = Math.round(el.position.h * PX_PER_IN);
@@ -259,6 +296,15 @@ async function rasterizeGradients(page, slideData, bodyDimensions, tmpDir) {
         el.src = filePath;
       }
       delete el.style;
+    } else if (el.type === 'svg') {
+      const widthPx = Math.round(el.position.w * PX_PER_IN);
+      const heightPx = Math.round(el.position.h * PX_PER_IN);
+      const leftPx = Math.round(el.position.x * PX_PER_IN);
+      const topPx = Math.round(el.position.y * PX_PER_IN);
+      const filePath = await renderSvg(el.svg, widthPx, heightPx, leftPx, topPx);
+      el.type = 'image';
+      el.src = filePath;
+      delete el.svg;
     } else if (el.type === 'gradient') {
       const widthPx = Math.round(el.position.w * PX_PER_IN);
       const heightPx = Math.round(el.position.h * PX_PER_IN);
@@ -765,16 +811,7 @@ async function extractSlideData(page) {
     };
     const markProcessedList = (root) => {
       processed.add(root);
-      root.childNodes.forEach((child) => {
-        if (child.nodeType !== Node.ELEMENT_NODE) return;
-        const display = window.getComputedStyle(child).display;
-        const isLayoutContainer = display === 'grid'
-          || display === 'inline-grid'
-          || display === 'flex'
-          || display === 'inline-flex';
-        if (isLayoutContainer) return;
-        markProcessedList(child);
-      });
+      root.querySelectorAll('*').forEach((child) => processed.add(child));
     };
     const INLINE_TEXT_TAGS = new Set(['SPAN', 'B', 'STRONG', 'I', 'EM', 'U', 'CODE', 'BR', 'SMALL', 'SUP', 'SUB', 'A']);
     const isLayoutDisplay = (display) => display === 'grid'
@@ -852,6 +889,22 @@ async function extractSlideData(page) {
     document.querySelectorAll('*').forEach((el) => {
       if (processed.has(el)) return;
 
+      // Validate: Pseudo-elements are not supported by PowerPoint extraction
+      const beforeStyle = window.getComputedStyle(el, '::before');
+      const afterStyle = window.getComputedStyle(el, '::after');
+      const hasBefore = beforeStyle && beforeStyle.content && beforeStyle.content !== 'none' && beforeStyle.content !== 'normal';
+      const hasAfter = afterStyle && afterStyle.content && afterStyle.content !== 'none' && afterStyle.content !== 'normal';
+      if (hasBefore || hasAfter) {
+        const pseudoParts = [];
+        if (hasBefore) pseudoParts.push('::before');
+        if (hasAfter) pseudoParts.push('::after');
+        errors.push(
+          `Element <${el.tagName.toLowerCase()}> uses ${pseudoParts.join(' and ')} which is not supported. ` +
+          'Move pseudo-element content into real DOM nodes.'
+        );
+        return;
+      }
+
       // Validate text elements don't have backgrounds, borders, or shadows
       if (textTags.includes(el.tagName)) {
         const computed = window.getComputedStyle(el);
@@ -914,6 +967,27 @@ async function extractSlideData(page) {
             }
           });
           processed.add(el);
+          return;
+        }
+      }
+
+      // Extract inline SVG as rasterized image
+      if (el.tagName === 'SVG') {
+        const rect = el.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          const serializer = new XMLSerializer();
+          const svgMarkup = serializer.serializeToString(el);
+          elements.push({
+            type: 'svg',
+            svg: svgMarkup,
+            position: {
+              x: pxToInch(rect.left),
+              y: pxToInch(rect.top),
+              w: pxToInch(rect.width),
+              h: pxToInch(rect.height)
+            }
+          });
+          markProcessed(el);
           return;
         }
       }

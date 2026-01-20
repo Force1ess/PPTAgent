@@ -1,7 +1,9 @@
 import asyncio
 import json
 import logging
+import os
 import sys
+import time
 import uuid
 from collections import defaultdict
 from pathlib import Path
@@ -11,14 +13,17 @@ from mcp.types import CallToolResult, TextContent
 from openai.types.chat.chat_completion_message_tool_call import (
     ChatCompletionMessageFunctionToolCall as ToolCall,
 )
+from pydantic import BaseModel
 
 import docker
 from deeppresenter.utils.config import GLOBAL_CONFIG, DeepPresenterConfig
 from deeppresenter.utils.constants import (
     CUTOFF_WARNING,
     LOGGING_LEVEL,
+    MCP_CALL_TIMEOUT,
     TOOL_CACHE,
     TOOL_CUTOFF_LEN,
+    WORKSPACE_BASE,
 )
 from deeppresenter.utils.log import (
     debug,
@@ -30,6 +35,12 @@ from deeppresenter.utils.log import (
 )
 from deeppresenter.utils.mcp_client import MCPClient
 from deeppresenter.utils.typings import ChatMessage, MCPServer, Role
+
+
+class ToolTiming(BaseModel):
+    total_time: float = 0
+    success_count: int = 0
+    error_count: int = 0
 
 
 class AgentEnv:
@@ -46,9 +57,24 @@ class AgentEnv:
         with open(config.mcp_config_file, encoding="utf-8") as f:
             raw_conf = json.load(f)
             self.mcp_configs: list[MCPServer] = [MCPServer(**s) for s in raw_conf]
+
         # Pass workspace-specific variables to client to avoid global env pollution
+        host_workspace_base = os.environ.get("DEEPPRESENTER_HOST_WORKSPACE_BASE", None)
+        if host_workspace_base:
+            # calculate HOST_WORKSPACE for docker-in-docker volume mounting
+            host_workspace = str(self.workspace).replace(
+                str(WORKSPACE_BASE), host_workspace_base
+            )
+            debug(
+                f"HOST WORKSPACE DETECTED: mapping {host_workspace} to {self.workspace}"
+            )
+        else:
+            # assume paths are the same (local development)
+            host_workspace = str(self.workspace)
+
         envs = {
             "WORKSPACE": str(self.workspace),
+            "HOST_WORKSPACE": host_workspace,
             "WORKSPACE_ID": self.workspace.stem,
             "LLM_CONFIG_FILE": str(config.file_path),
         }
@@ -56,6 +82,7 @@ class AgentEnv:
             envs["OFFLINE_MODE"] = "1"
         self.client = MCPClient(envs=envs)
         # caching overlong content
+        self.timing_dict = defaultdict(ToolTiming)
         self._tools_dict: dict[str, dict] = {}
         self._server_tools = defaultdict(list)
         self._tool_to_server = {}
@@ -68,14 +95,14 @@ class AgentEnv:
     ):
         try:
             server_id = self._tool_to_server[tool_call.function.name]
-            with timer(f"Tool `{tool_call.function.name}` execution"):
-                if len(tool_call.function.arguments) == 0:
-                    arguments = None
-                else:
-                    arguments = json.loads(tool_call.function.arguments)
-                result = await self.client.tool_execute(
-                    server_id, tool_call.function.name, arguments
-                )
+            if len(tool_call.function.arguments) == 0:
+                arguments = None
+            else:
+                arguments = json.loads(tool_call.function.arguments)
+            start_time = time.time()
+            result = await self.client.tool_execute(
+                server_id, tool_call.function.name, arguments
+            )
         except KeyError:
             result = CallToolResult(
                 type="text",
@@ -90,7 +117,7 @@ class AgentEnv:
             result = CallToolResult(
                 content=[
                     TextContent(
-                        text=f"Tool `{tool_call.function.name}` execution timed out.",
+                        text=f"Tool `{tool_call.function.name}` execution timed out after {MCP_CALL_TIMEOUT} seconds.",
                         type="text",
                     )
                 ],
@@ -106,10 +133,19 @@ class AgentEnv:
                 ],
                 isError=True,
             )
-        if result.isError:
-            warning(
-                f"Tool `{tool_call.function.name}` with params:`{tool_call.function.arguments}` encountered error:\n {result.content}"
+        finally:
+            elapsed = time.time() - start_time
+            debug(
+                f"Tool `{tool_call.function.name}` execution took {elapsed:.2f} seconds"
             )
+            self.timing_dict[tool_call.function.name].total_time += elapsed
+        if result.isError:
+            self.timing_dict[tool_call.function.name].error_count += 1
+            warning(
+                f"Tool `{tool_call.function.name}` with params:`{tool_call.function.arguments}` encountered error: {result.content}"
+            )
+        else:
+            self.timing_dict[tool_call.function.name].success_count += 1
 
         if len(result.content) != 1 and any(
             c.type not in ["image", "text"] for c in result.content
@@ -235,9 +271,28 @@ class AgentEnv:
         with open(self.tool_history_file, "a", encoding="utf-8") as f:
             for tool_call, msg in self.tool_history:
                 f.write(
-                    json.dumps([tool_call.model_dump(), msg.text], ensure_ascii=False)
+                    json.dumps(
+                        [tool_call.model_dump(), msg.model_dump()], ensure_ascii=False
+                    )
                     + "\n"
                 )
+        with (self.workspace / "history" / "tools_time_cost.json").open(
+            "w", encoding="utf-8"
+        ) as f:
+            timing_data = {
+                name: timing.model_dump()
+                for name, timing in sorted(
+                    self.timing_dict.items(),
+                    key=lambda x: x[1].total_time,
+                    reverse=True,
+                )
+            }
+            json.dump(
+                timing_data,
+                f,
+                ensure_ascii=False,
+                indent=2,
+            )
         debug(
             f"Agent Environment exited successfully, interaction history saved to: {self.tool_history_file}."
         )

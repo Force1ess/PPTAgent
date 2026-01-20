@@ -229,5 +229,5 @@ def logging_openai_exceptions(identifider: str | Any, exc: Exception):
     else:
         msg = f"Exception: {str(exc)}\n{traceback.format_exc()}"
 
-    debug(f"{identifider} encountered {msg}")
+    warning(f"{identifider} encountered {msg}")
     return msg
