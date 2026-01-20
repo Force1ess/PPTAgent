@@ -361,6 +361,10 @@ class Agent:
             tool_calls=agent_message.tool_calls,
             reasoning_content=reasoning,
         )
+        debug(
+            f"Summary of Resarch Iter {self.research_iter:02d}: \n"
+            + summary_message.text
+        )
         tasks = [
             self.agent_env.tool_execute(tc) for tc in summary_message.tool_calls or []
         ]
