@@ -147,14 +147,71 @@ async function rasterizeGradients(page, slideData, bodyDimensions, tmpDir) {
     document.body.innerHTML = '';
   });
 
+  // Parse CSS box-shadow to extract dimensions for expanding screenshot area
+  const parseShadowExtent = (boxShadow) => {
+    if (!boxShadow || boxShadow === 'none') return { left: 0, right: 0, top: 0, bottom: 0 };
+
+    // Extract numeric values (offset-x, offset-y, blur, spread)
+    const parts = boxShadow.match(/([-\d.]+)px/g);
+    if (!parts || parts.length < 2) return { left: 0, right: 0, top: 0, bottom: 0 };
+
+    const offsetX = parseFloat(parts[0]);
+    const offsetY = parseFloat(parts[1]);
+    const blur = parts.length > 2 ? parseFloat(parts[2]) : 0;
+    const spread = parts.length > 3 ? parseFloat(parts[3]) : 0;
+
+    // Shadow extends: blur radius + spread on each side, adjusted by offset
+    const extent = blur + spread;
+    return {
+      left: Math.max(0, extent - offsetX),
+      right: Math.max(0, extent + offsetX),
+      top: Math.max(0, extent - offsetY),
+      bottom: Math.max(0, extent + offsetY)
+    };
+  };
+
+  const parseTextShadowExtent = (textShadow) => {
+    if (!textShadow || textShadow === 'none' || textShadow === 'normal') {
+      return { left: 0, right: 0, top: 0, bottom: 0 };
+    }
+
+    const shadows = textShadow.split(/,(?![^(]*\))/);
+    const extents = { left: 0, right: 0, top: 0, bottom: 0 };
+
+    shadows.forEach((shadow) => {
+      const parts = shadow.trim().match(/([-\d.]+)px/g);
+      if (!parts || parts.length < 2) return;
+      const offsetX = parseFloat(parts[0]);
+      const offsetY = parseFloat(parts[1]);
+      const blur = parts.length > 2 ? parseFloat(parts[2]) : 0;
+      const extent = blur;
+      extents.left = Math.max(extents.left, Math.max(0, extent - offsetX));
+      extents.right = Math.max(extents.right, Math.max(0, extent + offsetX));
+      extents.top = Math.max(extents.top, Math.max(0, extent - offsetY));
+      extents.bottom = Math.max(extents.bottom, Math.max(0, extent + offsetY));
+    });
+
+    return extents;
+  };
+
   const renderBackground = async (style, widthPx, heightPx, leftPx = 0, topPx = 0) => {
     const id = makeId();
-    await page.evaluate(({ id, widthPx, heightPx, leftPx, topPx, style }) => {
+    const shadowExtent = parseShadowExtent(style.boxShadow);
+    const hasSignificantShadow = shadowExtent.left + shadowExtent.right + shadowExtent.top + shadowExtent.bottom > 0;
+
+    // Expand dimensions to include shadow
+    const expandedWidth = widthPx + shadowExtent.left + shadowExtent.right;
+    const expandedHeight = heightPx + shadowExtent.top + shadowExtent.bottom;
+    const expandedLeft = leftPx - shadowExtent.left;
+    const expandedTop = topPx - shadowExtent.top;
+
+    await page.evaluate(({ id, widthPx, heightPx, expandedLeft, expandedTop, shadowExtent, style }) => {
       const el = document.createElement('div');
       el.id = id;
       el.style.position = 'fixed';
-      el.style.left = `${leftPx}px`;
-      el.style.top = `${topPx}px`;
+      // Position element within the expanded area, leaving room for shadow
+      el.style.left = `${expandedLeft + shadowExtent.left}px`;
+      el.style.top = `${expandedTop + shadowExtent.top}px`;
       el.style.width = `${widthPx}px`;
       el.style.height = `${heightPx}px`;
       if (style.backgroundColor) el.style.backgroundColor = style.backgroundColor;
@@ -163,53 +220,231 @@ async function rasterizeGradients(page, slideData, bodyDimensions, tmpDir) {
       el.style.backgroundSize = style.backgroundSize || 'auto';
       el.style.backgroundPosition = style.backgroundPosition || '0% 0%';
       if (style.borderRadius) el.style.borderRadius = style.borderRadius;
+      if (style.boxShadow && style.boxShadow !== 'none') el.style.boxShadow = style.boxShadow;
       el.style.pointerEvents = 'none';
       el.style.zIndex = '2147483647';
       document.body.appendChild(el);
-    }, { id, widthPx, heightPx, leftPx, topPx, style });
+    }, { id, widthPx, heightPx, expandedLeft, expandedTop, shadowExtent, style });
 
-    const handle = await page.$(`#${id}`);
     const filePath = makePath();
-    await handle.screenshot({ path: filePath, omitBackground: true });
+    if (hasSignificantShadow) {
+      // Use page screenshot with clip to capture shadow outside element bounds
+      await page.screenshot({
+        path: filePath,
+        omitBackground: true,
+        clip: {
+          x: Math.max(0, expandedLeft),
+          y: Math.max(0, expandedTop),
+          width: expandedWidth,
+          height: expandedHeight
+        }
+      });
+    } else {
+      const handle = await page.$(`#${id}`);
+      await handle.screenshot({ path: filePath, omitBackground: true });
+    }
     await page.evaluate((id) => {
       const el = document.getElementById(id);
       if (el) el.remove();
     }, id);
-    return filePath;
+    return { filePath, shadowExtent, hasSignificantShadow };
   };
 
   const renderImage = async (src, style, widthPx, heightPx, leftPx = 0, topPx = 0) => {
     const id = makeId();
-    await page.evaluate(({ id, src, widthPx, heightPx, leftPx, topPx, style }) => {
+    const shadowExtent = parseShadowExtent(style.boxShadow);
+    const hasSignificantShadow = shadowExtent.left + shadowExtent.right + shadowExtent.top + shadowExtent.bottom > 0;
+
+    // Expand dimensions to include shadow
+    const expandedLeft = leftPx - shadowExtent.left;
+    const expandedTop = topPx - shadowExtent.top;
+    const expandedWidth = widthPx + shadowExtent.left + shadowExtent.right;
+    const expandedHeight = heightPx + shadowExtent.top + shadowExtent.bottom;
+
+    await page.evaluate(({ id, src, widthPx, heightPx, expandedLeft, expandedTop, shadowExtent, style }) => {
       const img = document.createElement('img');
       img.id = id;
       img.src = src;
       img.style.position = 'fixed';
-      img.style.left = `${leftPx}px`;
-      img.style.top = `${topPx}px`;
+      // Position image within the expanded area, leaving room for shadow
+      img.style.left = `${expandedLeft + shadowExtent.left}px`;
+      img.style.top = `${expandedTop + shadowExtent.top}px`;
       img.style.width = `${widthPx}px`;
       img.style.height = `${heightPx}px`;
       img.style.objectFit = style.objectFit || 'fill';
       img.style.objectPosition = style.objectPosition || '50% 50%';
+      if (style.filter && style.filter !== 'none') img.style.filter = style.filter;
       if (style.borderRadius) img.style.borderRadius = style.borderRadius;
+      if (style.boxShadow && style.boxShadow !== 'none') img.style.boxShadow = style.boxShadow;
       img.style.pointerEvents = 'none';
       img.style.zIndex = '2147483647';
       document.body.appendChild(img);
-    }, { id, src, widthPx, heightPx, leftPx, topPx, style });
+    }, { id, src, widthPx, heightPx, expandedLeft, expandedTop, shadowExtent, style });
 
     await page.waitForFunction((id) => {
       const el = document.getElementById(id);
       return el && el.complete;
     }, id);
 
-    const handle = await page.$(`#${id}`);
     const filePath = makePath();
-    await handle.screenshot({ path: filePath, omitBackground: true });
+    if (hasSignificantShadow) {
+      // Use page screenshot with clip to capture shadow outside element bounds
+      await page.screenshot({
+        path: filePath,
+        omitBackground: true,
+        clip: {
+          x: Math.max(0, expandedLeft),
+          y: Math.max(0, expandedTop),
+          width: expandedWidth,
+          height: expandedHeight
+        }
+      });
+    } else {
+      const handle = await page.$(`#${id}`);
+      await handle.screenshot({ path: filePath, omitBackground: true });
+    }
     await page.evaluate((id) => {
       const el = document.getElementById(id);
       if (el) el.remove();
     }, id);
-    return filePath;
+    return { filePath, shadowExtent, hasSignificantShadow };
+  };
+
+  const renderText = async (text, style, widthPx, heightPx, leftPx = 0, topPx = 0) => {
+    const id = makeId();
+    const shadowExtent = parseTextShadowExtent(style.textShadow);
+    const hasSignificantShadow = shadowExtent.left + shadowExtent.right + shadowExtent.top + shadowExtent.bottom > 0;
+
+    const expandedLeft = leftPx - shadowExtent.left;
+    const expandedTop = topPx - shadowExtent.top;
+    const expandedWidth = widthPx + shadowExtent.left + shadowExtent.right;
+    const expandedHeight = heightPx + shadowExtent.top + shadowExtent.bottom;
+
+    await page.evaluate(
+      ({ id, text, style, widthPx, heightPx, expandedLeft, expandedTop, shadowExtent, ptPerPx }) => {
+        const toCssColor = (hex, transparency) => {
+          if (!hex) return null;
+          const clean = hex.startsWith('#') ? hex.slice(1) : hex;
+          if (clean.length !== 6) return null;
+          const r = parseInt(clean.slice(0, 2), 16);
+          const g = parseInt(clean.slice(2, 4), 16);
+          const b = parseInt(clean.slice(4, 6), 16);
+          const alpha = transparency != null ? (100 - transparency) / 100 : 1;
+          return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        };
+
+        const ptToPx = (pt) => (typeof pt === 'number' ? pt / ptPerPx : null);
+
+        const container = document.createElement('div');
+        container.id = id;
+        container.style.position = 'fixed';
+        container.style.left = `${expandedLeft + shadowExtent.left}px`;
+        container.style.top = `${expandedTop + shadowExtent.top}px`;
+        container.style.width = `${widthPx}px`;
+        container.style.height = `${heightPx}px`;
+        container.style.pointerEvents = 'none';
+        container.style.zIndex = '2147483647';
+        container.style.boxSizing = 'border-box';
+        container.style.display = 'flex';
+
+        if (style.valign === 'middle') {
+          container.style.alignItems = 'center';
+        } else if (style.valign === 'bottom') {
+          container.style.alignItems = 'flex-end';
+        } else {
+          container.style.alignItems = 'flex-start';
+        }
+
+        const textEl = document.createElement('div');
+        textEl.style.width = '100%';
+        textEl.style.boxSizing = 'border-box';
+        textEl.style.whiteSpace = 'pre-wrap';
+        textEl.style.backgroundColor = 'transparent';
+
+        const color = toCssColor(style.color, style.transparency);
+        if (color) textEl.style.color = color;
+        if (style.fontFace) textEl.style.fontFamily = style.fontFace;
+        if (style.fontWeight && style.fontWeight !== 'normal') textEl.style.fontWeight = style.fontWeight;
+        if (style.bold && !style.fontWeight) textEl.style.fontWeight = 'bold';
+        if (style.italic) textEl.style.fontStyle = 'italic';
+        if (style.underline) textEl.style.textDecoration = 'underline';
+        if (style.align) textEl.style.textAlign = style.align;
+        if (style.letterSpacing && style.letterSpacing !== 'normal') textEl.style.letterSpacing = style.letterSpacing;
+        if (style.textShadow && style.textShadow !== 'none') textEl.style.textShadow = style.textShadow;
+
+        const fontSizePx = ptToPx(style.fontSize);
+        if (fontSizePx) textEl.style.fontSize = `${fontSizePx}px`;
+        const lineHeightPx = ptToPx(style.lineSpacing);
+        if (lineHeightPx) textEl.style.lineHeight = `${lineHeightPx}px`;
+
+        if (Array.isArray(style.margin) && style.margin.length === 4) {
+          const paddingTop = ptToPx(style.margin[3]) || 0;
+          const paddingRight = ptToPx(style.margin[1]) || 0;
+          const paddingBottom = ptToPx(style.margin[2]) || 0;
+          const paddingLeft = ptToPx(style.margin[0]) || 0;
+          textEl.style.padding = `${paddingTop}px ${paddingRight}px ${paddingBottom}px ${paddingLeft}px`;
+        }
+
+        const appendTextWithBreaks = (parent, value) => {
+          const parts = value.split('\n');
+          parts.forEach((part, idx) => {
+            if (part.length > 0) parent.appendChild(document.createTextNode(part));
+            if (idx < parts.length - 1) parent.appendChild(document.createElement('br'));
+          });
+        };
+
+        if (Array.isArray(text)) {
+          text.forEach((run) => {
+            if (!run || typeof run.text !== 'string') return;
+            const span = document.createElement('span');
+            if (run.options) {
+              const runColor = toCssColor(run.options.color, run.options.transparency);
+              if (runColor) span.style.color = runColor;
+              if (run.options.bold) span.style.fontWeight = 'bold';
+              if (run.options.italic) span.style.fontStyle = 'italic';
+              if (run.options.underline) span.style.textDecoration = 'underline';
+              if (typeof run.options.fontSize === 'number') {
+                const runFontSizePx = ptToPx(run.options.fontSize);
+                if (runFontSizePx) span.style.fontSize = `${runFontSizePx}px`;
+              }
+            }
+            appendTextWithBreaks(span, run.text);
+            textEl.appendChild(span);
+            if (run.options && run.options.breakLine) {
+              textEl.appendChild(document.createElement('br'));
+            }
+          });
+        } else if (typeof text === 'string') {
+          appendTextWithBreaks(textEl, text);
+        }
+
+        container.appendChild(textEl);
+        document.body.appendChild(container);
+      },
+      { id, text, style, widthPx, heightPx, expandedLeft, expandedTop, shadowExtent, ptPerPx: PT_PER_PX }
+    );
+
+    const filePath = makePath();
+    if (hasSignificantShadow) {
+      await page.screenshot({
+        path: filePath,
+        omitBackground: true,
+        clip: {
+          x: Math.max(0, expandedLeft),
+          y: Math.max(0, expandedTop),
+          width: expandedWidth,
+          height: expandedHeight
+        }
+      });
+    } else {
+      const handle = await page.$(`#${id}`);
+      await handle.screenshot({ path: filePath, omitBackground: true });
+    }
+    await page.evaluate((id) => {
+      const el = document.getElementById(id);
+      if (el) el.remove();
+    }, id);
+    return { filePath, shadowExtent, hasSignificantShadow };
   };
 
   const renderSvg = async (svgMarkup, widthPx, heightPx, leftPx = 0, topPx = 0) => {
@@ -248,7 +483,7 @@ async function rasterizeGradients(page, slideData, bodyDimensions, tmpDir) {
   };
 
   if (slideData.background && slideData.background.type === 'css') {
-    const filePath = await renderBackground(
+    const { filePath } = await renderBackground(
       slideData.background.style || {},
       Math.round(bodyDimensions.width),
       Math.round(bodyDimensions.height),
@@ -257,7 +492,7 @@ async function rasterizeGradients(page, slideData, bodyDimensions, tmpDir) {
     );
     slideData.background = { type: 'image', path: filePath };
   } else if (slideData.background && slideData.background.type === 'gradient') {
-    const filePath = await renderBackground(
+    const { filePath } = await renderBackground(
       {
         ...(slideData.background.style || {}),
         backgroundImage: slideData.background.value
@@ -276,9 +511,16 @@ async function rasterizeGradients(page, slideData, bodyDimensions, tmpDir) {
       const heightPx = Math.round(el.position.h * PX_PER_IN);
       const leftPx = Math.round(el.position.x * PX_PER_IN);
       const topPx = Math.round(el.position.y * PX_PER_IN);
-      const filePath = await renderBackground(el.style || {}, widthPx, heightPx, leftPx, topPx);
+      const { filePath, shadowExtent, hasSignificantShadow } = await renderBackground(el.style || {}, widthPx, heightPx, leftPx, topPx);
       el.type = 'image';
       el.src = filePath;
+      // Adjust position to account for shadow extent (image now includes shadow)
+      if (hasSignificantShadow) {
+        el.position.x -= shadowExtent.left / PX_PER_IN;
+        el.position.y -= shadowExtent.top / PX_PER_IN;
+        el.position.w += (shadowExtent.left + shadowExtent.right) / PX_PER_IN;
+        el.position.h += (shadowExtent.top + shadowExtent.bottom) / PX_PER_IN;
+      }
       delete el.style;
     } else if (el.type === 'image' && el.style) {
       const isSvgImage = typeof el.src === 'string'
@@ -286,16 +528,58 @@ async function rasterizeGradients(page, slideData, bodyDimensions, tmpDir) {
       const objectFit = el.style.objectFit || 'fill';
       const objectPosition = el.style.objectPosition || '50% 50%';
       const borderRadius = el.style.borderRadius;
-      const shouldRender = isSvgImage || objectFit !== 'fill' || objectPosition !== '50% 50%' || borderRadius;
+      const filter = el.style.filter;
+      const boxShadow = el.style.boxShadow;
+      const hasBoxShadow = boxShadow && boxShadow !== 'none';
+      const shouldRender = isSvgImage
+        || objectFit !== 'fill'
+        || objectPosition !== '50% 50%'
+        || borderRadius
+        || (filter && filter !== 'none')
+        || hasBoxShadow;
       if (shouldRender) {
         const widthPx = Math.round(el.position.w * PX_PER_IN);
         const heightPx = Math.round(el.position.h * PX_PER_IN);
         const leftPx = Math.round(el.position.x * PX_PER_IN);
         const topPx = Math.round(el.position.y * PX_PER_IN);
-        const filePath = await renderImage(el.src, el.style, widthPx, heightPx, leftPx, topPx);
+        const { filePath, shadowExtent, hasSignificantShadow } = await renderImage(el.src, el.style, widthPx, heightPx, leftPx, topPx);
         el.src = filePath;
+        // Adjust position to account for shadow extent
+        if (hasSignificantShadow) {
+          el.position.x -= shadowExtent.left / PX_PER_IN;
+          el.position.y -= shadowExtent.top / PX_PER_IN;
+          el.position.w += (shadowExtent.left + shadowExtent.right) / PX_PER_IN;
+          el.position.h += (shadowExtent.top + shadowExtent.bottom) / PX_PER_IN;
+        }
       }
       delete el.style;
+    } else if (['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div'].includes(el.type)
+      && el.style
+      && el.style.textShadow
+      && el.style.textShadow !== 'none'
+      && el.style.textShadow !== 'normal') {
+      const widthPx = Math.round(el.position.w * PX_PER_IN);
+      const heightPx = Math.round(el.position.h * PX_PER_IN);
+      const leftPx = Math.round(el.position.x * PX_PER_IN);
+      const topPx = Math.round(el.position.y * PX_PER_IN);
+      const { filePath, shadowExtent, hasSignificantShadow } = await renderText(
+        el.text,
+        el.style,
+        widthPx,
+        heightPx,
+        leftPx,
+        topPx
+      );
+      el.type = 'image';
+      el.src = filePath;
+      delete el.text;
+      delete el.style;
+      if (hasSignificantShadow) {
+        el.position.x -= shadowExtent.left / PX_PER_IN;
+        el.position.y -= shadowExtent.top / PX_PER_IN;
+        el.position.w += (shadowExtent.left + shadowExtent.right) / PX_PER_IN;
+        el.position.h += (shadowExtent.top + shadowExtent.bottom) / PX_PER_IN;
+      }
     } else if (el.type === 'svg') {
       const widthPx = Math.round(el.position.w * PX_PER_IN);
       const heightPx = Math.round(el.position.h * PX_PER_IN);
@@ -310,7 +594,7 @@ async function rasterizeGradients(page, slideData, bodyDimensions, tmpDir) {
       const heightPx = Math.round(el.position.h * PX_PER_IN);
       const leftPx = Math.round(el.position.x * PX_PER_IN);
       const topPx = Math.round(el.position.y * PX_PER_IN);
-      const filePath = await renderBackground(
+      const { filePath } = await renderBackground(
         {
           ...(el.style || {}),
           backgroundImage: el.gradient
@@ -744,21 +1028,21 @@ async function extractSlideData(page) {
       const colWidthsPx = [];
       const rowHeightsPx = [];
 
-      const firstRow = tableEl.querySelector('tr');
-      if (firstRow) {
-        Array.from(firstRow.cells).forEach((cell) => {
+      Array.from(tableEl.querySelectorAll('tr')).forEach((row) => {
+        const rowRect = row.getBoundingClientRect();
+        rowHeightsPx.push(rowRect.height);
+
+        let colIndex = 0;
+        Array.from(row.cells).forEach((cell) => {
           const cellRect = cell.getBoundingClientRect();
           const colspan = Number(cell.getAttribute('colspan')) || 1;
           const colWidth = cellRect.width / colspan;
           for (let i = 0; i < colspan; i += 1) {
-            colWidthsPx.push(colWidth);
+            const idx = colIndex + i;
+            colWidthsPx[idx] = Math.max(colWidthsPx[idx] || 0, colWidth);
           }
+          colIndex += colspan;
         });
-      }
-
-      Array.from(tableEl.querySelectorAll('tr')).forEach((row) => {
-        const rowRect = row.getBoundingClientRect();
-        rowHeightsPx.push(rowRect.height);
       });
 
       const totalColWidth = colWidthsPx.reduce((sum, w) => sum + w, 0);
@@ -827,11 +1111,14 @@ async function extractSlideData(page) {
       const baseStyle = {
         fontSize: pxToPoints(computed.fontSize),
         fontFace: computed.fontFamily.split(',')[0].replace(/['"]/g, '').trim(),
+        fontWeight: computed.fontWeight,
         color: rgbToHex(computed.color),
         align: justifyCenter ? 'center' : (computed.textAlign === 'start' ? 'left' : computed.textAlign),
         lineSpacing: computed.lineHeight && computed.lineHeight !== 'normal' ? pxToPoints(computed.lineHeight) : null,
         paraSpaceBefore: pxToPoints(computed.marginTop),
         paraSpaceAfter: pxToPoints(computed.marginBottom),
+        letterSpacing: computed.letterSpacing,
+        textShadow: computed.textShadow,
         // PptxGenJS margin array is [left, right, bottom, top]
         margin: [
           pxToPoints(computed.paddingLeft),
@@ -963,7 +1250,9 @@ async function extractSlideData(page) {
             style: {
               objectFit: computed.objectFit,
               objectPosition: computed.objectPosition,
-              borderRadius: computed.borderRadius
+              borderRadius: computed.borderRadius,
+              filter: computed.filter,
+              boxShadow: computed.boxShadow
             }
           });
           processed.add(el);
@@ -1118,6 +1407,10 @@ async function extractSlideData(page) {
 
       // Extract inline text-only DIVs
       if (el.tagName === 'DIV') {
+        // Skip if inside a text ancestor (will be handled as part of the text element)
+        const textAncestor = el.closest('p,h1,h2,h3,h4,h5,h6,li,ul,ol');
+        if (textAncestor) return;
+
         const computed = window.getComputedStyle(el);
         const hasBg = computed.backgroundColor && computed.backgroundColor !== 'rgba(0, 0, 0, 0)';
         const bgImage = computed.backgroundImage;
@@ -1289,7 +1582,8 @@ async function extractSlideData(page) {
                   backgroundSize: computed.backgroundSize,
                   backgroundPosition: computed.backgroundPosition,
                   backgroundColor: computed.backgroundColor,
-                  borderRadius: computed.borderRadius
+                  borderRadius: computed.borderRadius,
+                  boxShadow: computed.boxShadow
                 }
               });
             }
@@ -1320,10 +1614,15 @@ async function extractSlideData(page) {
           processed.add(el);
           return;
         }
+        // Skip if any LI uses flex/grid layout - let children be extracted independently
+        const liElements = Array.from(el.children).filter((child) => child.tagName === 'LI');
+        const hasLayoutLi = liElements.some((li) => isLayoutDisplay(window.getComputedStyle(li).display));
+        if (hasLayoutLi) {
+          processed.add(el);
+          return;
+        }
         const rect = el.getBoundingClientRect();
         if (rect.width === 0 || rect.height === 0) return;
-
-        const liElements = Array.from(el.querySelectorAll('li'));
         const items = [];
         const ulPaddingLeftPt = pxToPoints(ulComputed.paddingLeft);
         const listStyleType = ulComputed.listStyleType;
@@ -1339,7 +1638,11 @@ async function extractSlideData(page) {
 
         liElements.forEach((li, idx) => {
           const isLast = idx === liElements.length - 1;
-          const runs = parseInlineFormatting(li, { breakLine: false }, [], (x) => x, true);
+          // Only use block-level direct children as source; inline elements like span should be
+          // processed as part of the li's mixed content, not as standalone sources
+          const directBlockEl = li.querySelector(':scope > p, :scope > h1, :scope > h2, :scope > h3, :scope > h4, :scope > h5, :scope > h6, :scope > div');
+          const sourceEl = directBlockEl || li;
+          const runs = parseInlineFormatting(sourceEl, { breakLine: false }, [], (x) => x, true);
           // Clean manual bullets from first run
           if (runs.length > 0) {
             runs[0].text = runs[0].text.replace(/^[•\-\*▪▸]\s*/, '');
@@ -1386,6 +1689,12 @@ async function extractSlideData(page) {
       // Extract text elements (P, H1, H2, etc.)
       if (!textTags.includes(el.tagName)) return;
 
+      // Skip if nested inside another text element (invalid HTML like <h2><p>...</p></h2>)
+      const textParent = el.parentElement?.closest('p,h1,h2,h3,h4,h5,h6');
+      if (textParent) return;
+
+      if (el.tagName === 'LI' && el.querySelector('p,h1,h2,h3,h4,h5,h6,div,ul,ol')) return;
+
       const rect = el.getBoundingClientRect();
       const text = el.textContent.trim();
       if (rect.width === 0 || rect.height === 0 || !text) return;
@@ -1406,11 +1715,14 @@ async function extractSlideData(page) {
       const baseStyle = {
         fontSize: pxToPoints(computed.fontSize),
         fontFace: computed.fontFamily.split(',')[0].replace(/['"]/g, '').trim(),
+        fontWeight: computed.fontWeight,
         color: rgbToHex(computed.color),
         align: computed.textAlign === 'start' ? 'left' : computed.textAlign,
         lineSpacing: pxToPoints(computed.lineHeight),
         paraSpaceBefore: pxToPoints(computed.marginTop),
         paraSpaceAfter: pxToPoints(computed.marginBottom),
+        letterSpacing: computed.letterSpacing,
+        textShadow: computed.textShadow,
         // PptxGenJS margin array is [left, right, bottom, top] (not [top, right, bottom, left] as documented)
         margin: [
           pxToPoints(computed.paddingLeft),

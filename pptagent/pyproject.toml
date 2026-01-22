@@ -31,7 +31,6 @@ dependencies = [
     "aiofiles",
     "aiohttp",
     "beautifulsoup4",
-    "filelock",
     "fastapi[all]",
     "fastmcp>=2.10.0",
     "func_argparse",
@@ -71,6 +70,7 @@ full = [
     "peft",
     "huggingface_hub",
     "timm",
+    "unoserver",
 ]
 
 [project.urls]

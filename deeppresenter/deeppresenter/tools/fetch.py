@@ -7,7 +7,7 @@ from pathlib import Path
 
 import httpx
 import markdownify
-from appcore import mcp
+from appcore import mcp, workspace
 from fake_useragent import UserAgent
 from PIL import Image
 from playwright.async_api import TimeoutError
@@ -78,12 +78,15 @@ async def fetch_url(url: str, body_only: bool = True) -> str:
 
 
 @mcp.tool()
-async def download_file(url: str, output_path: str) -> str:
+async def download_file(url: str, output_file: str) -> str:
     """
     Download a file from a URL and save it to a local path.
     """
     # Create directory if it doesn't exist
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    output_path = Path(output_file)
+    if not output_path.is_relative_to(workspace):
+        return f"Access denied: path must be within workspace {workspace}"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     suffix = Path(output_path).suffix.lower()
     ext_format_map = Image.registered_extensions()
     for retry in range(RETRY_TIMES):
@@ -100,16 +103,15 @@ async def download_file(url: str, output_path: str) -> str:
             try:
                 with Image.open(BytesIO(data)) as img:
                     img.load()
-                    save_path = output_path
                     save_format = ext_format_map.get(suffix, img.format)
                     note = ""
                     if img.format == "WEBP" or suffix == ".webp":
-                        save_path = str(Path(output_path).with_suffix(".png"))
+                        output_path = output_path.with_suffix(".png")
                         save_format = "PNG"
                         note = " (converted from WEBP to PNG)"
-                    img.save(save_path, format=save_format)
+                    img.save(output_path, format=save_format)
                     width, height = img.size
-                    return f"File downloaded to {save_path} (resolution: {width}x{height}){note}"
+                    return f"File downloaded to {output_path} (resolution: {width}x{height}){note}"
             except Exception:
                 with open(output_path, "wb") as f:
                     f.write(data)
