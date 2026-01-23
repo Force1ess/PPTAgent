@@ -186,7 +186,7 @@ def finalize(outcome: str, agent_name: str = "") -> str:
                 lambda match: _rewrite_image_link(match, md_dir),
                 content,
             )
-            shutil.copyfile(path, path.with_suffix(".bak.md"))
+            shutil.copyfile(path, md_dir / ("." + path.name))
             path.write_text(content, encoding="utf-8")
         except Exception as e:
             error(f"Failed to rewrite image links: {e}")

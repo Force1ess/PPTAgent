@@ -334,7 +334,7 @@ class DeepPresenterConfig(BaseModel):
         description="Context window for context management, if not set, use the default value",
     )
     max_context_folds: int = Field(
-        default=8, description="Maximum number of folds for context management"
+        default=4, description="Maximum number of folds for context management"
     )
 
     # llms

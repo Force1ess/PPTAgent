@@ -75,11 +75,11 @@ class PlaywrightConverter:
 
     async def convert_to_pdf(
         self,
-        html_files: list[str],
-        output_pdf: Path,
+        html_files: list[str | Path],
+        output_pdf: Path | str,
         aspect_ratio: Literal["16:9", "4:3", "A1"],
         error_sink: list[str] | None = None,
-    ):
+    ) -> Path:
         if isinstance(output_pdf, str):
             output_pdf = Path(output_pdf)
         pdf_files = [tempfile.mkstemp(suffix=".pdf")[1] for _ in range(len(html_files))]

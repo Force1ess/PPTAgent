@@ -74,11 +74,10 @@ ENV PATH="/opt/.venv/bin:${PATH}" \
 RUN uv venv --python 3.13 $VIRTUAL_ENV && \
     uv pip install -e deeppresenter
 
-# install unoserver and libreoffice for fast pptx2image converting
-RUN apt install -y libreoffice python3 python3-pip poppler-utils
+# install libreoffice for pptx2image converting
+RUN apt install -y libreoffice poppler-utils
 RUN apt install -y docker.io
-RUN pip3 install unoserver
 
 RUN fc-cache -f
 
-CMD ["bash", "-c", "umask 000 && unoserver & python webui.py 0.0.0.0"]
+CMD ["bash", "-c", "umask 000 && python webui.py 0.0.0.0"]

@@ -94,12 +94,12 @@ class AgentEnv:
         tool_call: ToolCall,
     ):
         try:
+            start_time = time.time()
             server_id = self._tool_to_server[tool_call.function.name]
             if len(tool_call.function.arguments) == 0:
                 arguments = None
             else:
                 arguments = json.loads(tool_call.function.arguments)
-            start_time = time.time()
             result = await self.client.tool_execute(
                 server_id, tool_call.function.name, arguments
             )

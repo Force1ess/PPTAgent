@@ -6,11 +6,16 @@ import aiohttp
 from appcore import mcp
 from fake_useragent import UserAgent
 
-from deeppresenter.utils.constants import MAX_RETRY_INTERVAL, RETRY_TIMES
-from deeppresenter.utils.log import warning
+from deeppresenter.utils.constants import MAX_RETRY_INTERVAL
+from deeppresenter.utils.log import debug, warning
 
+TAVILY_KEYS = [
+    i.strip() for i in os.getenv("TAVILY_API_KEY").split(",") if i.startswith("tvly")
+]
 FAKE_UA = UserAgent()
 TAVILY_API_URL = "https://api.tavily.com/search"
+
+debug(f"{len(TAVILY_KEYS)} TAVILY keys loaded")
 
 
 async def tavily_request(params: dict) -> dict[str, Any]:
@@ -33,23 +38,17 @@ async def tavily_request(params: dict) -> dict[str, Any]:
 
 
 async def search_with_fallback(**kwargs) -> dict[str, Any]:
-    api_keys = [os.getenv("TAVILY_API_KEY")]
-    if backup_key := os.getenv("TAVILY_BACKUP"):
-        api_keys.append(backup_key)
-
     last_error = None
-    for idx in range(RETRY_TIMES):
-        for api_key in api_keys:
-            await asyncio.sleep(min(2**idx - 1, MAX_RETRY_INTERVAL))
-            try:
-                params = {**kwargs, "api_key": api_key}
-                return await tavily_request(params)
-            except Exception as e:
-                warning(f"TAVILY search error with key {api_key[:16]}...: {e}")
-                last_error = e
+    for api_key in TAVILY_KEYS:
+        try:
+            params = {**kwargs, "api_key": api_key}
+            return await tavily_request(params)
+        except Exception as e:
+            warning(f"TAVILY search error with key {api_key[:16]}...: {e}")
+            last_error = e
 
     raise RuntimeError(
-        f"TAVILY search failed after {RETRY_TIMES} retries"
+        f"TAVILY search failed after {len(TAVILY_KEYS)} retries"
     ) from last_error
 
 
