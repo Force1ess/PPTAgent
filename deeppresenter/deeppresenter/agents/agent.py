@@ -41,7 +41,6 @@ from deeppresenter.utils.log import (
     debug,
     info,
     timer,
-    warning,
 )
 from deeppresenter.utils.typings import (
     ChatMessage,
@@ -142,6 +141,7 @@ class Agent:
         self.chat_history: list[ChatMessage] = [
             ChatMessage(role=Role.SYSTEM, content=self.system)
         ]
+        self.error_history: list[BaseModel] = []
         self.research_iter = 0
         if config.context_folding:
             self.context_warning = -1
@@ -266,9 +266,10 @@ class Agent:
                             role=Role.TOOL,
                             content=str(e),
                             tool_call_id=t.id,
+                            is_error=True,
                         )
                     )
-                    warning(f"Tool call `{t.function}` encountered error: {e}")
+                    info(f"Tool call `{t.function}` encountered error: {e}")
                     continue
             used_tools.add(t.function.name)
             coros.append(self.agent_env.tool_execute(t))
@@ -295,6 +296,13 @@ class Agent:
                     ]
 
         self.chat_history.extend(observations)
+
+        for t, o in zip(
+            sorted(tool_calls, key=lambda x: x.id), sorted(observations, lambda x: x.id)
+        ):
+            if o.is_error:
+                self.error_history.append(t)
+                self.error_history.append(o)
 
         if finish_id is not None:
             for obs in observations:
@@ -433,15 +441,10 @@ class Agent:
                 indent=2,
             )
 
-        error_history = []
-        for idx, msg in enumerate(self.chat_history):
-            if msg.is_error:
-                error_history.append(self.chat_history[idx - 1 : idx + 2])
-
-        if error_history:
+        if self.error_history:
             error_file = hist_dir / f"{self.name}-errors.jsonl"
             with jsonlines.open(error_file, mode="w") as writer:
-                for context in error_history:
+                for context in self.error_history:
                     writer.write([msg.model_dump() for msg in context])
 
         info(

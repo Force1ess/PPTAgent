@@ -99,19 +99,14 @@ class ChatMessage(BaseModel):
     @property
     def text(self):
         texts = []
-        if isinstance(self.content, str) and self.content.strip():
-            texts.append(self.content)
-        elif isinstance(self.content, list) and len(self.content):
-            for block in self.content:
-                if block["type"] == "text":
-                    texts.append(block["text"])
-                elif block["type"] == "image_url":
-                    texts.append("<image>")
-        elif len(self.tool_calls or []):
-            for t in self.tool_calls:
-                texts.append(t.function.model_dump_json())
+        assert isinstance(self.content, list), "content must be a list"
+        for block in self.content:
+            if block["type"] == "text":
+                texts.append(block["text"])
+            elif block["type"] == "image_url":
+                texts.append("<image>")
 
-        texts.extend([t.function for t in self.tool_calls or []])
+        texts.extend([t.function.model_dump_json() for t in self.tool_calls or []])
         if len(texts) == 0:
             return ""
         elif len(texts) == 1:

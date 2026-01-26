@@ -61,7 +61,7 @@ def _check_pptx_validity(pptx_path: Path) -> tuple[bool, str | None]:
     for idx, slide in enumerate(prs.slides):
         # Track (text, position) -> shape_id to detect duplicate elements across shapes
         # Position is rounded to 0.1 inch to catch overlapping shapes
-        repeat = 0
+        duplicate_texts = set()
         seen = set()
         for shape_id, shape in enumerate(slide.shapes):
             if not getattr(shape, "has_text_frame", False):
@@ -74,10 +74,10 @@ def _check_pptx_validity(pptx_path: Path) -> tuple[bool, str | None]:
                     if not text:
                         continue
                     if text in seen:
-                        repeat += 1
+                        duplicate_texts.add(text)
                     else:
                         seen.add(text)
-                    if repeat > 3:
+                    if len(duplicate_texts) >= 3:
                         return (
                             False,
                             f"Duplicate text: {text} at slide {idx} shape {shape_id}",
@@ -184,6 +184,8 @@ async def _process_slides(
 async def main():
     max_folders = int(sys.argv[1]) if len(sys.argv) > 1 else None
     workspaces = sorted([p for p in Path("/opt/workspace").iterdir() if p.is_dir()])
+    if Path("test_html2pptx").exists():
+        shutil.rmtree("test_html2pptx")
     if max_folders is not None:
         workspaces = workspaces[:max_folders]
 
@@ -197,9 +199,8 @@ async def main():
         workspace, error = result
         counter[error] += 1
         (workspace / ".html2pptx.error.txt").write_text(error)
-        shutil.copytree(workspace, Path("test_html2pptx_new") / workspace.name)
-    for error, count in counter.items():
-        print(f"{error}: {count}")
+        shutil.copytree(workspace, Path("test_html2pptx") / workspace.name)
+    print(f"Detected {sum(counter.values())} errors out of {len(workspaces)} folders")
 
 
 if __name__ == "__main__":
