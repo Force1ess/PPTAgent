@@ -159,6 +159,9 @@ class PowerPointType(StrEnum):
     WIDE_SCREEN = "16:9"
     STANDARD_SCREEN = "4:3"
     POSTER = "A1"
+    POSTER_A3 = "A3"
+    POSTER_A2 = "A2"
+    POSTER_A4 = "A4"
 
 
 class InputRequest(BaseModel):

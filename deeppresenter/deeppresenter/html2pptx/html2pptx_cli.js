@@ -16,6 +16,24 @@ const A1_LAYOUT = {
   height: 33.11,
 };
 
+const A2_LAYOUT = {
+  name: "A2",
+  width: 16.54,
+  height: 23.39,
+};
+
+const A3_LAYOUT = {
+  name: "A3",
+  width: 11.69,
+  height: 16.54,
+};
+
+const A4_LAYOUT = {
+  name: "A4",
+  width: 8.27,
+  height: 11.69,
+};
+
 async function run() {
   const args = minimist(process.argv.slice(2));
   const layout = args.layout || "16:9";
@@ -44,7 +62,7 @@ async function run() {
 
   if (!htmlFiles.length) {
     console.error(
-      "Usage: node html2pptx_cli.js --html_dir <dir> | --html <file> [--html <file2>] --output <file.pptx> --layout <16:9|4:3|A1> [--validate]"
+      "Usage: node html2pptx_cli.js --html_dir <dir> | --html <file> [--html <file2>] --output <file.pptx> --layout <16:9|4:3|A1|A2|A3|A4> [--validate]"
     );
     process.exit(1);
   }
@@ -58,6 +76,15 @@ async function run() {
   if (layout === "A1") {
     pptx.defineLayout(A1_LAYOUT);
     pptx.layout = "A1";
+  } else if (layout === "A2") {
+    pptx.defineLayout(A2_LAYOUT);
+    pptx.layout = "A2";
+  } else if (layout === "A3") {
+    pptx.defineLayout(A3_LAYOUT);
+    pptx.layout = "A3";
+  } else if (layout === "A4") {
+    pptx.defineLayout(A4_LAYOUT);
+    pptx.layout = "A4";
   } else if (LAYOUT_MAP[layout]) {
     pptx.layout = LAYOUT_MAP[layout];
   } else {

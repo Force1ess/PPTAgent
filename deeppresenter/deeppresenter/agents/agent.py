@@ -141,7 +141,8 @@ class Agent:
         self.chat_history: list[ChatMessage] = [
             ChatMessage(role=Role.SYSTEM, content=self.system)
         ]
-        self.error_history: list[BaseModel] = []
+        # Linear log of failed tool calls and their observations
+        self.error_history: list[ToolCall | ChatMessage] = []
         self.research_iter = 0
         if config.context_folding:
             self.context_warning = -1
@@ -298,7 +299,8 @@ class Agent:
         self.chat_history.extend(observations)
 
         for t, o in zip(
-            sorted(tool_calls, key=lambda x: x.id), sorted(observations, lambda x: x.id)
+            sorted(tool_calls, key=lambda x: x.id),
+            sorted(observations, key=lambda x: x.id),
         ):
             if o.is_error:
                 self.error_history.append(t)
@@ -444,8 +446,8 @@ class Agent:
         if self.error_history:
             error_file = hist_dir / f"{self.name}-errors.jsonl"
             with jsonlines.open(error_file, mode="w") as writer:
-                for context in self.error_history:
-                    writer.write([msg.model_dump() for msg in context])
+                for msg in self.error_history:
+                    writer.write(msg.model_dump())
 
         info(
             f"{self.name} done | cost:{self.cost} ctx:{self.context_length} | history:{history_file.name} config:{config_file.name}"

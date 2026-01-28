@@ -37,6 +37,9 @@ ASPECT_RATIOS = {
     "16:9": {"width": "1280px", "height": "720px"},
     "4:3": {"width": "960px", "height": "720px"},
     "A1": {"width": "2244px", "height": "3178px"},
+    "A2": {"width": "1587px", "height": "2244px"},
+    "A3": {"width": "1122px", "height": "1587px"},
+    "A4": {"width": "794px", "height": "1123px"},
 }
 
 
@@ -77,7 +80,7 @@ class PlaywrightConverter:
         self,
         html_files: list[str | Path],
         output_pdf: Path | str,
-        aspect_ratio: Literal["16:9", "4:3", "A1"],
+        aspect_ratio: Literal["16:9", "4:3", "A1", "A2", "A3", "A4"],
         error_sink: list[str] | None = None,
     ) -> Path:
         if isinstance(output_pdf, str):
@@ -124,7 +127,7 @@ class PlaywrightConverter:
 async def convert_html_to_pptx(
     html_inputs: Path | str | Iterable[Path | str],
     output_pptx: Path | str | None = None,
-    aspect_ratio: Literal["16:9", "4:3", "A1"] = "16:9",
+    aspect_ratio: Literal["16:9", "4:3", "A1", "A2", "A3", "A4"] = "16:9",
 ) -> Path:
     script_path = PACKAGE_DIR / "html2pptx" / "html2pptx_cli.js"
     if not script_path.exists():

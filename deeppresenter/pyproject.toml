@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "deeppresenter"
 authors = [{ name = "Hao Zheng", email = "wszh712811@gmail.com" }]
-description = "DeepPresenter, an autonomous and in-depth agentic system for PowerPoint Creation"
+description = "An Agentic Framework for Reflective PowerPoint Generation"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
@@ -62,7 +62,7 @@ Homepage = "https://github.com/Force1ess/DeepPresenter"
 include-package-data = true
 
 [tool.setuptools.packages.find]
-include = ["deeppresenter*", "sarl*"]
+include = ["deeppresenter*"]
 where = ["."]
 
 [tool.setuptools.package-data]

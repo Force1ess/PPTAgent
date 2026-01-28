@@ -22,7 +22,7 @@ LLM_CONFIG = DeepPresenterConfig.load_from_file(os.getenv("LLM_CONFIG_FILE"))
 @mcp.tool()
 async def inspect_slide(
     html_file: str,
-    aspect_ratio: Literal["16:9", "4:3", "A1"] = "16:9",
+    aspect_ratio: Literal["16:9", "4:3", "A1", "A2", "A3", "A4"] = "16:9",
 ) -> ImageContent | str:
     """
     Read the HTML file as an image.
