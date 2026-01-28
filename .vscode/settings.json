@@ -1,0 +1,10 @@
+{
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}/pptagent",
+        "${workspaceFolder}/deeppresenter"
+    ],
+    "python.autoComplete.extraPaths": [
+        "${workspaceFolder}/pptagent",
+        "${workspaceFolder}/deeppresenter"
+    ],
+}

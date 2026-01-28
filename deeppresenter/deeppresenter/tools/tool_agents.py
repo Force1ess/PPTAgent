@@ -30,6 +30,8 @@ if LLM_CONFIG.t2i_model is not None:
             prompt=prompt, width=width, height=height
         )
 
+        assert len(response.data) == 1, f"Expected an image response, got {response}"
+
         image_b64 = response.data[0].b64_json
         image_url = response.data[0].url
 

@@ -84,7 +84,7 @@ class Agent:
             config_data = yaml.safe_load(f)
         role_config = RoleConfig(**config_data)
         self.llm: LLM = config[role_config.use_model]
-        self.model = self.llm.model
+        self.model = self.llm.model_name
         self.prompt: Template = Template(
             role_config.instruction, undefined=StrictUndefined
         )
@@ -278,12 +278,9 @@ class Agent:
         observations.extend(await asyncio.gather(*coros))
         for obs in observations:
             if obs.has_image:
-                if (
-                    "gemini" in self.llm.model.lower()
-                    or "qwen" in self.llm.model.lower()
-                ):
+                if "gemini" in self.model.lower() or "qwen" in self.model.lower():
                     obs.role = Role.USER
-                if "claude" in self.llm.model.lower():
+                if "claude" in self.model.lower():
                     oai_b64 = obs.content[0]["image_url"]["url"]
                     obs.content = [
                         {
