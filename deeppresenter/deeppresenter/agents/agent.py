@@ -58,7 +58,6 @@ class Agent:
         agent_env: AgentEnv,
         workspace: Path,
         language: Literal["zh", "en"],
-        allow_reflection: bool = True,
         config_file: str | None = None,
         keep_reasoning: bool = True,
     ):
@@ -91,9 +90,7 @@ class Agent:
 
         if role_config.include_tool_servers == "all":
             role_config.include_tool_servers = list(agent_env._server_tools)
-        for server in (
-            role_config.include_tool_servers + role_config.exclude_tool_servers
-        ):
+        for server in role_config.include_tool_servers:
             assert server in agent_env._server_tools, (
                 f"Server {server} is not available"
             )
@@ -109,15 +106,6 @@ class Agent:
         for tool_name, tool in agent_env._tools_dict.items():
             if tool_name in role_config.include_tools:
                 self.tools.append(tool)
-
-        if not allow_reflection:
-            if any(t["function"]["name"].startswith("inspect_") for t in self.tools):
-                self.system += "<Tips>You are not allowed to reflect and invoking inspect tools, please focus on provided tools and adjust your plan accordingly</Tips>"
-                self.tools = [
-                    t
-                    for t in self.tools
-                    if not t["function"]["name"].startswith("inspect_")
-                ]
 
         if language not in role_config.system:
             raise ValueError(f"Language '{language}' not found in system prompts")
@@ -410,7 +398,7 @@ class Agent:
         return head, tail
 
     def save_history(self, hist_dir: Path | None = None, message_only: bool = False):
-        hist_dir = hist_dir or self.workspace / "history"
+        hist_dir = hist_dir or self.workspace / ".history"
         hist_dir.mkdir(parents=True, exist_ok=True)
 
         history_file = hist_dir / f"{self.name}-history.jsonl"

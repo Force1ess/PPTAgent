@@ -36,6 +36,7 @@ const sharp = require('sharp');
 const PT_PER_PX = 0.75;  // Points per pixel
 const PX_PER_IN = 96;    // Pixels per inch (standard screen DPI)
 const EMU_PER_IN = 914400;  // English Metric Units per inch (PowerPoint internal unit)
+const TIMEOUT_MS = 5 * 60 * 1000;  // 5 minutes timeout for Playwright operations
 
 /**
  * Get body dimensions and check for content overflow
@@ -293,7 +294,7 @@ async function rasterizeGradients(page, slideData, bodyDimensions, tmpDir) {
     await page.waitForFunction((id) => {
       const el = document.getElementById(id);
       return el && el.complete;
-    }, id);
+    }, id, { timeout: TIMEOUT_MS });
 
     const filePath = makePath();
     if (hasSignificantShadow) {
@@ -2252,7 +2253,7 @@ async function html2pptx(htmlFile, pres, options = {}) {
   const tmpDir = options.tmpDir || fs.mkdtempSync(path.join(os.tmpdir(), 'html2pptx-'));
 
   try {
-    const launchOptions = { env: { TMPDIR: tmpDir } };
+    const launchOptions = { env: { TMPDIR: tmpDir }, timeout: TIMEOUT_MS };
     if (process.platform === 'darwin') {
       launchOptions.channel = 'chrome';
     }
@@ -2265,27 +2266,6 @@ async function html2pptx(htmlFile, pres, options = {}) {
     const filePath = path.isAbsolute(htmlFile) ? htmlFile : path.join(process.cwd(), htmlFile);
     const validationErrors = [];
 
-    try {
-      const page = await browser.newPage();
-      page.on('console', (msg) => {
-        console.log(`Browser console: ${msg.text()}`);
-      });
-
-      await page.goto(`file://${filePath}`);
-
-      bodyDimensions = await getBodyDimensions(page);
-
-      await page.setViewportSize({
-        width: Math.round(bodyDimensions.width),
-        height: Math.round(bodyDimensions.height)
-      });
-
-      slideData = await extractSlideData(page);
-      await rasterizeGradients(page, slideData, bodyDimensions, tmpDir);
-    } finally {
-      await browser.close();
-    }
-
     const resolveImagePath = (src) => {
       if (!src || typeof src !== 'string') return null;
       if (src.startsWith('data:')) return null;
@@ -2295,44 +2275,60 @@ async function html2pptx(htmlFile, pres, options = {}) {
       return path.join(path.dirname(filePath), src);
     };
 
-    if (bodyDimensions.errors && bodyDimensions.errors.length > 0) {
-      validationErrors.push(...bodyDimensions.errors);
-    }
+    try {
+      const page = await browser.newPage();
+      page.setDefaultTimeout(TIMEOUT_MS);
+      page.on('console', (msg) => {
+        console.log(`Browser console: ${msg.text()}`);
+      });
 
-    const dimensionErrors = validateDimensions(bodyDimensions, pres);
-    if (dimensionErrors.length > 0) {
-      validationErrors.push(...dimensionErrors);
-    }
+      await page.goto(`file://${filePath}`, { timeout: TIMEOUT_MS });
 
-    const textBoxPositionErrors = validateTextBoxPosition(slideData, bodyDimensions);
-    if (textBoxPositionErrors.length > 0) {
-      validationErrors.push(...textBoxPositionErrors);
-    }
+      bodyDimensions = await getBodyDimensions(page);
 
-    if (slideData.errors && slideData.errors.length > 0) {
-      validationErrors.push(...slideData.errors);
-    }
+      await page.setViewportSize({
+        width: Math.round(bodyDimensions.width),
+        height: Math.round(bodyDimensions.height)
+      });
 
-    const backgroundPath = slideData.background?.type === 'image'
-      ? resolveImagePath(slideData.background.path)
-      : null;
-    if (backgroundPath && !fs.existsSync(backgroundPath)) {
-      validationErrors.push(`Background image not found: ${backgroundPath}`);
-    }
+      slideData = await extractSlideData(page);
 
-    for (const el of slideData.elements) {
-      if (el.type !== 'image') continue;
-      const imagePath = resolveImagePath(el.src);
-      if (imagePath && !fs.existsSync(imagePath)) {
-        validationErrors.push(`Image not found: ${imagePath}`);
+      // Collect all validation errors before rasterization
+      if (slideData.errors && slideData.errors.length > 0) {
+        validationErrors.push(...slideData.errors);
       }
-    }
+      if (bodyDimensions.errors && bodyDimensions.errors.length > 0) {
+        validationErrors.push(...bodyDimensions.errors);
+      }
+      validationErrors.push(...validateDimensions(bodyDimensions, pres));
+      validationErrors.push(...validateTextBoxPosition(slideData, bodyDimensions));
 
-    if (validationErrors.length > 0) {
-      const errorMessage = validationErrors.length === 1
-        ? validationErrors[0]
-        : `Multiple validation errors found:\n${validationErrors.map((e, i) => `  ${i + 1}. ${e}`).join('\n')}`;
-      throw new Error(errorMessage);
+      // Validate images exist
+      for (const el of slideData.elements) {
+        if (el.type !== 'image') continue;
+        const imagePath = resolveImagePath(el.src);
+        if (imagePath && !fs.existsSync(imagePath)) {
+          validationErrors.push(`Image not found: ${imagePath}`);
+        }
+      }
+      const backgroundPath = slideData.background?.type === 'image'
+        ? resolveImagePath(slideData.background.path)
+        : null;
+      if (backgroundPath && !fs.existsSync(backgroundPath)) {
+        validationErrors.push(`Background image not found: ${backgroundPath}`);
+      }
+
+      // Fail early with all errors
+      if (validationErrors.length > 0) {
+        const errorMessage = validationErrors.length === 1
+          ? validationErrors[0]
+          : `Multiple validation errors found:\n${validationErrors.map((e, i) => `  ${i + 1}. ${e}`).join('\n')}`;
+        throw new Error(errorMessage);
+      }
+
+      await rasterizeGradients(page, slideData, bodyDimensions, tmpDir);
+    } finally {
+      await browser.close();
     }
 
     const targetSlide = slide || pres.addSlide();

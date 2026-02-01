@@ -1,15 +1,18 @@
 import base64
 import os
+import sys
 from pathlib import Path
 
 import httpx
-from appcore import mcp
+from fastmcp import FastMCP
 from PIL import Image
 
 from deeppresenter.utils.config import DeepPresenterConfig
-from deeppresenter.utils.log import debug, info
+from deeppresenter.utils.log import debug, info, set_logger
 
-LLM_CONFIG = DeepPresenterConfig.load_from_file(os.getenv("LLM_CONFIG_FILE"))
+mcp = FastMCP(name="ToolAgents")
+
+LLM_CONFIG = DeepPresenterConfig.load_from_file(os.getenv("CONFIG_FILE"))
 
 
 if LLM_CONFIG.t2i_model is not None:
@@ -29,8 +32,6 @@ if LLM_CONFIG.t2i_model is not None:
         response = await LLM_CONFIG.t2i_model.generate_image(
             prompt=prompt, width=width, height=height
         )
-
-        assert len(response.data) == 1, f"Expected an image response, got {response}"
 
         image_b64 = response.data[0].b64_json
         image_url = response.data[0].url
@@ -149,13 +150,12 @@ async def document_summary(task: str, document_path: str) -> str:
 
 
 if __name__ == "__main__":
-    import asyncio
-
-    asyncio.run(
-        image_generation(
-            "A beautiful landscape with mountains and a river",
-            512,
-            512,
-            "/tmp/test_image.jpg",
-        )
+    assert len(sys.argv) == 2, "Usage: python tool_agents.py <workspace>"
+    work_dir = Path(sys.argv[1])
+    assert work_dir.exists(), f"Workspace {work_dir} does not exist."
+    os.chdir(work_dir)
+    set_logger(
+        f"tool_agents-{work_dir.stem}", work_dir / ".history" / "tool_agents.log"
     )
+
+    mcp.run(show_banner=False)

@@ -1,29 +1,67 @@
 [
     {
-      "name": "deeppresenter",
-      "description": "DeepPresenter Tools",
-      "command": "uv",
-      "args": ["run", "deeppresenter/deeppresenter/tools/server.py", "$WORKSPACE"],
-      "env": {
-        "MINERU_API_URL": "your_deployed_mineru_url_for_offline_mode",
-        "MINERU_API_KEY": "your_mineru_api_key_for_online_mode",
-        "TAVILY_API_KEY": "your_key",
-        "LLM_CONFIG_FILE": "$LLM_CONFIG_FILE"
-      }
+        "name": "any2markdown",
+        "description": "File conversion tools",
+        "command": "uv",
+        "args": ["run", "deeppresenter/deeppresenter/tools/any2markdown.py", "$WORKSPACE"],
+        "env": {
+            "FASTMCP_LOG_LEVEL": "$DEEPPRESENTER_LOG_LEVEL",
+            "MINERU_API_URL": "your_deployed_mineru_url_for_offline_mode",
+            "MINERU_API_KEY": "your_mineru_api_key_for_online_mode"
+        }
     },
     {
-      "name": "pptagent",
-      "description": "https://github.com/icip-cas/PPTAgent",
-      "command": "uv",
-      "args": ["run", "pptagent-mcp"],
-      "env": {
-        "PPTAGENT_MODEL": "glm-4.6",
-        "PPTAGENT_API_KEY": "your_key",
-        "PPTAGENT_API_BASE": "https://open.bigmodel.cn/api/paas/v4/"
-      }
+        "name": "task",
+        "description": "Task management tools",
+        "command": "uv",
+        "args": ["run", "deeppresenter/deeppresenter/tools/task.py", "$WORKSPACE"],
+        "env": {
+            "FASTMCP_LOG_LEVEL": "$DEEPPRESENTER_LOG_LEVEL",
+            "CONFIG_FILE": "$CONFIG_FILE"
+        }
     },
     {
-        "name": "desktop_commander",
+        "name": "tool_agents",
+        "description": "LLM-powered tool agents",
+        "command": "uv",
+        "args": ["run", "deeppresenter/deeppresenter/tools/tool_agents.py", "$WORKSPACE"],
+        "env": {
+            "FASTMCP_LOG_LEVEL": "$DEEPPRESENTER_LOG_LEVEL",
+            "CONFIG_FILE": "$CONFIG_FILE"
+        }
+    },
+    {
+        "name": "research",
+        "description": "Academic paper search tools",
+        "command": "uv",
+        "args": ["run", "deeppresenter/deeppresenter/tools/research.py", "$WORKSPACE"],
+        "env": {
+            "FASTMCP_LOG_LEVEL": "$DEEPPRESENTER_LOG_LEVEL"
+        }
+    },
+    {
+        "name": "search",
+        "description": "Web search tools",
+        "command": "uv",
+        "args": ["run", "deeppresenter/deeppresenter/tools/search.py", "$WORKSPACE"],
+        "env": {
+            "FASTMCP_LOG_LEVEL": "$DEEPPRESENTER_LOG_LEVEL",
+            "TAVILY_API_KEY": "your_key"
+        }
+    },
+    {
+        "name": "pptagent",
+        "description": "https://github.com/icip-cas/PPTAgent",
+        "command": "uv",
+        "args": ["run", "pptagent-mcp"],
+        "env": {
+            "PPTAGENT_MODEL": "glm-4.6",
+            "PPTAGENT_API_KEY": "your_key",
+            "PPTAGENT_API_BASE": "https://open.bigmodel.cn/api/paas/v4/"
+        }
+    },
+    {
+        "name": "sandbox",
         "description": "https://github.com/wonderwhy-er/DesktopCommanderMCP",
         "command": "docker",
         "args": [

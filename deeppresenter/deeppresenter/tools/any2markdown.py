@@ -1,15 +1,18 @@
 import base64
 import os
 import re
+import sys
 import uuid
 from pathlib import Path
 
-from appcore import mcp
+from fastmcp import FastMCP
 from markitdown import MarkItDown
 from PIL import Image
 
-from deeppresenter.utils.log import warning
+from deeppresenter.utils.log import set_logger, warning
 from deeppresenter.utils.mineru_api import parse_pdf_offline, parse_pdf_online
+
+mcp = FastMCP(name="Any2Markdown")
 
 IMAGE_EXTENSIONS = [
     "bmp",
@@ -118,3 +121,15 @@ def parse_base64_images(markdown: str, image_dir: Path) -> str:
         markdown = markdown.replace(data_uri, str(image_path))
 
     return markdown
+
+
+if __name__ == "__main__":
+    assert len(sys.argv) == 2, "Usage: python any2markdown.py <workspace>"
+    work_dir = Path(sys.argv[1])
+    assert work_dir.exists(), f"Workspace {work_dir} does not exist."
+    os.chdir(work_dir)
+    set_logger(
+        f"any2markdown-{work_dir.stem}", work_dir / ".history" / "any2markdown.log"
+    )
+
+    mcp.run(show_banner=False)

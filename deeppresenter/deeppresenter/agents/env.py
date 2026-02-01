@@ -76,7 +76,8 @@ class AgentEnv:
             "WORKSPACE": str(self.workspace),
             "HOST_WORKSPACE": host_workspace,
             "WORKSPACE_ID": self.workspace.stem,
-            "LLM_CONFIG_FILE": str(config.file_path),
+            "CONFIG_FILE": str(config.file_path),
+            "FASTMCP_LOG_LEVEL": logging.getLevelName(LOGGING_LEVEL),
         }
         if config.offline_mode:
             envs["OFFLINE_MODE"] = "1"
@@ -87,7 +88,7 @@ class AgentEnv:
         self._server_tools = defaultdict(list)
         self._tool_to_server = {}
         self.tool_history: list[tuple[ToolCall, ChatMessage]] = []
-        self.tool_history_file = self.workspace / "history" / "tool_history.jsonl"
+        self.tool_history_file = self.workspace / ".history" / "tool_history.jsonl"
 
     async def tool_execute(
         self,
@@ -276,7 +277,7 @@ class AgentEnv:
                     )
                     + "\n"
                 )
-        with (self.workspace / "history" / "tools_time_cost.json").open(
+        with (self.workspace / ".history" / "tools_time_cost.json").open(
             "w", encoding="utf-8"
         ) as f:
             timing_data = {

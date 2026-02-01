@@ -30,9 +30,10 @@ class AgentLoop:
             session_id = str(uuid.uuid4())[:8]
         self.workspace = workspace or WORKSPACE_BASE / session_id
         self.intermediate_output = {}
+        self.agent = None
         set_logger(
             f"deeppresenter-loop-{self.workspace.stem}",
-            self.workspace / "history" / "deeppresenter-loop.log",
+            self.workspace / ".history" / "deeppresenter-loop.log",
         )
         debug(f"Initialized AgentLoop with workspace={self.workspace}")
         debug(f"Config: {self.config.model_dump_json(indent=2)}")
@@ -41,22 +42,18 @@ class AgentLoop:
     async def run(
         self,
         request: InputRequest,
-        hci_enable: bool = False,
         check_llms: bool = False,
-        allow_reflection: bool = True,
     ) -> AsyncGenerator[str | ChatMessage, None]:
         """Main loop for DeepPresenter generation process.
         Arguments:
             request: InputRequest object containing task details.
-            hci_enable(not supported right now): Whether to enable human-computer interaction.
             check_llms: Whether to check LLM availability before running.
-            allow_reflection: Whether to allow reflection in agents, this will slow down the process but yield better results.
         Yields:
             ChatMessage or str: Messages or final output path.
         """
-        if not self.config.design_agent.is_multimodal and allow_reflection:
+        if not self.config.design_agent.is_multimodal and self.config.heavy_reflect:
             debug(
-                "Reflective design requires a multimodal LLM in the design agent, reflection will only enable on Research Agent."
+                "Reflective design requires a multimodal LLM in the design agent, reflection will only enable on textual state."
             )
         if check_llms:
             self.config.validate_llms()
@@ -75,8 +72,8 @@ class AgentLoop:
                 agent_env,
                 self.workspace,
                 self.language,
-                allow_reflection,
             )
+            self.agent = self.research_agent
             try:
                 async for msg in self.research_agent.loop(request):
                     if isinstance(msg, str):
@@ -104,8 +101,8 @@ class AgentLoop:
                     agent_env,
                     self.workspace,
                     self.language,
-                    allow_reflection,
                 )
+                self.agent = self.pptagent
                 try:
                     async for msg in self.pptagent.loop(request, md_file):
                         if isinstance(msg, str):
@@ -134,8 +131,8 @@ class AgentLoop:
                     agent_env,
                     self.workspace,
                     self.language,
-                    allow_reflection,
                 )
+                self.agent = self.designagent
                 try:
                     async for msg in self.designagent.loop(request, md_file):
                         if isinstance(msg, str):

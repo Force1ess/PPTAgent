@@ -42,8 +42,7 @@ class MCPServer(BaseModel):
                 )
         self.args = [self._process_text(arg) for arg in self.args]
         for k, v in self.env.items():
-            # Only process if the whole value is an env variable
-            if k == v:
+            if "$" in v:
                 self.env[k] = self._process_text(v)
         if self.url:
             self.url = self._process_text(self.url)

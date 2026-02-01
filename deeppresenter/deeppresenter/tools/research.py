@@ -1,12 +1,17 @@
 import os
 import re
+import sys
+from pathlib import Path
 from typing import Any, Literal
 
 import arxiv
-from appcore import mcp
+from fastmcp import FastMCP
 from semanticscholar import SemanticScholar
 from semanticscholar.Author import Author
 
+from deeppresenter.utils.log import set_logger
+
+mcp = FastMCP(name="Research")
 PAGE_SIZE = int(os.getenv("ARXIV_PAGE_SIZE", "5"))
 client = arxiv.Client(page_size=PAGE_SIZE)
 sch = SemanticScholar()
@@ -121,4 +126,10 @@ def get_scholar_details(
 
 
 if __name__ == "__main__":
-    print(search_papers('ti:"Rethinking Reward Model Evaluation"'))
+    assert len(sys.argv) == 2, "Usage: python research.py <workspace>"
+    work_dir = Path(sys.argv[1])
+    assert work_dir.exists(), f"Workspace {work_dir} does not exist."
+    os.chdir(work_dir)
+    set_logger(f"research-{work_dir.stem}", work_dir / ".history" / "research.log")
+
+    mcp.run(show_banner=False)

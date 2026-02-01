@@ -140,7 +140,7 @@ class Endpoint(BaseModel):
                 **self.sampling_parameters,
             )
         assert response.choices is not None and len(response.choices) > 0, (
-            "No choices returned from the model"
+            f"No choices returned from the model, got {response}"
         )
         message = response.choices[0].message
         if response_format is not None:
@@ -148,7 +148,7 @@ class Endpoint(BaseModel):
                 **get_json_from_response(message.content)
             ).model_dump_json(indent=2)
         assert tools is None or len(message.tool_calls or []), (
-            "No tool call returned from the model"
+            f"No tool call returned from the model, got {message}"
         )
         assert message.tool_calls or message.content, (
             "Empty content returned from the model"
@@ -286,15 +286,21 @@ class LLM(BaseModel):
             errors = []
             random.shuffle(self._endpoints)
             for retry_idx in range(retry_times):
+                # t2i is stateless
                 endpoint = self._endpoints[retry_idx % len(self._endpoints)]
                 try:
-                    return await endpoint._client.images.generate(
+                    response = await endpoint._client.images.generate(
                         prompt=prompt,
                         model=endpoint.model,
                         size=f"{width}x{height}",
                         timeout=MCP_CALL_TIMEOUT // 5,
                         **endpoint.sampling_parameters,
                     )
+                    assert len(response.data) >= 1, (
+                        f"Expected at least an image response, got {response}"
+                    )
+                    return response
+
                 except Exception as e:
                     errors.append(f"[{endpoint.model}] {e}")
                     if self.secret_logging:
@@ -302,7 +308,6 @@ class LLM(BaseModel):
                     else:
                         identifider = endpoint.model
                     logging_openai_exceptions(identifider, e)
-            error(f"All models failed after {retry_times} retries: {errors}")
             raise ValueError(f"All models failed after {retry_times} retries: {errors}")
 
     async def validate(self):
@@ -336,6 +341,10 @@ class DeepPresenterConfig(BaseModel):
     max_context_folds: int = Field(
         default=4, description="Maximum number of folds for context management"
     )
+    heavy_reflect: bool = Field(
+        default=False,
+        description="Enable heavy reflection, use rendered slide image for reflective design",
+    )
 
     # llms
     research_agent: LLM = Field(description="Research agent model configuration")
@@ -344,9 +353,6 @@ class DeepPresenterConfig(BaseModel):
     vision_model: LLM = Field(description="Vision model configuration")
     t2i_model: LLM | None = Field(
         default=None, description="Text-to-image model configuration"
-    )
-    nano_banana: LLM | None = Field(
-        default=None, description="Google Nano Banana model for slide creation"
     )
 
     def model_post_init(self, context):

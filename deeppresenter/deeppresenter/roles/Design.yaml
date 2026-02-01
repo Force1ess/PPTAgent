@@ -68,7 +68,7 @@ instruction: |
 
 use_model: design_agent
 include_tool_servers:
-  - desktop_commander
+  - sandbox
 include_tools:
   - inspect_slide
   - thinking

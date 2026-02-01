@@ -15,7 +15,7 @@ MAX_LOGGING_LENGTH = int(os.getenv("DEEPPRESENTER_MAX_LOGGING_LENGTH", 1024))
 
 # ============ Agent  ============
 RETRY_TIMES = int(os.getenv("RETRY_TIMES", 10))
-MAX_TOOLCALL_PER_TURN = int(os.getenv("MAX_TOOLCALL_PER_TURN", 9))
+MAX_TOOLCALL_PER_TURN = int(os.getenv("MAX_TOOLCALL_PER_TURN", 7))
 MAX_RETRY_INTERVAL = int(os.getenv("MAX_RETRY_INTERVAL", 60))
 # count in chars, this is about the first 4 page of a dual-column paper
 TOOL_CUTOFF_LEN = int(os.getenv("TOOL_CUTOFF_LEN", 8000))

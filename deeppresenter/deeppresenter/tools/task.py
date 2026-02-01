@@ -1,17 +1,32 @@
+import base64
 import csv
 import math
+import os
 import re
 import shutil
+import sys
+import tempfile
+from collections import defaultdict
 from pathlib import Path
 from typing import Literal
 
-from appcore import mcp
+from fastmcp import FastMCP
 from filelock import FileLock
+from mcp.types import ImageContent
 from PIL import Image
+from pptagent.model_utils import _get_lid_model
+from pptagent.utils import ppt_to_images
 from pptagent_pptx import Presentation
 from pydantic import BaseModel
 
-from deeppresenter.utils.log import error, info, warning
+from deeppresenter.utils.config import DeepPresenterConfig
+from deeppresenter.utils.log import error, info, set_logger, warning
+from deeppresenter.utils.webview import convert_html_to_pptx
+
+mcp = FastMCP(name="Task")
+
+LID_MODEL = _get_lid_model()
+CONFIG = DeepPresenterConfig.load_from_file(os.getenv("CONFIG_FILE"))
 
 
 def _rewrite_image_link(match: re.Match[str], md_dir: Path) -> str:
@@ -213,3 +228,110 @@ def finalize(outcome: str, agent_name: str = "") -> str:
 
     info(f"Agent {agent_name} finalized the outcome: {outcome}")
     return outcome
+
+
+@mcp.tool()
+async def inspect_slide(
+    html_file: str,
+    aspect_ratio: Literal["16:9", "4:3", "A1", "A2", "A3", "A4"] = "16:9",
+) -> ImageContent | str:
+    """
+    Read the HTML file as an image.
+
+    Returns:
+        ImageContent: The slide as an image content
+        str: Error message if inspection fails
+    """
+    html_path = Path(html_file).absolute()
+    if not (html_path.exists() and html_path.suffix == ".html"):
+        return f"HTML path {html_path} does not exist or is not an HTML file"
+    try:
+        pptx_path = await convert_html_to_pptx(html_path, aspect_ratio=aspect_ratio)
+    except Exception as e:
+        return e
+
+    if CONFIG.design_agent.is_multimodal and CONFIG.heavy_reflect:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            output_dir = Path(tmp_dir)
+            await ppt_to_images(str(pptx_path), str(output_dir))
+            image_path = output_dir / "slide_0001.jpg"
+            if not image_path.exists():
+                error(f"Image not found: {image_path}")
+            image_data = image_path.read_bytes()
+        base64_data = (
+            f"data:image/jpeg;base64,{base64.b64encode(image_data).decode('utf-8')}"
+        )
+        return ImageContent(
+            type="image",
+            data=base64_data,
+            mimeType="image/jpeg",
+        )
+    else:
+        return "This slide is valid."
+
+
+@mcp.tool()
+def inspect_manuscript(md_file: str) -> dict:
+    """
+    Inspect the markdown manuscript for general statistics and image asset validation.
+    Args:
+        md_file (str): The path to the markdown file
+    """
+    md_path = Path(md_file)
+    if not md_path.exists():
+        return {"error": f"file does not exist: {md_file}"}
+    if not md_file.lower().endswith(".md"):
+        return {"error": f"file is not a markdown file: {md_file}"}
+
+    with open(md_file, encoding="utf-8") as f:
+        markdown = f.read()
+
+    pages = [p for p in markdown.split("\n---\n") if p.strip()]
+    result = defaultdict(list)
+    result["num_pages"] = len(pages)
+    label = LID_MODEL.predict(markdown[:1000].replace("\n", " "))
+    result["language"] = label[0][0].replace("__label__", "")
+
+    seen_images = set()
+    for match in re.finditer(r"!\[(.*?)\]\((.*?)\)", markdown):
+        label, path = match.group(1), match.group(2)
+        path = path.split()[0].strip("\"'")
+
+        if path in seen_images:
+            continue
+        seen_images.add(path)
+
+        if re.match(r"https?://", path):
+            result["warnings"].append(
+                f"External link detected: {match.group(0)}, consider downloading to local storage."
+            )
+            continue
+
+        if not (md_path.parent / path).exists() and not Path(path).exists():
+            result["warnings"].append(f"Image file does not exist: {path}")
+
+        if not label.strip():
+            result["warnings"].append(f"Image {path} is missing alt text.")
+
+        count = markdown.count(path)
+        if count > 1:
+            result["warnings"].append(
+                f"Image {path} used {count} times in the whole presentation manuscript."
+            )
+
+    if len(result["warnings"]) == 0:
+        result["success"].append(
+            "Image asset validation passed: all referenced images exist."
+        )
+
+    return result
+
+
+if __name__ == "__main__":
+    assert len(sys.argv) == 2, "Usage: python task.py <workspace>"
+    work_dir = Path(sys.argv[1])
+    assert work_dir.exists(), f"Workspace {work_dir} does not exist."
+    os.chdir(work_dir)
+    set_logger(f"task-{work_dir.stem}", work_dir / ".history" / "task.log")
+
+    mcp.run(show_banner=False)
