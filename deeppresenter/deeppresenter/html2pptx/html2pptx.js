@@ -37,6 +37,13 @@ const PT_PER_PX = 0.75;  // Points per pixel
 const PX_PER_IN = 96;    // Pixels per inch (standard screen DPI)
 const EMU_PER_IN = 914400;  // English Metric Units per inch (PowerPoint internal unit)
 const TIMEOUT_MS = 5 * 60 * 1000;  // 5 minutes timeout for Playwright operations
+const mapBorderStyleToDashType = (style) => {
+  if (!style || typeof style !== 'string') return null;
+  const normalized = style.toLowerCase();
+  if (normalized === 'dashed') return 'dash';
+  if (normalized === 'dotted') return 'sysDot';
+  return null;
+};
 
 /**
  * Get body dimensions and check for content overflow
@@ -221,6 +228,7 @@ async function rasterizeGradients(page, slideData, bodyDimensions, tmpDir) {
       el.style.backgroundPosition = style.backgroundPosition || '0% 0%';
       if (style.borderRadius) el.style.borderRadius = style.borderRadius;
       if (style.boxShadow && style.boxShadow !== 'none') el.style.boxShadow = style.boxShadow;
+      if (style.opacity !== undefined && style.opacity !== null) el.style.opacity = String(style.opacity);
       el.style.pointerEvents = 'none';
       el.style.zIndex = '2147483647';
       document.body.appendChild(el);
@@ -443,30 +451,33 @@ async function rasterizeGradients(page, slideData, bodyDimensions, tmpDir) {
           const widthPt = border.width;
           const color = border.color;
           const inset = (widthPt / 72) / 2;
+          const dashType = mapBorderStyleToDashType(
+            border.style || border.top?.style || border.right?.style || border.bottom?.style || border.left?.style
+          );
 
           // Top border
           slideData.elements.push({
             type: 'line',
             x1: x, y1: y + inset, x2: x + w, y2: y + inset,
-            width: widthPt, color: color
+            width: widthPt, color: color, dashType: dashType
           });
           // Right border
           slideData.elements.push({
             type: 'line',
             x1: x + w - inset, y1: y, x2: x + w - inset, y2: y + h,
-            width: widthPt, color: color
+            width: widthPt, color: color, dashType: dashType
           });
           // Bottom border
           slideData.elements.push({
             type: 'line',
             x1: x, y1: y + h - inset, x2: x + w, y2: y + h - inset,
-            width: widthPt, color: color
+            width: widthPt, color: color, dashType: dashType
           });
           // Left border
           slideData.elements.push({
             type: 'line',
             x1: x + inset, y1: y, x2: x + inset, y2: y + h,
-            width: widthPt, color: color
+            width: widthPt, color: color, dashType: dashType
           });
         }
       }
@@ -522,12 +533,14 @@ function addElements(slideData, targetSlide, pres) {
         transparency: el.imageProps?.transparency || 0
       });
     } else if (el.type === 'line') {
+      const lineOptions = { color: el.color, width: el.width };
+      if (el.dashType) lineOptions.dashType = el.dashType;
       targetSlide.addShape(pres.ShapeType.line, {
         x: el.x1,
         y: el.y1,
         w: el.x2 - el.x1,
         h: el.y2 - el.y1,
-        line: { color: el.color, width: el.width }
+        line: lineOptions
       });
     } else if (el.type === 'shape') {
       const shapeOptions = {
@@ -542,9 +555,33 @@ function addElements(slideData, targetSlide, pres) {
         shapeOptions.fill = { color: el.shape.fill };
         if (el.shape.transparency != null) shapeOptions.fill.transparency = el.shape.transparency;
       }
-      if (el.shape.line) shapeOptions.line = el.shape.line;
+      if (el.shape.line) {
+        const line = { ...el.shape.line };
+        if (!line.dashType) delete line.dashType;
+        shapeOptions.line = line;
+      }
       if (el.shape.rectRadius > 0) shapeOptions.rectRadius = el.shape.rectRadius;
       if (el.shape.shadow) shapeOptions.shadow = el.shape.shadow;
+
+      if (el.style) {
+        if (el.style.fontSize) shapeOptions.fontSize = el.style.fontSize;
+        if (el.style.fontFace) shapeOptions.fontFace = el.style.fontFace;
+        if (el.style.color) shapeOptions.color = el.style.color;
+        if (el.style.bold) shapeOptions.bold = el.style.bold;
+        if (el.style.italic) shapeOptions.italic = el.style.italic;
+        if (el.style.underline) shapeOptions.underline = el.style.underline;
+        if (el.style.align) shapeOptions.align = el.style.align;
+        if (el.style.valign) shapeOptions.valign = el.style.valign;
+        if (el.style.lineSpacing) shapeOptions.lineSpacing = el.style.lineSpacing;
+        if (el.style.paraSpaceBefore != null) shapeOptions.paraSpaceBefore = el.style.paraSpaceBefore;
+        if (el.style.paraSpaceAfter != null) shapeOptions.paraSpaceAfter = el.style.paraSpaceAfter;
+        if (el.style.margin) shapeOptions.margin = el.style.margin;
+        if (el.style.rotate !== undefined) shapeOptions.rotate = el.style.rotate;
+        if (el.style.transparency !== null && el.style.transparency !== undefined) {
+          shapeOptions.transparency = el.style.transparency;
+        }
+        if (el.style.shadow) shapeOptions.shadow = el.style.shadow;
+      }
 
       targetSlide.addText(el.text || '', shapeOptions);
     } else if (el.type === 'list') {
@@ -656,6 +693,61 @@ async function extractSlideData(page) {
 
     const pxToInch = (px) => px / PX_PER_IN;
     const pxToPoints = (pxStr) => parseFloat(pxStr) * PT_PER_PX;
+    const parseInsetValue = (value, ref) => {
+      if (!value) return null;
+      const raw = value.trim();
+      if (!raw) return null;
+      if (raw.endsWith('%')) {
+        const pct = parseFloat(raw);
+        return Number.isFinite(pct) ? (pct / 100) * ref : null;
+      }
+      const num = parseFloat(raw);
+      return Number.isFinite(num) ? num : null;
+    };
+    const BULLET_CHAR_REGEX = /[•\-\*▪▸○●◆◇■□✓✗➤➢→←↑↓◀▶▲▼✔✖]/;
+    const isBulletMarker = (el, computedStyle = null) => {
+      if (!el || el.nodeType !== Node.ELEMENT_NODE) return false;
+      const text = (el.textContent || '').trim();
+      if (!text || !BULLET_CHAR_REGEX.test(text[0])) return false;
+      const className = typeof el.className === 'string' ? el.className : '';
+      if (className.includes('bullet')) return true;
+      const computed = computedStyle || window.getComputedStyle(el);
+      return computed.position === 'absolute';
+    };
+    const getLineInsets = (computed, rect) => {
+      const width = rect.width || (rect.right - rect.left);
+      const height = rect.height || (rect.bottom - rect.top);
+      const paddingLeft = parseFloat(computed.paddingLeft) || 0;
+      const paddingRight = parseFloat(computed.paddingRight) || 0;
+      const paddingTop = parseFloat(computed.paddingTop) || 0;
+      const paddingBottom = parseFloat(computed.paddingBottom) || 0;
+      const left = parseInsetValue(computed.getPropertyValue('--pptx-line-inset-left'), width);
+      const right = parseInsetValue(computed.getPropertyValue('--pptx-line-inset-right'), width);
+      const top = parseInsetValue(computed.getPropertyValue('--pptx-line-inset-top'), height);
+      const bottom = parseInsetValue(computed.getPropertyValue('--pptx-line-inset-bottom'), height);
+      return {
+        left: left !== null ? left : paddingLeft,
+        right: right !== null ? right : paddingRight,
+        top: top !== null ? top : paddingTop,
+        bottom: bottom !== null ? bottom : paddingBottom
+      };
+    };
+    const getLineRanges = (computed, rect) => {
+      const insets = getLineInsets(computed, rect);
+      return {
+        left: rect.left + insets.left,
+        right: rect.right - insets.right,
+        top: rect.top + insets.top,
+        bottom: rect.bottom - insets.bottom
+      };
+    };
+    const mapBorderStyleToDashType = (style) => {
+      if (!style) return null;
+      const normalized = style.toLowerCase();
+      if (normalized === 'dashed') return 'dash';
+      if (normalized === 'dotted') return 'sysDot';
+      return null;
+    };
 
     /**
      * Calculate lineSpacing for PptxGenJS based on CSS line-height and font-size.
@@ -679,11 +771,36 @@ async function extractSlideData(page) {
       return match.slice(1).map(n => parseInt(n).toString(16).padStart(2, '0')).join('');
     };
 
-    const extractAlpha = (rgbStr) => {
+    const getColorAlpha = (rgbStr) => {
+      if (!rgbStr) return 1;
+      if (rgbStr === 'transparent') return 0;
       const match = rgbStr.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
-      if (!match || !match[4]) return null;
+      if (!match || !match[4]) return 1;
       const alpha = parseFloat(match[4]);
-      return Math.round((1 - alpha) * 100);
+      return Math.max(0, Math.min(1, alpha));
+    };
+
+    const getEffectiveOpacity = (el) => {
+      let opacity = 1;
+      let node = el;
+      while (node && node.nodeType === Node.ELEMENT_NODE) {
+        const value = parseFloat(window.getComputedStyle(node).opacity);
+        if (!isNaN(value)) opacity *= value;
+        node = node.parentElement;
+      }
+      return opacity;
+    };
+
+    const getEffectiveTransparency = (el, colorStr) => {
+      const colorAlpha = getColorAlpha(colorStr);
+      const effectiveOpacity = getEffectiveOpacity(el);
+      const effectiveAlpha = colorAlpha * effectiveOpacity;
+      return effectiveAlpha < 1 ? Math.round((1 - effectiveAlpha) * 100) : null;
+    };
+
+    const getElementTransparency = (el) => {
+      const effectiveOpacity = getEffectiveOpacity(el);
+      return effectiveOpacity < 1 ? Math.round((1 - effectiveOpacity) * 100) : null;
     };
 
     const applyTextTransform = (text, textTransform) => {
@@ -900,7 +1017,9 @@ async function extractSlideData(page) {
             || node.tagName === 'I'
             || node.tagName === 'EM'
             || node.tagName === 'U'
-            || node.tagName === 'CODE';
+            || node.tagName === 'CODE'
+            || node.tagName === 'SUP'
+            || node.tagName === 'SUB';
           const display = computed.display;
           // Never add line breaks for materialized pseudo-elements
           const isPseudoElement = node.className && (
@@ -923,10 +1042,12 @@ async function extractSlideData(page) {
             if (computed.textDecoration && computed.textDecoration.includes('underline')) options.underline = true;
             if (computed.color && computed.color !== 'rgb(0, 0, 0)') {
               options.color = rgbToHex(computed.color);
-              const transparency = extractAlpha(computed.color);
+              const transparency = getEffectiveTransparency(node, computed.color);
               if (transparency !== null) options.transparency = transparency;
             }
             if (computed.fontSize) options.fontSize = pxToPoints(computed.fontSize);
+            if (node.tagName === 'SUP') options.superscript = true;
+            if (node.tagName === 'SUB') options.subscript = true;
 
             if (computed.textTransform && computed.textTransform !== 'none') {
               const transformStr = computed.textTransform;
@@ -1033,6 +1154,7 @@ async function extractSlideData(page) {
     const elements = [];
     const placeholders = [];
     const textTags = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'UL', 'OL', 'LI'];
+    const CONTAINER_TAGS = new Set(['DIV', 'HEADER', 'FOOTER', 'SECTION', 'ARTICLE', 'MAIN', 'NAV', 'ASIDE']);
     const processed = new Set();
     const markProcessed = (root) => {
       processed.add(root);
@@ -1079,12 +1201,12 @@ async function extractSlideData(page) {
         valign: alignCenter ? 'middle' : null
       };
 
-      const transparency = extractAlpha(computed.color);
+      const transparency = getEffectiveTransparency(el, computed.color);
       if (transparency !== null) baseStyle.transparency = transparency;
 
       if (rotation !== null) baseStyle.rotate = rotation;
 
-      const hasFormatting = el.querySelector('b, i, u, strong, em, span, br, code');
+      const hasFormatting = el.querySelector('b, i, u, strong, em, span, br, code, sup, sub');
       const transformStr = computed.textTransform;
       if (hasFormatting) {
         const runs = parseInlineFormatting(el, {}, [], (str) => applyTextTransform(str, transformStr), true);
@@ -1119,6 +1241,113 @@ async function extractSlideData(page) {
           bold: isBold && !shouldSkipBold(computed.fontFamily),
           italic: computed.fontStyle === 'italic',
           underline: computed.textDecoration.includes('underline')
+        }
+      };
+    };
+
+    const buildInlineShapeTextElement = (el, rect, computed) => {
+      const rotation = getRotation(computed.transform, computed.writingMode);
+      const { x, y, w, h } = getPositionAndSize(el, rect, rotation);
+      const isFlex = computed.display === 'flex' || computed.display === 'inline-flex';
+      const justifyCenter = isFlex && computed.justifyContent === 'center';
+      const alignCenter = isFlex && computed.alignItems === 'center';
+      const baseStyle = {
+        fontSize: pxToPoints(computed.fontSize),
+        fontFace: computed.fontFamily.split(',')[0].replace(/['"]/g, '').trim(),
+        fontWeight: computed.fontWeight,
+        color: rgbToHex(computed.color),
+        align: justifyCenter ? 'center' : (computed.textAlign === 'start' ? 'left' : computed.textAlign),
+        lineSpacing: calculateLineSpacing(computed.lineHeight, computed.fontSize),
+        paraSpaceBefore: pxToPoints(computed.marginTop),
+        paraSpaceAfter: pxToPoints(computed.marginBottom),
+        letterSpacing: computed.letterSpacing,
+        shadow: parseTextShadowForPptx(computed.textShadow),
+        // PptxGenJS margin array is [left, right, bottom, top]
+        margin: [
+          pxToPoints(computed.paddingLeft),
+          pxToPoints(computed.paddingRight),
+          pxToPoints(computed.paddingBottom),
+          pxToPoints(computed.paddingTop)
+        ],
+        valign: alignCenter ? 'middle' : null
+      };
+
+      const textTransparency = getEffectiveTransparency(el, computed.color);
+      if (textTransparency !== null) baseStyle.transparency = textTransparency;
+
+      if (rotation !== null) baseStyle.rotate = rotation;
+
+      const hasFormatting = el.querySelector('b, i, u, strong, em, span, br, code, sup, sub');
+      const transformStr = computed.textTransform;
+      let text = '';
+      if (hasFormatting) {
+        const runs = parseInlineFormatting(el, {}, [], (str) => applyTextTransform(str, transformStr), true);
+        if (runs.length === 0) return null;
+        if (baseStyle.lineSpacing) {
+          const maxFontSize = Math.max(
+            baseStyle.fontSize,
+            ...runs.map(r => r.options?.fontSize || 0)
+          );
+          if (maxFontSize > baseStyle.fontSize) {
+            const lineHeightMultiplier = baseStyle.lineSpacing / baseStyle.fontSize;
+            baseStyle.lineSpacing = maxFontSize * lineHeightMultiplier;
+          }
+        }
+        text = runs;
+      } else {
+        const transformedText = applyTextTransform(el.textContent.trim(), transformStr);
+        if (!transformedText) return null;
+        const isBold = computed.fontWeight === 'bold' || parseInt(computed.fontWeight) >= 600;
+        text = transformedText;
+        baseStyle.bold = isBold && !shouldSkipBold(computed.fontFamily);
+        baseStyle.italic = computed.fontStyle === 'italic';
+        baseStyle.underline = computed.textDecoration.includes('underline');
+      }
+
+      const bgColor = computed.backgroundColor;
+      const hasBg = bgColor && bgColor !== 'rgba(0, 0, 0, 0)';
+      const fillColor = hasBg ? rgbToHex(bgColor) : null;
+      const fillTransparency = hasBg ? getEffectiveTransparency(el, bgColor) : null;
+      const borderWidth = parseFloat(computed.borderWidth) || 0;
+      const borderTopWidth = parseFloat(computed.borderTopWidth) || 0;
+      const borderRightWidth = parseFloat(computed.borderRightWidth) || 0;
+      const borderBottomWidth = parseFloat(computed.borderBottomWidth) || 0;
+      const borderLeftWidth = parseFloat(computed.borderLeftWidth) || 0;
+      const hasBorder = borderWidth > 0 || borderTopWidth > 0 || borderRightWidth > 0 || borderBottomWidth > 0 || borderLeftWidth > 0;
+      const borders = [borderTopWidth, borderRightWidth, borderBottomWidth, borderLeftWidth].map(b => b || 0);
+      const hasUniformBorder = hasBorder && borders.every(b => b === borders[0]);
+      const shadow = parseBoxShadow(computed.boxShadow);
+
+      const actualWidth = rect.width;
+      const actualHeight = rect.height;
+      const rectRadius = (() => {
+        const radius = computed.borderRadius;
+        const radiusValue = parseFloat(radius);
+        if (!radiusValue) return 0;
+        if (radius.includes('%')) {
+          if (radiusValue >= 50) return 1;
+          const minDim = Math.min(actualWidth, actualHeight);
+          return (radiusValue / 100) * pxToInch(minDim);
+        }
+        if (radius.includes('pt')) return radiusValue / 72;
+        return radiusValue / PX_PER_IN;
+      })();
+
+      return {
+        type: 'shape',
+        text: text,
+        position: { x: pxToInch(x), y: pxToInch(y), w: pxToInch(w), h: pxToInch(h) },
+        style: baseStyle,
+        shape: {
+          fill: fillColor,
+          transparency: fillTransparency,
+          line: hasUniformBorder && borderWidth > 0 ? {
+            color: rgbToHex(computed.borderColor),
+            width: pxToPoints(computed.borderWidth),
+            dashType: mapBorderStyleToDashType(computed.borderStyle)
+          } : null,
+          rectRadius: rectRadius,
+          shadow: shadow
         }
       };
     };
@@ -1288,10 +1517,27 @@ async function extractSlideData(page) {
               border: hasBorder ? {
                 width: pxToPoints(computed.borderWidth),
                 color: rgbToHex(computed.borderColor),
-                top: borderTopWidth > 0 ? { width: pxToPoints(computed.borderTopWidth), color: rgbToHex(computed.borderTopColor) } : null,
-                right: borderRightWidth > 0 ? { width: pxToPoints(computed.borderRightWidth), color: rgbToHex(computed.borderRightColor) } : null,
-                bottom: borderBottomWidth > 0 ? { width: pxToPoints(computed.borderBottomWidth), color: rgbToHex(computed.borderBottomColor) } : null,
-                left: borderLeftWidth > 0 ? { width: pxToPoints(computed.borderLeftWidth), color: rgbToHex(computed.borderLeftColor) } : null
+                style: computed.borderStyle,
+                top: borderTopWidth > 0 ? {
+                  width: pxToPoints(computed.borderTopWidth),
+                  color: rgbToHex(computed.borderTopColor),
+                  style: computed.borderTopStyle
+                } : null,
+                right: borderRightWidth > 0 ? {
+                  width: pxToPoints(computed.borderRightWidth),
+                  color: rgbToHex(computed.borderRightColor),
+                  style: computed.borderRightStyle
+                } : null,
+                bottom: borderBottomWidth > 0 ? {
+                  width: pxToPoints(computed.borderBottomWidth),
+                  color: rgbToHex(computed.borderBottomColor),
+                  style: computed.borderBottomStyle
+                } : null,
+                left: borderLeftWidth > 0 ? {
+                  width: pxToPoints(computed.borderLeftWidth),
+                  color: rgbToHex(computed.borderLeftColor),
+                  style: computed.borderLeftStyle
+                } : null
               } : (parentBorderWidth > 0 ? {
                 width: pxToPoints(parentBorderWidth + 'px'),
                 color: rgbToHex(parentBorderColor),
@@ -1299,7 +1545,7 @@ async function extractSlideData(page) {
               } : null)
             },
             imageProps: {
-              transparency: computed.opacity ? Math.round((1 - parseFloat(computed.opacity)) * 100) : 0
+              transparency: getElementTransparency(el) ?? 0
             }
           });
           processed.add(el);
@@ -1332,11 +1578,30 @@ async function extractSlideData(page) {
         if (parent) {
           const parentDisplay = window.getComputedStyle(parent).display;
           if (isLayoutDisplay(parentDisplay)) {
-            const textAncestor = el.closest('p,h1,h2,h3,h4,h5,h6,li,ul,ol');
+            const textAncestor = el.closest('p,h1,h2,h3,h4,h5,h6');
             if (textAncestor) return;
+            const listAncestor = el.closest('li,ul,ol');
+            if (listAncestor) {
+              const listDisplay = window.getComputedStyle(listAncestor).display;
+              if (!isLayoutDisplay(listDisplay)) return;
+            }
             const rect = el.getBoundingClientRect();
             if (rect.width > 0 && rect.height > 0 && el.textContent.trim()) {
               const computed = window.getComputedStyle(el);
+              const hasBg = computed.backgroundColor && computed.backgroundColor !== 'rgba(0, 0, 0, 0)';
+              const hasBgImage = computed.backgroundImage && computed.backgroundImage !== 'none';
+              const hasBorder = (computed.borderWidth && parseFloat(computed.borderWidth) > 0) ||
+                (computed.borderTopWidth && parseFloat(computed.borderTopWidth) > 0) ||
+                (computed.borderRightWidth && parseFloat(computed.borderRightWidth) > 0) ||
+                (computed.borderBottomWidth && parseFloat(computed.borderBottomWidth) > 0) ||
+                (computed.borderLeftWidth && parseFloat(computed.borderLeftWidth) > 0);
+              const hasShadow = computed.boxShadow && computed.boxShadow !== 'none';
+              if (hasBg || hasBgImage || hasBorder || hasShadow) {
+                const shapeTextElement = buildInlineShapeTextElement(el, rect, computed);
+                if (shapeTextElement) elements.push(shapeTextElement);
+                processed.add(el);
+                return;
+              }
               const textElement = buildInlineTextElement(el, rect, computed);
               if (textElement) elements.push(textElement);
               processed.add(el);
@@ -1361,7 +1626,7 @@ async function extractSlideData(page) {
             const computed = window.getComputedStyle(cell);
             const isBold = computed.fontWeight === 'bold' || parseInt(computed.fontWeight) >= 600;
             const textTransform = computed.textTransform;
-            const hasFormatting = cell.querySelector('b, i, u, strong, em, span, br');
+            const hasFormatting = cell.querySelector('b, i, u, strong, em, span, br, sup, sub');
             const cellText = hasFormatting
               ? parseInlineFormatting(cell, {}, [], (str) => applyTextTransform(str, textTransform), true)
               : applyTextTransform(cell.innerText || '', textTransform);
@@ -1377,7 +1642,7 @@ async function extractSlideData(page) {
               rowspan: Number(cell.getAttribute('rowspan')) || null
             };
 
-            const textTransparency = extractAlpha(computed.color);
+            const textTransparency = getEffectiveTransparency(cell, computed.color);
             if (textTransparency !== null) cellOptions.transparency = textTransparency;
 
             const align = computed.textAlign === 'start' ? 'left' : computed.textAlign === 'end' ? 'right' : computed.textAlign;
@@ -1400,7 +1665,7 @@ async function extractSlideData(page) {
             }
 
             const bgColor = rgbToHex(computed.backgroundColor);
-            const bgTransparency = extractAlpha(computed.backgroundColor);
+            const bgTransparency = getEffectiveTransparency(cell, computed.backgroundColor);
             if (bgColor) {
               cellOptions.fill = { color: bgColor };
               if (bgTransparency !== null) cellOptions.fill.transparency = bgTransparency;
@@ -1450,8 +1715,8 @@ async function extractSlideData(page) {
         return;
       }
 
-      if (el.tagName === 'DIV') {
-        // Allow DIVs inside LI (may be part of complex lists like checklist cards)
+      if (CONTAINER_TAGS.has(el.tagName)) {
+        // Allow container elements inside LI (may be part of complex lists like checklist cards)
         const textAncestor = el.closest('p,h1,h2,h3,h4,h5,h6');
         if (textAncestor) return;
 
@@ -1481,7 +1746,7 @@ async function extractSlideData(page) {
         }
       }
 
-      const isContainer = el.tagName === 'DIV' && !textTags.includes(el.tagName);
+      const isContainer = CONTAINER_TAGS.has(el.tagName) && !textTags.includes(el.tagName);
       if (isContainer) {
         const computed = window.getComputedStyle(el);
         const hasBg = computed.backgroundColor && computed.backgroundColor !== 'rgba(0, 0, 0, 0)';
@@ -1519,46 +1784,55 @@ async function extractSlideData(page) {
           const y = pxToInch(rect.top);
           const w = pxToInch(actualWidth);
           const h = pxToInch(actualHeight);
+          const lineRanges = getLineRanges(computed, rect);
+          const leftPx = lineRanges.left;
+          const rightPx = lineRanges.right;
+          const topPx = lineRanges.top;
+          const bottomPx = lineRanges.bottom;
 
           // Create border lines with inset positioning (half line width) to center on edge
-          if (parseFloat(borderTop) > 0) {
+          if (parseFloat(borderTop) > 0 && rightPx > leftPx) {
             const widthPt = pxToPoints(borderTop);
             const inset = (widthPt / 72) / 2;
             borderLines.push({
               type: 'line',
-              x1: x, y1: y + inset, x2: x + w, y2: y + inset,
+              x1: pxToInch(leftPx), y1: y + inset, x2: pxToInch(rightPx), y2: y + inset,
               width: widthPt,
-              color: rgbToHex(computed.borderTopColor)
+              color: rgbToHex(computed.borderTopColor),
+              dashType: mapBorderStyleToDashType(computed.borderTopStyle)
             });
           }
-          if (parseFloat(borderRight) > 0) {
+          if (parseFloat(borderRight) > 0 && bottomPx > topPx) {
             const widthPt = pxToPoints(borderRight);
             const inset = (widthPt / 72) / 2;
             borderLines.push({
               type: 'line',
-              x1: x + w - inset, y1: y, x2: x + w - inset, y2: y + h,
+              x1: x + w - inset, y1: pxToInch(topPx), x2: x + w - inset, y2: pxToInch(bottomPx),
               width: widthPt,
-              color: rgbToHex(computed.borderRightColor)
+              color: rgbToHex(computed.borderRightColor),
+              dashType: mapBorderStyleToDashType(computed.borderRightStyle)
             });
           }
-          if (parseFloat(borderBottom) > 0) {
+          if (parseFloat(borderBottom) > 0 && rightPx > leftPx) {
             const widthPt = pxToPoints(borderBottom);
             const inset = (widthPt / 72) / 2;
             borderLines.push({
               type: 'line',
-              x1: x, y1: y + h - inset, x2: x + w, y2: y + h - inset,
+              x1: pxToInch(leftPx), y1: y + h - inset, x2: pxToInch(rightPx), y2: y + h - inset,
               width: widthPt,
-              color: rgbToHex(computed.borderBottomColor)
+              color: rgbToHex(computed.borderBottomColor),
+              dashType: mapBorderStyleToDashType(computed.borderBottomStyle)
             });
           }
-          if (parseFloat(borderLeft) > 0) {
+          if (parseFloat(borderLeft) > 0 && bottomPx > topPx) {
             const widthPt = pxToPoints(borderLeft);
             const inset = (widthPt / 72) / 2;
             borderLines.push({
               type: 'line',
-              x1: x + inset, y1: y, x2: x + inset, y2: y + h,
+              x1: x + inset, y1: pxToInch(topPx), x2: x + inset, y2: pxToInch(bottomPx),
               width: widthPt,
-              color: rgbToHex(computed.borderLeftColor)
+              color: rgbToHex(computed.borderLeftColor),
+              dashType: mapBorderStyleToDashType(computed.borderLeftStyle)
             });
           }
         }
@@ -1583,10 +1857,11 @@ async function extractSlideData(page) {
                 },
                 shape: {
                   fill: hasBg ? rgbToHex(computed.backgroundColor) : null,
-                  transparency: hasBg ? extractAlpha(computed.backgroundColor) : null,
+                  transparency: hasBg ? getEffectiveTransparency(el, computed.backgroundColor) : null,
                   line: hasUniformBorder && !hasBgImage ? {
                     color: rgbToHex(computed.borderColor),
-                    width: pxToPoints(computed.borderWidth)
+                    width: pxToPoints(computed.borderWidth),
+                    dashType: mapBorderStyleToDashType(computed.borderStyle)
                   } : null,
                   // Convert border-radius: 50%+ = circle, <50% = % of min dimension, px/pt = convert to inches
                   rectRadius: (() => {
@@ -1624,7 +1899,8 @@ async function extractSlideData(page) {
                   backgroundPosition: computed.backgroundPosition,
                   backgroundColor: computed.backgroundColor,
                   borderRadius: computed.borderRadius,
-                  boxShadow: computed.boxShadow
+                  boxShadow: computed.boxShadow,
+                  opacity: getEffectiveOpacity(el)
                 }
               });
             }
@@ -1673,18 +1949,36 @@ async function extractSlideData(page) {
 
         // Check if LI contains block-level elements that should be processed separately
         // This includes p, h1-h6, and inline elements with display:block (like strong, span)
+        // Allow simple block-level spans/strong (no layout/background/border) to stay in list processing
+        const isComplexBlockInline = (el, computed) => {
+          if (isBulletMarker(el, computed)) return false;
+          if (computed.position && computed.position !== 'static') return true;
+          const hasBg = computed.backgroundColor && computed.backgroundColor !== 'rgba(0, 0, 0, 0)';
+          const hasBorder = parseFloat(computed.borderWidth) > 0 ||
+            parseFloat(computed.borderTopWidth) > 0 ||
+            parseFloat(computed.borderRightWidth) > 0 ||
+            parseFloat(computed.borderBottomWidth) > 0 ||
+            parseFloat(computed.borderLeftWidth) > 0;
+          const hasShadow = computed.boxShadow && computed.boxShadow !== 'none';
+          const isLayout = isLayoutDisplay(computed.display);
+          return hasBg || hasBorder || hasShadow || isLayout;
+        };
+
         const hasBlockTextElements = liElements.some((li) => {
           // Check for native block elements
           if (li.querySelector('p, h1, h2, h3, h4, h5, h6')) return true;
-          // Check for inline elements with display:block
+          // Check for inline elements with display:block/inline-block that are complex
           const inlineElements = li.querySelectorAll('strong, span, b, i, em');
           return Array.from(inlineElements).some((el) => {
             if (el.className && (
               el.className.includes('__pseudo_before__') ||
               el.className.includes('__pseudo_after__')
             )) return false;
-            const display = window.getComputedStyle(el).display;
-            return display === 'block' || display === 'inline-block';
+            const computed = window.getComputedStyle(el);
+            if (isBulletMarker(el, computed)) return false;
+            const display = computed.display;
+            const isBlockInline = display === 'block' || display === 'inline-block';
+            return isBlockInline && isComplexBlockInline(el, computed);
           });
         });
 
@@ -1698,9 +1992,9 @@ async function extractSlideData(page) {
         const hasLiBorders = liElements.some((li) => {
           const liStyle = window.getComputedStyle(li);
           return parseFloat(liStyle.borderTopWidth) > 0 ||
-                 parseFloat(liStyle.borderRightWidth) > 0 ||
-                 parseFloat(liStyle.borderBottomWidth) > 0 ||
-                 parseFloat(liStyle.borderLeftWidth) > 0;
+            parseFloat(liStyle.borderRightWidth) > 0 ||
+            parseFloat(liStyle.borderBottomWidth) > 0 ||
+            parseFloat(liStyle.borderLeftWidth) > 0;
         });
 
         if (hasLiBorders) {
@@ -1716,10 +2010,10 @@ async function extractSlideData(page) {
               const computed = window.getComputedStyle(div);
               const hasBg = computed.backgroundColor && computed.backgroundColor !== 'rgba(0, 0, 0, 0)';
               const hasBorder = parseFloat(computed.borderWidth) > 0 ||
-                               parseFloat(computed.borderTopWidth) > 0 ||
-                               parseFloat(computed.borderRightWidth) > 0 ||
-                               parseFloat(computed.borderBottomWidth) > 0 ||
-                               parseFloat(computed.borderLeftWidth) > 0;
+                parseFloat(computed.borderTopWidth) > 0 ||
+                parseFloat(computed.borderRightWidth) > 0 ||
+                parseFloat(computed.borderBottomWidth) > 0 ||
+                parseFloat(computed.borderLeftWidth) > 0;
               const isLayout = isLayoutDisplay(computed.display);
               return hasBg || hasBorder || isLayout;
             });
@@ -1740,7 +2034,9 @@ async function extractSlideData(page) {
         const listStyleType = liComputed.listStyleType || ulComputed.listStyleType;
 
         const hasPseudoBullet = firstLi.querySelector('.__pseudo_before__') !== null;
-        const useBullet = listStyleType !== 'none' || hasPseudoBullet;
+        const inlineBulletNodes = Array.from(firstLi.querySelectorAll('span, b, strong, i, em, u, code, small, sup, sub, a'));
+        const hasInlineBullet = inlineBulletNodes.some((node) => isBulletMarker(node));
+        const useBullet = listStyleType !== 'none' || hasPseudoBullet || hasInlineBullet;
 
         const liPaddingLeftPt = pxToPoints(liComputed.paddingLeft);
         const liPaddingRightPt = pxToPoints(liComputed.paddingRight);
@@ -1758,22 +2054,27 @@ async function extractSlideData(page) {
           const checkPseudo = (style) => {
             if (!style || !style.content || style.content === 'none') return false;
             return style.position === 'absolute' &&
-                   (style.left === '0px' || style.left === '0');
+              (style.left === '0px' || style.left === '0');
           };
 
           hasAbsolutePseudoAtLeftZero = checkPseudo(beforeStyle) || checkPseudo(afterStyle);
         }
+        const hasAbsoluteInlineBulletAtLeftZero = inlineBulletNodes.some((node) => {
+          if (!isBulletMarker(node)) return false;
+          const style = window.getComputedStyle(node);
+          return style.position === 'absolute' && (style.left === '0px' || style.left === '0');
+        });
 
-        // Determine text margin: if pseudo-element at left:0, padding-left is for pseudo (margin=0)
-        // Otherwise, use LI's padding as margin
+        // Determine text margin and indent
         let textMargin;
-        if (hasAbsolutePseudoAtLeftZero) {
+        let textIndent = useBullet ? ulPaddingLeftPt : 0;
+        if (hasAbsolutePseudoAtLeftZero || hasAbsoluteInlineBulletAtLeftZero) {
+          // Bullet sits at left:0; keep LI padding as hanging indent
           textMargin = [0, liPaddingRightPt, liPaddingBottomPt, liPaddingTopPt];
+          textIndent = liPaddingLeftPt;
         } else {
           textMargin = [liPaddingLeftPt, liPaddingRightPt, liPaddingBottomPt, liPaddingTopPt];
         }
-
-        const textIndent = useBullet ? ulPaddingLeftPt : 0;
 
         const bullet_code_map = { 1: "2022", 2: "25E6", 3: "25AA" };
 
@@ -1801,6 +2102,8 @@ async function extractSlideData(page) {
               if (isBold) options.bold = true;
               if (computed.fontStyle === 'italic') options.italic = true;
               if (computed.textDecoration && computed.textDecoration.includes('underline')) options.underline = true;
+              if (tagName === 'SUP') options.superscript = true;
+              if (tagName === 'SUB') options.subscript = true;
               if (computed.color && computed.color !== 'rgb(0, 0, 0)') {
                 options.color = rgbToHex(computed.color);
               }
@@ -1865,11 +2168,27 @@ async function extractSlideData(page) {
             const bulletText = pseudoBefore.textContent;
             if (bulletText) {
               const firstChar = bulletText.trim()[0];
-              if (firstChar && /[•\-\*▪▸○●◆◇■□✓✗➤➢→←↑↓◀▶▲▼✔✖]/.test(firstChar)) {
+              if (firstChar && BULLET_CHAR_REGEX.test(firstChar)) {
                 customBulletCode = getUnicodeCode(firstChar);
                 pseudoBefore.remove();
               }
             }
+          }
+
+          // Remove inline bullet markers (e.g., <span class="bullet">•</span>)
+          const inlineBulletCandidates = Array.from(
+            clone.querySelectorAll('span, b, strong, i, em, u, code, small, sup, sub, a')
+          );
+          for (const candidate of inlineBulletCandidates) {
+            if (!isBulletMarker(candidate)) continue;
+            const candidateText = (candidate.textContent || '').trim();
+            if (!customBulletCode && candidateText) {
+              const firstChar = candidateText[0];
+              if (firstChar && BULLET_CHAR_REGEX.test(firstChar)) {
+                customBulletCode = getUnicodeCode(firstChar);
+              }
+            }
+            candidate.remove();
           }
 
           let runs = parseInlineFormatting(clone, { breakLine: false }, [], (x) => x, true);
@@ -1880,6 +2199,26 @@ async function extractSlideData(page) {
 
           document.body.removeChild(holder);
 
+          // Convert intra-LI hard paragraph breaks into soft line breaks
+          // so bullets/indents are preserved without repeating bullets.
+          for (let i = 0; i < runs.length; i += 1) {
+            const current = runs[i];
+            if (current?.options?.breakLine) {
+              delete current.options.breakLine;
+              // Attach softBreakBefore to the next non-empty run (skip whitespace-only runs)
+              let j = i + 1;
+              while (j < runs.length) {
+                const next = runs[j];
+                const text = typeof next?.text === 'string' ? next.text : '';
+                if (text.trim().length > 0) {
+                  next.options = next.options || {};
+                  next.options.softBreakBefore = true;
+                  break;
+                }
+                j += 1;
+              }
+            }
+          }
           if (runs.length > 0) {
             runs[0].text = runs[0].text.replace(/^[•\-\*▪▸○●◆◇■□✓✗➤➢→←↑↓◀▶▲▼✔✖]\s*/, '');
             runs[0].text = runs[0].text.replace(/^\s+/, '');
@@ -1955,7 +2294,7 @@ async function extractSlideData(page) {
             fontSize: pxToPoints(computed.fontSize),
             fontFace: computed.fontFamily.split(',')[0].replace(/['"]/g, '').trim(),
             color: rgbToHex(computed.color),
-            transparency: extractAlpha(computed.color),
+            transparency: getEffectiveTransparency(liElements[0] || el, computed.color),
             align: computed.textAlign === 'start' ? 'left' : computed.textAlign,
             lineSpacing: lineSpacing,
             paraSpaceBefore: 0,
@@ -1980,12 +2319,31 @@ async function extractSlideData(page) {
         const computed = window.getComputedStyle(el);
         const isBlock = computed.display === 'block' || computed.display === 'inline-block';
         const rect = el.getBoundingClientRect();
+        const lineRanges = getLineRanges(computed, rect);
+        const leftPx = lineRanges.left;
+        const rightPx = lineRanges.right;
+        const topPx = lineRanges.top;
+        const bottomPx = lineRanges.bottom;
 
         // Skip if inside a text element that will handle it
         const textParent = el.parentElement?.closest('p,h1,h2,h3,h4,h5,h6');
         if (textParent && !isBlock) return;
 
         if (isBlock && rect.width > 0 && rect.height > 0 && el.textContent.trim()) {
+          const hasBg = computed.backgroundColor && computed.backgroundColor !== 'rgba(0, 0, 0, 0)';
+          const hasBgImage = computed.backgroundImage && computed.backgroundImage !== 'none';
+          const hasBorder = (computed.borderWidth && parseFloat(computed.borderWidth) > 0) ||
+            (computed.borderTopWidth && parseFloat(computed.borderTopWidth) > 0) ||
+            (computed.borderRightWidth && parseFloat(computed.borderRightWidth) > 0) ||
+            (computed.borderBottomWidth && parseFloat(computed.borderBottomWidth) > 0) ||
+            (computed.borderLeftWidth && parseFloat(computed.borderLeftWidth) > 0);
+          const hasShadow = computed.boxShadow && computed.boxShadow !== 'none';
+          if (hasBg || hasBgImage || hasBorder || hasShadow) {
+            const shapeTextElement = buildInlineShapeTextElement(el, rect, computed);
+            if (shapeTextElement) elements.push(shapeTextElement);
+            processed.add(el);
+            return;
+          }
           const rotation = getRotation(computed.transform, computed.writingMode);
           const { x, y, w, h } = getPositionAndSize(el, rect, rotation);
 
@@ -1996,56 +2354,60 @@ async function extractSlideData(page) {
           const borderRight = parseFloat(computed.borderRightWidth) || 0;
 
           // Add border lines if present
-          if (borderBottom > 0) {
+          if (borderBottom > 0 && rightPx > leftPx) {
             const widthPt = pxToPoints(computed.borderBottomWidth);
             const inset = (widthPt / 72) / 2;
             elements.push({
               type: 'line',
-              x1: pxToInch(rect.left),
+              x1: pxToInch(leftPx),
               y1: pxToInch(rect.bottom) - inset,
-              x2: pxToInch(rect.right),
+              x2: pxToInch(rightPx),
               y2: pxToInch(rect.bottom) - inset,
               width: widthPt,
-              color: rgbToHex(computed.borderBottomColor)
+              color: rgbToHex(computed.borderBottomColor),
+              dashType: mapBorderStyleToDashType(computed.borderBottomStyle)
             });
           }
-          if (borderTop > 0) {
+          if (borderTop > 0 && rightPx > leftPx) {
             const widthPt = pxToPoints(computed.borderTopWidth);
             const inset = (widthPt / 72) / 2;
             elements.push({
               type: 'line',
-              x1: pxToInch(rect.left),
+              x1: pxToInch(leftPx),
               y1: pxToInch(rect.top) + inset,
-              x2: pxToInch(rect.right),
+              x2: pxToInch(rightPx),
               y2: pxToInch(rect.top) + inset,
               width: widthPt,
-              color: rgbToHex(computed.borderTopColor)
+              color: rgbToHex(computed.borderTopColor),
+              dashType: mapBorderStyleToDashType(computed.borderTopStyle)
             });
           }
-          if (borderLeft > 0) {
+          if (borderLeft > 0 && bottomPx > topPx) {
             const widthPt = pxToPoints(computed.borderLeftWidth);
             const inset = (widthPt / 72) / 2;
             elements.push({
               type: 'line',
               x1: pxToInch(rect.left) + inset,
-              y1: pxToInch(rect.top),
+              y1: pxToInch(topPx),
               x2: pxToInch(rect.left) + inset,
-              y2: pxToInch(rect.bottom),
+              y2: pxToInch(bottomPx),
               width: widthPt,
-              color: rgbToHex(computed.borderLeftColor)
+              color: rgbToHex(computed.borderLeftColor),
+              dashType: mapBorderStyleToDashType(computed.borderLeftStyle)
             });
           }
-          if (borderRight > 0) {
+          if (borderRight > 0 && bottomPx > topPx) {
             const widthPt = pxToPoints(computed.borderRightWidth);
             const inset = (widthPt / 72) / 2;
             elements.push({
               type: 'line',
               x1: pxToInch(rect.right) - inset,
-              y1: pxToInch(rect.top),
+              y1: pxToInch(topPx),
               x2: pxToInch(rect.right) - inset,
-              y2: pxToInch(rect.bottom),
+              y2: pxToInch(bottomPx),
               width: widthPt,
-              color: rgbToHex(computed.borderRightColor)
+              color: rgbToHex(computed.borderRightColor),
+              dashType: mapBorderStyleToDashType(computed.borderRightStyle)
             });
           }
 
@@ -2097,7 +2459,9 @@ async function extractSlideData(page) {
             child.className.includes('__pseudo_before__') ||
             child.className.includes('__pseudo_after__')
           )) return false;
-          const display = window.getComputedStyle(child).display;
+          const computed = window.getComputedStyle(child);
+          if (isBulletMarker(child, computed)) return false;
+          const display = computed.display;
           return display === 'block' || display === 'inline-block';
         });
         if (hasBlockInline) return;
@@ -2118,6 +2482,11 @@ async function extractSlideData(page) {
       const computed = window.getComputedStyle(el);
       const rotation = getRotation(computed.transform, computed.writingMode);
       const { x, y, w, h } = getPositionAndSize(el, rect, rotation);
+      const lineRanges = getLineRanges(computed, rect);
+      const leftPx = lineRanges.left;
+      const rightPx = lineRanges.right;
+      const topPx = lineRanges.top;
+      const bottomPx = lineRanges.bottom;
 
       const baseStyle = {
         fontSize: pxToPoints(computed.fontSize),
@@ -2139,12 +2508,12 @@ async function extractSlideData(page) {
         ]
       };
 
-      const transparency = extractAlpha(computed.color);
+      const transparency = getEffectiveTransparency(el, computed.color);
       if (transparency !== null) baseStyle.transparency = transparency;
 
       if (rotation !== null) baseStyle.rotate = rotation;
 
-      const hasFormatting = el.querySelector('b, i, u, strong, em, span, br');
+      const hasFormatting = el.querySelector('b, i, u, strong, em, span, br, sup, sub');
 
       if (hasFormatting) {
         const transformStr = computed.textTransform;
@@ -2193,44 +2562,48 @@ async function extractSlideData(page) {
       const borderBottom = parseFloat(computed.borderBottomWidth) || 0;
       const borderLeft = parseFloat(computed.borderLeftWidth) || 0;
 
-      if (borderTop > 0) {
+      if (borderTop > 0 && rightPx > leftPx) {
         const widthPt = pxToPoints(computed.borderTopWidth);
         const inset = (widthPt / 72) / 2;
         elements.push({
           type: 'line',
-          x1: pxToInch(rect.left), y1: pxToInch(rect.top) + inset,
-          x2: pxToInch(rect.right), y2: pxToInch(rect.top) + inset,
-          width: widthPt, color: rgbToHex(computed.borderTopColor)
+          x1: pxToInch(leftPx), y1: pxToInch(rect.top) + inset,
+          x2: pxToInch(rightPx), y2: pxToInch(rect.top) + inset,
+          width: widthPt, color: rgbToHex(computed.borderTopColor),
+          dashType: mapBorderStyleToDashType(computed.borderTopStyle)
         });
       }
-      if (borderRight > 0) {
+      if (borderRight > 0 && bottomPx > topPx) {
         const widthPt = pxToPoints(computed.borderRightWidth);
         const inset = (widthPt / 72) / 2;
         elements.push({
           type: 'line',
-          x1: pxToInch(rect.right) - inset, y1: pxToInch(rect.top),
-          x2: pxToInch(rect.right) - inset, y2: pxToInch(rect.bottom),
-          width: widthPt, color: rgbToHex(computed.borderRightColor)
+          x1: pxToInch(rect.right) - inset, y1: pxToInch(topPx),
+          x2: pxToInch(rect.right) - inset, y2: pxToInch(bottomPx),
+          width: widthPt, color: rgbToHex(computed.borderRightColor),
+          dashType: mapBorderStyleToDashType(computed.borderRightStyle)
         });
       }
-      if (borderBottom > 0) {
+      if (borderBottom > 0 && rightPx > leftPx) {
         const widthPt = pxToPoints(computed.borderBottomWidth);
         const inset = (widthPt / 72) / 2;
         elements.push({
           type: 'line',
-          x1: pxToInch(rect.left), y1: pxToInch(rect.bottom) - inset,
-          x2: pxToInch(rect.right), y2: pxToInch(rect.bottom) - inset,
-          width: widthPt, color: rgbToHex(computed.borderBottomColor)
+          x1: pxToInch(leftPx), y1: pxToInch(rect.bottom) - inset,
+          x2: pxToInch(rightPx), y2: pxToInch(rect.bottom) - inset,
+          width: widthPt, color: rgbToHex(computed.borderBottomColor),
+          dashType: mapBorderStyleToDashType(computed.borderBottomStyle)
         });
       }
-      if (borderLeft > 0) {
+      if (borderLeft > 0 && bottomPx > topPx) {
         const widthPt = pxToPoints(computed.borderLeftWidth);
         const inset = (widthPt / 72) / 2;
         elements.push({
           type: 'line',
-          x1: pxToInch(rect.left) + inset, y1: pxToInch(rect.top),
-          x2: pxToInch(rect.left) + inset, y2: pxToInch(rect.bottom),
-          width: widthPt, color: rgbToHex(computed.borderLeftColor)
+          x1: pxToInch(rect.left) + inset, y1: pxToInch(topPx),
+          x2: pxToInch(rect.left) + inset, y2: pxToInch(bottomPx),
+          width: widthPt, color: rgbToHex(computed.borderLeftColor),
+          dashType: mapBorderStyleToDashType(computed.borderLeftStyle)
         });
       }
 
