@@ -1,59 +1,34 @@
-"""
-Test mermaid with the most complex scenario.
-"""
+"""Test mermaid diagram generation."""
 
 import pytest
 
+PUPPETEER_CONFIG = '{"args":["--no-sandbox","--disable-setuid-sandbox"]}'
 
-class TestMermaidAdvanced:
-    """Test mermaid with the most complex scenario."""
 
-    @pytest.mark.asyncio
-    async def test_mermaid_sequence_chinese(
-        self, agent_env, workspace, mermaid_sequence_diagram, tool_call_helper
-    ):
-        """Test mermaid sequence diagram with Chinese text and multiple participants."""
-        # Write the sequence diagram
-        diagram_path = workspace / "sequence.mmd"
-        write_call = tool_call_helper(
-            "write_file",
-            {"path": str(diagram_path), "content": mermaid_sequence_diagram},
-        )
-        write_result = await agent_env.tool_execute(write_call)
-        assert not write_result.is_error, (
-            f"Failed to write diagram: {write_result.text}"
-        )
+@pytest.mark.asyncio
+async def test_mermaid_sequence_chinese(
+    agent_env, workspace, mermaid_sequence_diagram, tool_call_helper
+):
+    """Test mermaid sequence diagram with Chinese text."""
+    diagram_path = workspace / "sequence.mmd"
+    config_path = workspace / ".puppeteerrc.json"
+    output_path = workspace / "sequence_diagram.png"
 
-        # Create Puppeteer config to allow running Chromium as root
-        puppeteer_config_path = workspace / ".puppeteerrc.json"
-        puppeteer_config = '{"args":["--no-sandbox","--disable-setuid-sandbox"]}'
-        config_call = tool_call_helper(
-            "write_file",
-            {"path": str(puppeteer_config_path), "content": puppeteer_config},
-        )
-        config_result = await agent_env.tool_execute(config_call)
-        assert not config_result.is_error, (
-            f"Failed to write Puppeteer config: {config_result.text}"
-        )
+    for path, content in [
+        (diagram_path, mermaid_sequence_diagram),
+        (config_path, PUPPETEER_CONFIG),
+    ]:
+        call = tool_call_helper("write_file", {"path": str(path), "content": content})
+        result = await agent_env.tool_execute(call)
+        assert not result.is_error
 
-        # Generate PNG using mmdc with Puppeteer config
-        output_path = workspace / "sequence_diagram.png"
-        exec_call = tool_call_helper(
-            "execute_command",
-            {
-                "command": f"mmdc -i {diagram_path} -o {output_path} -p {puppeteer_config_path}"
-            },
-        )
-        exec_result = await agent_env.tool_execute(exec_call)
-        assert not exec_result.is_error, f"mmdc execution failed: {exec_result.text}"
-        assert "Error:" not in exec_result.text, (
-            f"mmdc reported error: {exec_result.text}"
-        )
+    exec_call = tool_call_helper(
+        "execute_command",
+        {"command": f"mmdc -i {diagram_path} -o {output_path} -p {config_path}"},
+    )
+    result = await agent_env.tool_execute(exec_call)
+    assert not result.is_error and "Error:" not in result.text
 
-        # Verify the output file exists
-        list_call = tool_call_helper(
-            "list_directory",
-            {"path": str(workspace)},
-        )
-        list_result = await agent_env.tool_execute(list_call)
-        assert "sequence_diagram.png" in list_result.text, "Sequence diagram not found"
+    list_call = tool_call_helper("list_directory", {"path": str(workspace)})
+    list_result = await agent_env.tool_execute(list_call)
+    assert "sequence_diagram.png" in list_result.text

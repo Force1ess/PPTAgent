@@ -686,6 +686,12 @@ dependencies = [
     { name = "trafilatura" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "pytest-asyncio" },
+    { name = "pytest-xdist" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.9.0" },
@@ -693,7 +699,7 @@ requires-dist = [
     { name = "colorlog", specifier = ">=6.9.0" },
     { name = "docker", specifier = ">=7.1.0" },
     { name = "fake-useragent", specifier = ">=2.2.0" },
-    { name = "fastmcp", specifier = ">=2.10.0" },
+    { name = "fastmcp", specifier = ">=2.10.0,<2.14.0" },
     { name = "fasttext", specifier = ">=0.9.3" },
     { name = "filelock", specifier = ">=3.0.0" },
     { name = "firecrawl-py", specifier = ">=4.10.2" },
@@ -710,7 +716,7 @@ requires-dist = [
     { name = "openai", specifier = ">=1.108.2" },
     { name = "platformdirs", specifier = ">=4.0.0" },
     { name = "playwright", specifier = ">=1.55.0" },
-    { name = "pptagent", specifier = ">=0.2.16" },
+    { name = "pptagent", specifier = ">=0.2.18" },
     { name = "pre-commit", specifier = ">=4.3.0" },
     { name = "pydantic", specifier = ">=2.11.9" },
     { name = "pypdf", specifier = ">=6.1.1" },
@@ -719,6 +725,12 @@ requires-dist = [
     { name = "semanticscholar", specifier = ">=0.11.0" },
     { name = "tavily-python", specifier = ">=0.7.14" },
     { name = "trafilatura", specifier = ">=2.0.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest-asyncio", specifier = ">=1.2.0" },
+    { name = "pytest-xdist", specifier = ">=3.8.0" },
 ]
 
 [[package]]
@@ -2596,7 +2608,7 @@ wheels = [
 
 [[package]]
 name = "pptagent"
-version = "0.2.16"
+version = "0.2.18"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiofiles" },
@@ -2605,6 +2617,7 @@ dependencies = [
     { name = "beautifulsoup4" },
     { name = "fastapi", extra = ["all"] },
     { name = "fastmcp" },
+    { name = "filelock" },
     { name = "func-argparse" },
     { name = "html2image" },
     { name = "jinja2" },
@@ -2633,9 +2646,9 @@ dependencies = [
     { name = "tenacity" },
     { name = "uvicorn" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/12/90/66069ca49be7d26ceefdc4a8356b33bafedddab4b89ca9f6591e9d1a448e/pptagent-0.2.16.tar.gz", hash = "sha256:e133139be32ff86907073baf5d63e10cc3da0dec2fd254f77bf5086329359177", size = 4736640, upload-time = "2025-12-05T07:12:42.29Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/eb/d9/ef05e90a145da818fad580351ae501b29bd53ffdfedffee6826ffc9002e8/pptagent-0.2.18.tar.gz", hash = "sha256:435a56bb41c8d49126145f6349e69c92496c5070d7445797101aa1d2fef7de1a", size = 4732971, upload-time = "2026-01-19T13:01:28.892Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/13/0b/09b6ce5735aced724daedc4e2ce196be881ae0f5344abb79d0040be2a5bf/pptagent-0.2.16-py3-none-any.whl", hash = "sha256:c5d25960efe6375baf6e5bc2b9ab753e1aa7c153f743148af6cc2ef3f59433e5", size = 4749874, upload-time = "2025-12-05T07:12:37.22Z" },
+    { url = "https://files.pythonhosted.org/packages/e7/90/47192164236d0e17ba8bf5cb02f67259d41819d93e524c543c5b15234ba3/pptagent-0.2.18-py3-none-any.whl", hash = "sha256:6f738f5925e13dab7ab5cb2c3fd5641f2f73c2486b7c126563265ef779d86a59", size = 4747856, upload-time = "2026-01-19T13:01:23.522Z" },
 ]
 
 [[package]]

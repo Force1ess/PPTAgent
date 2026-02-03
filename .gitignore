@@ -18,6 +18,7 @@ AGENTS.md
 deeppresenter/deeppresenter/config.yaml
 deeppresenter/deeppresenter/mcp.json
 deeppresenter/deeppresenter/.tools.json
+**/test_output
 
 # Copy from vuejs
 

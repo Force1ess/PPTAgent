@@ -301,6 +301,8 @@ class LLM(BaseModel):
                     )
                     return response
 
+                except (AssertionError, ValidationError) as e:
+                    errors.append(f"[{endpoint.model}] {e}")
                 except Exception as e:
                     errors.append(f"[{endpoint.model}] {e}")
                     if self.secret_logging:

@@ -23,9 +23,9 @@ class MCPServer(BaseModel):
     """MCP server config model, matches each entry in mcp.json"""
 
     name: str
-    description: str | None = None
-    command: str | None = None
-    args: list[str] = Field(default_factory=list)
+    description: str
+    command: str
+    args: list[str]
     env: dict[str, str] = Field(default_factory=dict)
     url: str | None = None
     header: dict[str, str] | None = None

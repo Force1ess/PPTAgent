@@ -34,7 +34,7 @@ TAVILY_API_URL = "https://api.tavily.com/search"
 debug(f"{len(TAVILY_KEYS)} TAVILY keys loaded")
 
 
-async def tavily_request(params: dict) -> dict[str, Any]:
+async def tavily_request(idx: int, params: dict) -> dict[str, Any]:
     """Send Tavily API request"""
     headers = {"Content-Type": "application/json", "User-Agent": FAKE_UA.random}
 
@@ -45,7 +45,7 @@ async def tavily_request(params: dict) -> dict[str, Any]:
             if response.status == 200:
                 return await response.json()
             body = await response.text()
-            await asyncio.sleep(MAX_RETRY_INTERVAL)
+            await asyncio.sleep(idx * MAX_RETRY_INTERVAL)
             warning(f"TAVILY Error [{response.status}] body={body}")
             response.raise_for_status()
         raise RuntimeError("TAVILY request failed after retries")
@@ -53,10 +53,10 @@ async def tavily_request(params: dict) -> dict[str, Any]:
 
 async def search_with_fallback(**kwargs) -> dict[str, Any]:
     last_error = None
-    for api_key in TAVILY_KEYS:
+    for idx, api_key in enumerate(TAVILY_KEYS, start=1):
         try:
             params = {**kwargs, "api_key": api_key}
-            return await tavily_request(params)
+            return await tavily_request(idx, params)
         except Exception as e:
             warning(f"TAVILY search error with key {api_key[:16]}...: {e}")
             last_error = e

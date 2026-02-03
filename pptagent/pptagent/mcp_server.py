@@ -245,7 +245,7 @@ class PPTAgentServer(PPTAgent):
             self.editor_output = editor_output
             if warnings:
                 return {
-                    "message": "Slide elements set with warnings. Consider reset the slide content, or proceed if acceptable.",
+                    "message": "Slide elements set with warnings, please try your best to fix the. You should only proceed after fixing all warnings or 5 retries.",
                     "warnings": warnings,
                 }
             return {

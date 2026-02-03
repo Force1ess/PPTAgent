@@ -79,38 +79,25 @@ class Agent:
         if not config_file.exists():
             raise FileNotFoundError(f"Cannot found role config file at: {config_file} ")
 
+        # Setting basic context
         with open(config_file, encoding="utf-8") as f:
             config_data = yaml.safe_load(f)
-        role_config = RoleConfig(**config_data)
-        self.llm: LLM = config[role_config.use_model]
+        self.role_config = RoleConfig(**config_data)
+        self.llm: LLM = config[self.role_config.use_model]
         self.model = self.llm.model_name
-        self.prompt: Template = Template(
-            role_config.instruction, undefined=StrictUndefined
-        )
-
-        if role_config.include_tool_servers == "all":
-            role_config.include_tool_servers = list(agent_env._server_tools)
-        for server in role_config.include_tool_servers:
-            assert server in agent_env._server_tools, (
-                f"Server {server} is not available"
-            )
-        for tool in role_config.include_tools + role_config.exclude_tools:
-            assert tool in agent_env._tools_dict, f"Tool {tool} is not available"
-        self.tools = []
-        for server in role_config.include_tool_servers:
-            if server not in role_config.exclude_tool_servers:
-                for tool in agent_env._server_tools[server]:
-                    if tool not in role_config.exclude_tools:
-                        self.tools.append(agent_env._tools_dict[tool])
-
-        for tool_name, tool in agent_env._tools_dict.items():
-            if tool_name in role_config.include_tools:
-                self.tools.append(tool)
-
-        if language not in role_config.system:
+        self._setup_toolset()
+        if language not in self.role_config.system:
             raise ValueError(f"Language '{language}' not found in system prompts")
-        self.system = role_config.system[language]
+        self.error_history: list[ToolCall | ChatMessage] = []
+        self.research_iter = 0
+        if config.context_folding:
+            self.context_warning = -1
 
+        # Setting tools and interative context
+        self.system = self.role_config.system[language]
+        self.prompt: Template = Template(
+            self.role_config.instruction, undefined=StrictUndefined
+        )
         # ? for those agents equipped with sandbox only
         if any(t["function"]["name"] == "execute_command" for t in self.tools):
             self.system += AGENT_PROMPT.format(
@@ -120,8 +107,8 @@ class Agent:
                 max_toolcall_per_turn=MAX_TOOLCALL_PER_TURN,
             )
 
-            if config.offline_mode:
-                self.system += OFFLINE_PROMPT
+        if config.offline_mode:
+            self.system += OFFLINE_PROMPT
 
         if config.context_folding:
             self.system += CONTEXT_MODE_PROMPT
@@ -129,14 +116,30 @@ class Agent:
         self.chat_history: list[ChatMessage] = [
             ChatMessage(role=Role.SYSTEM, content=self.system)
         ]
-        # Linear log of failed tool calls and their observations
-        self.error_history: list[ToolCall | ChatMessage] = []
-        self.research_iter = 0
-        if config.context_folding:
-            self.context_warning = -1
-        debug(f"{self.name} Agent got {len(self.tools)} tools")
         available_tools = [tool["function"]["name"] for tool in self.tools]
-        debug(f"Available tools: {', '.join(available_tools)}")
+        debug(
+            f"{self.name} Agent got {len(self.tools)} tools: {', '.join(available_tools)}"
+        )
+
+    def _setup_toolset(self):
+        if self.role_config.include_tool_servers == "all":
+            self.role_config.include_tool_servers = list(self.agent_env._server_tools)
+        for server in self.role_config.include_tool_servers:
+            assert server in self.agent_env._server_tools, (
+                f"Server {server} is not available"
+            )
+        for tool in self.role_config.include_tools + self.role_config.exclude_tools:
+            assert tool in self.agent_env._tools_dict, f"Tool {tool} is not available"
+        self.tools = []
+        for server in self.role_config.include_tool_servers:
+            if server not in self.role_config.exclude_tool_servers:
+                for tool in self.agent_env._server_tools[server]:
+                    if tool not in self.role_config.exclude_tools:
+                        self.tools.append(self.agent_env._tools_dict[tool])
+
+        for tool_name, tool in self.agent_env._tools_dict.items():
+            if tool_name in self.role_config.include_tools:
+                self.tools.append(tool)
 
     async def chat(
         self,

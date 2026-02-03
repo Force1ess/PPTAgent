@@ -81,5 +81,11 @@ markers = [
 [tool.ruff.lint]
 ignore = ["F403", "F405", "E741", "E722"]
 
+[dependency-groups]
+dev = [
+    "pytest-asyncio>=1.2.0",
+    "pytest-xdist>=3.8.0",
+]
+
 [tool.setuptools.dynamic]
 version = { attr = "deeppresenter.__version__" }
