@@ -23,6 +23,8 @@ from deeppresenter.utils.config import DeepPresenterConfig
 from deeppresenter.utils.log import error, info, set_logger, warning
 from deeppresenter.utils.webview import convert_html_to_pptx
 
+Image.MAX_IMAGE_PIXELS = None  # only reading metadata, no actual decompression
+
 mcp = FastMCP(name="Task")
 
 LID_MODEL = _get_lid_model()
