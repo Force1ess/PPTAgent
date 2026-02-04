@@ -29,7 +29,6 @@ from deeppresenter.utils.log import (
     debug,
     error,
     info,
-    set_logger,
     timer,
     warning,
 )
@@ -148,7 +147,7 @@ class AgentEnv:
         else:
             self.timing_dict[tool_call.function.name].success_count += 1
 
-        if len(result.content) != 1 and any(
+        if len(result.content) != 1 or any(
             c.type not in ["image", "text"] for c in result.content
         ):
             raise ValueError("Only one text/image block is supported currently.")

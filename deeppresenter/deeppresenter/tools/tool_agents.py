@@ -84,7 +84,10 @@ async def image_caption(image_path: str) -> dict:
     """
     if not Path(image_path).exists():
         return {"error": f"Image path {image_path} does not exist"}
-    image_b64 = f"data:image/jpeg;base64,{base64.b64encode(open(image_path, 'rb').read()).decode('utf-8')}"
+    with open(image_path, "rb") as f:
+        image_b64 = (
+            f"data:image/jpeg;base64,{base64.b64encode(f.read()).decode('utf-8')}"
+        )
     response = await LLM_CONFIG.vision_model.run(
         messages=[
             {"role": "system", "content": _CAPTION_SYSTEM},
@@ -98,8 +101,10 @@ async def image_caption(image_path: str) -> dict:
     info(
         f"Image captioned: path='{image_path}', caption='{response.choices[0].message.content}'"
     )
+    with Image.open(image_path) as img:
+        size = img.size
     return {
-        "size": Image.open(image_path).size,
+        "size": size,
         "caption": response.choices[0].message.content,
     }
 
@@ -132,7 +137,8 @@ async def document_summary(task: str, document_path: str) -> str:
         return "Document path does not exist"
     if Path(document_path).suffix.lower() not in [".txt", ".md"]:
         return "Document must be a text file with .txt or .md extension"
-    document = open(document_path, encoding="utf-8").read()
+    with open(document_path, encoding="utf-8") as f:
+        document = f.read()
     response = await LLM_CONFIG.long_context_model.run(
         messages=[
             {"role": "system", "content": _SUMMARY_SYSTEM},

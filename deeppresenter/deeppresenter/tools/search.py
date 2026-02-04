@@ -49,7 +49,7 @@ async def tavily_request(idx: int, params: dict) -> dict[str, Any]:
                 await asyncio.sleep(idx * MAX_RETRY_INTERVAL)
             else:
                 await asyncio.sleep(RETRY_TIMES)
-            warning(f"TAVILY Error [{response.status}] body={body}")
+            warning(f"TAVILY Error [{idx:02d}] [{response.status}] body={body}")
             response.raise_for_status()
         raise RuntimeError("TAVILY request failed after retries")
 

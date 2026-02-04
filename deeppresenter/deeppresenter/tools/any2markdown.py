@@ -84,7 +84,8 @@ async def convert_to_markdown(file_path: str, output_folder: str) -> dict:
     images_with_info = []
     for img_path in images:
         try:
-            images_with_info.append((img_path, *Image.open(img_path).size))
+            with Image.open(img_path) as img:
+                images_with_info.append((img_path, *img.size))
         except:
             continue
 
