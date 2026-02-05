@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 import httpx
+from binaryornot.check import is_binary
 from fastmcp import FastMCP
 from PIL import Image
 
@@ -82,8 +83,10 @@ async def image_caption(image_path: str) -> dict:
     Returns:
         The caption and size for the image
     """
-    if not Path(image_path).exists():
-        return {"error": f"Image path {image_path} does not exist"}
+    assert Path(image_path).is_file(), f"Image path {image_path} does not exist"
+    with Image.open(image_path) as img:
+        img.verify()
+        size = img.size
     with open(image_path, "rb") as f:
         image_b64 = (
             f"data:image/jpeg;base64,{base64.b64encode(f.read()).decode('utf-8')}"
@@ -101,8 +104,6 @@ async def image_caption(image_path: str) -> dict:
     info(
         f"Image captioned: path='{image_path}', caption='{response.choices[0].message.content}'"
     )
-    with Image.open(image_path) as img:
-        size = img.size
     return {
         "size": size,
         "caption": response.choices[0].message.content,
@@ -128,15 +129,14 @@ async def document_summary(task: str, document_path: str) -> str:
 
     Args:
         task: The specific task or objective for the report
-        document_path: Path to the pure text document to be analyzed, should be endswith like .txt or .md
+        document_path: Path to the pure text document to be analyzed.
 
     Returns:
         A structured summary report in Markdown format based on the task and document content
     """
-    if not Path(document_path).exists():
-        return "Document path does not exist"
-    if Path(document_path).suffix.lower() not in [".txt", ".md"]:
-        return "Document must be a text file with .txt or .md extension"
+    assert Path(document_path).is_file(), (
+        f"Document path {document_path} does not exist"
+    )
     with open(document_path, encoding="utf-8") as f:
         document = f.read()
     response = await LLM_CONFIG.long_context_model.run(

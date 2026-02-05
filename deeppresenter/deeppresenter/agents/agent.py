@@ -166,9 +166,9 @@ class Agent:
                 ChatMessage(
                     role=response.choices[0].message.role,
                     content=response.choices[0].message.content,
-                    reasoning_content=getattr(
-                        response.choices[0].message, "reasoning_content", None
-                    ),
+                    reasoning=getattr(response.choices[0].message, "reasoning", None)
+                    if self.keep_reasoning
+                    else None,
                 )
             )
             self.log_message(self.chat_history[-1])
@@ -198,16 +198,14 @@ class Agent:
                 self.cost += response.usage
                 self.context_length = response.usage.total_tokens
             agent_message: ChatCompletionMessage = response.choices[0].message
-        if self.keep_reasoning and hasattr(agent_message, "reasoning_content"):
-            reasoning = agent_message.reasoning_content
-        else:
-            reasoning = None
         self.chat_history.append(
             ChatMessage(
                 role=agent_message.role,
                 content=agent_message.content,
                 tool_calls=agent_message.tool_calls,
-                reasoning_content=reasoning,
+                reasoning=getattr(agent_message, "reasoning", None)
+                if self.keep_reasoning
+                else None,
             )
         )
         self.log_message(self.chat_history[-1])
@@ -351,16 +349,14 @@ class Agent:
             tools=self.tools,
         )
         agent_message = response.choices[0].message
-        if self.keep_reasoning and hasattr(agent_message, "reasoning_content"):
-            reasoning = agent_message.reasoning_content
-        else:
-            reasoning = None
         summary_message = ChatMessage(
             id=f"context_fold_{uuid.uuid4().hex[:8]}",
             role=agent_message.role,
             content=agent_message.content,
             tool_calls=agent_message.tool_calls,
-            reasoning_content=reasoning,
+            reasoning=getattr(agent_message, "reasoning", None)
+            if self.keep_reasoning
+            else None,
         )
         debug(
             f"Summary of Resarch Iter {self.research_iter:02d}: \n"

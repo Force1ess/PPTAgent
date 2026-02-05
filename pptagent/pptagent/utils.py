@@ -375,7 +375,7 @@ async def _is_unoserver_running(host: str, port: int) -> bool:
         writer.close()
         await writer.wait_closed()
         return True
-    except:
+    except:  # noqa: E722
         return False
 
 

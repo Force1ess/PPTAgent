@@ -202,8 +202,9 @@ async def download_file(url: str, output_file: str) -> str:
     # Create directory if it doesn't exist
     workspace = Path(os.getcwd())
     output_path = Path(output_file)
-    if not output_path.is_relative_to(workspace):
-        return f"Access denied: path outside allowed workspace: {workspace}"
+    assert output_path.is_relative_to(workspace), (
+        f"Access denied: path outside allowed workspace: {workspace}"
+    )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     suffix = Path(output_path).suffix.lower()
     ext_format_map = Image.registered_extensions()

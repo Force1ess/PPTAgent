@@ -75,7 +75,7 @@ class ChatMessage(BaseModel):
     role: Role
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     content: None | str | list[dict]
-    reasoning_content: None | str = None
+    reasoning: None | str = None
     created_at: str = Field(default_factory=lambda: datetime.now().isoformat())
     # This attribute mark if function call failed to execute
     is_error: bool = False

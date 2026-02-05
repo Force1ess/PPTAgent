@@ -69,8 +69,9 @@ def get_paper_authors(arxiv_id: str) -> dict:
     Returns:
         List of authors, containing their authorId and details.
     """
-    if not re.fullmatch(r"ARXIV:\d{4}\.\d{4,5}(v\d+)?", arxiv_id):
-        return {"error": "Invalid arxiv_id format. It should be like ARXIV:2501.03936"}
+    assert re.fullmatch(r"ARXIV:\d{4}\.\d{4,5}(v\d+)?", arxiv_id), (
+        "Invalid arxiv_id format. It should be like ARXIV:2501.03936"
+    )
     fields = ["name", "citationCount", "affiliations"]
     authors: list[Author] = list(sch.get_paper_authors(arxiv_id, fields=fields))
     return {"authors": [author._data for author in authors]}

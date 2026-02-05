@@ -56,7 +56,7 @@ def _rewrite_image_link(match: re.Match[str], md_dir: Path) -> str:
             ratio = f"{width // factor}:{height // factor}"
             updated_alt = f"{updated_alt}, {ratio}" if updated_alt else ratio
     except OSError:
-        pass
+        warning(f"Failed to get image size for {p}")
 
     # ? since slides were placed in an independent folder, we convert image path to absolute path to avoid broken links
     new_path = p.resolve().as_posix()
@@ -135,8 +135,7 @@ def todo_update(
         str: Confirmation message with the updated todo's ID
     """
     todos = _load_todos()
-    if idx < 0 or idx >= len(todos):
-        return f"Invalid todo index: {idx}"
+    assert 0 <= idx < len(todos), f"Invalid todo index: {idx}"
 
     if todo_content is not None:
         todos[idx].content = todo_content
@@ -188,12 +187,12 @@ def finalize(outcome: str, agent_name: str = "") -> str:
     """
     # here we conduct some final checks on agent's outcome
     path = Path(outcome)
-    if not path.exists():
-        return f"Outcome {outcome} does not exist"
+    assert path.exists(), f"Outcome {outcome} does not exist"
     if agent_name == "Research":
         md_dir = path.parent
-        if not (path.is_file() and path.suffix == ".md"):
-            return "Outcome file should be a markdown file"
+        assert path.suffix == ".md", (
+            f"Outcome file should be a markdown file, got {path.suffix}"
+        )
         with open(path, encoding="utf-8") as f:
             content = f.read()
 
@@ -206,11 +205,12 @@ def finalize(outcome: str, agent_name: str = "") -> str:
             shutil.copyfile(path, md_dir / ("." + path.name))
             path.write_text(content, encoding="utf-8")
         except Exception as e:
-            error(f"Failed to rewrite image links: {e}")
+            warning(f"Failed to rewrite image links: {e}")
 
     elif agent_name == "PPTAgent":
-        if not (path.is_file() and path.suffix == ".pptx"):
-            return "Outcome file should be a pptx file"
+        assert path.is_file() and path.suffix == ".pptx", (
+            f"Outcome file should be a pptx file, got {path.suffix}"
+        )
         prs = Presentation(str(path))
         if len(prs.slides) <= 0:
             return "PPTX file should contain at least one slide"
@@ -245,8 +245,9 @@ async def inspect_slide(
         str: Error message if inspection fails
     """
     html_path = Path(html_file).absolute()
-    if not (html_path.exists() and html_path.suffix == ".html"):
-        return f"HTML path {html_path} does not exist or is not an HTML file"
+    assert html_path.is_file() and html_path.suffix == ".html", (
+        f"HTML path {html_path} does not exist or is not an HTML file"
+    )
     try:
         pptx_path = await convert_html_to_pptx(html_path, aspect_ratio=aspect_ratio)
     except Exception as e:
@@ -280,10 +281,8 @@ def inspect_manuscript(md_file: str) -> dict:
         md_file (str): The path to the markdown file
     """
     md_path = Path(md_file)
-    if not md_path.exists():
-        return {"error": f"file does not exist: {md_file}"}
-    if not md_file.lower().endswith(".md"):
-        return {"error": f"file is not a markdown file: {md_file}"}
+    assert md_path.exists(), f"file does not exist: {md_file}"
+    assert md_file.lower().endswith(".md"), f"file is not a markdown file: {md_file}"
 
     with open(md_file, encoding="utf-8") as f:
         markdown = f.read()

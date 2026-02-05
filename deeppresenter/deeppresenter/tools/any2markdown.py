@@ -42,13 +42,10 @@ async def convert_to_markdown(file_path: str, output_folder: str) -> dict:
 
     output_path = Path(output_folder)
     output_path.mkdir(parents=True, exist_ok=True)
-    if len(os.listdir(output_path)) != 0:
-        return {
-            "success": False,
-            "error": "Error: output folder should be empty or not exist",
-        }
-    if not os.path.exists(file_path):
-        return {"success": False, "error": f"Error: file {file_path} does not exist"}
+    assert len(list(output_path.iterdir())) == 0, (
+        f"Output folder {output_folder} is not empty"
+    )
+    assert os.path.exists(file_path), f"Error: file {file_path} does not exist"
 
     markdown_file = output_path / f"{Path(file_path).stem}.md"
 
