@@ -177,16 +177,13 @@ class InputRequest(BaseModel):
         if not self.attachments:
             return
         (workspace / "attachments").mkdir(parents=True, exist_ok=True)
-        new_attachments = []
         for att in self.attachments:
             assert os.path.exists(att), f"Attachment {att} does not exist"
-            dest_path = workspace / "attachments" / Path(att).name
-            if dest_path.exists():
+            dst_path = workspace / "attachments" / Path(att).name
+            if dst_path.exists():
                 warning(f"Attachment {att} already exists in workspace")
                 continue
-            shutil.copy(att, str(dest_path))
-            new_attachments.append(str(dest_path))
-        self.attachments = new_attachments
+            shutil.copy(att, str(dst_path))
 
     @property
     def task_id(self):
