@@ -57,11 +57,11 @@ class AgentLoop:
             )
         if check_llms:
             self.config.validate_llms()
+        request.copy_to_workspace(self.workspace)
         with open(self.workspace / ".input_request.json", "w") as f:
             json.dump(request.model_dump(), f, ensure_ascii=False, indent=2)
         async with AgentEnv(self.workspace, self.config) as agent_env:
             self.agent_env = agent_env
-            request.copy_to_workspace(self.workspace)
             hello_message = f"DeepPresenter running in {self.workspace}, with {len(request.attachments)} attachments, prompt={request.instruction}"
             if self.config.offline_mode:
                 hello_message += " [Offline Mode]"
@@ -89,7 +89,6 @@ class AgentLoop:
                     f"Research agent failed with error: {e}\n{traceback.format_exc()}"
                 )
                 error(error_message)
-                error(traceback.format_exc())
                 yield ChatMessage(role=Role.SYSTEM, content=error_message)
                 raise e
             finally:
@@ -119,7 +118,6 @@ class AgentLoop:
                         f"PPTAgent failed with error: {e}\n{traceback.format_exc()}"
                     )
                     error(error_message)
-                    error(traceback.format_exc())
                     yield ChatMessage(role=Role.SYSTEM, content=error_message)
                     raise e
                 finally:
@@ -147,7 +145,6 @@ class AgentLoop:
                         f"Design agent failed with error: {e}\n{traceback.format_exc()}"
                     )
                     error(error_message)
-                    error(traceback.format_exc())
                     yield ChatMessage(role=Role.SYSTEM, content=error_message)
                     raise e
                 finally:

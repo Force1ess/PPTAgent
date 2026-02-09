@@ -34,8 +34,9 @@ instruction: |
   {{prompt}}
 
 use_model: research_agent
-include_tool_servers: all
-exclude_tools:
-  - todo_create
-  - todo_update
-  - todo_list
+toolset:
+  include_tool_servers: all
+  exclude_tools:
+    - todo_create
+    - todo_update
+    - todo_list

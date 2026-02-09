@@ -21,6 +21,7 @@ from deeppresenter.utils.constants import (
     CUTOFF_WARNING,
     LOGGING_LEVEL,
     MCP_CALL_TIMEOUT,
+    PACKAGE_DIR,
     TOOL_CACHE,
     TOOL_CUTOFF_LEN,
     WORKSPACE_BASE,
@@ -76,7 +77,8 @@ class AgentEnv:
             "HOST_WORKSPACE": host_workspace,
             "WORKSPACE_ID": self.workspace.stem,
             "CONFIG_FILE": str(config.file_path),
-            "FASTMCP_LOG_LEVEL": logging.getLevelName(LOGGING_LEVEL),
+            "FASTMCP_LOG_LEVEL": "CRITICAL",
+            "PACKAGE_DIR": str(PACKAGE_DIR),
         }
         if config.offline_mode:
             envs["OFFLINE_MODE"] = "1"

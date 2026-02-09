@@ -22,8 +22,8 @@ from deeppresenter.utils.log import debug, warning
 class MCPServer(BaseModel):
     """MCP server config model, matches each entry in mcp.json"""
 
-    name: str
-    description: str
+    name: str | None = None
+    description: str | None = None
     command: str
     args: list[str]
     env: dict[str, str] = Field(default_factory=dict)
@@ -79,6 +79,7 @@ class ChatMessage(BaseModel):
     created_at: str = Field(default_factory=lambda: datetime.now().isoformat())
     # This attribute mark if function call failed to execute
     is_error: bool = False
+    cost: CompletionUsage | None = None
     from_tool: Function | None = None
     tool_call_id: str | None = None
     tool_calls: list[ChatCompletionMessageFunctionToolCall] | None = None
@@ -121,16 +122,27 @@ class ChatMessage(BaseModel):
         return False
 
 
+class ToolSet(BaseModel):
+    include_tool_servers: list[str] | Literal["all"] = "all"
+    exclude_tool_servers: list[str] = []
+    include_tools: list[str] = []
+    exclude_tools: list[str] = []
+
+    def __add__(self, other: "RoleConfig"):
+        self.include_tool_servers.extend(other.toolset.include_tool_servers)
+        self.exclude_tool_servers.extend(other.toolset.exclude_tool_servers)
+        self.include_tools.extend(other.toolset.include_tools)
+        self.exclude_tools.extend(other.toolset.exclude_tools)
+        return self
+
+
 class RoleConfig(BaseModel):
     """Role configuration model"""
 
     system: dict[str, str]
     instruction: str
     use_model: str
-    include_tool_servers: list[str] | Literal["all"] = "all"
-    exclude_tool_servers: list[str] = []
-    include_tools: list[str] = []
-    exclude_tools: list[str] = []
+    toolset: ToolSet
 
 
 class Cost(BaseModel):

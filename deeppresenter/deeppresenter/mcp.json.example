@@ -3,10 +3,12 @@
         "name": "any2markdown",
         "description": "File conversion tools",
         "command": "uv",
-        "args": ["run", "deeppresenter/deeppresenter/tools/any2markdown.py", "$WORKSPACE"],
+        "args": [
+            "run",
+            "$PACKAGE_DIR/tools/any2markdown.py",
+            "$WORKSPACE"
+        ],
         "env": {
-            "FASTMCP_LOG_LEVEL": "$DEEPPRESENTER_LOG_LEVEL",
-            "MINERU_API_URL": "your_deployed_mineru_url_for_offline_mode",
             "MINERU_API_KEY": "your_mineru_api_key_for_online_mode"
         }
     },
@@ -14,9 +16,25 @@
         "name": "task",
         "description": "Task management tools",
         "command": "uv",
-        "args": ["run", "deeppresenter/deeppresenter/tools/task.py", "$WORKSPACE"],
+        "args": [
+            "run",
+            "$PACKAGE_DIR/tools/task.py",
+            "$WORKSPACE"
+        ],
         "env": {
-            "FASTMCP_LOG_LEVEL": "$DEEPPRESENTER_LOG_LEVEL",
+            "CONFIG_FILE": "$CONFIG_FILE"
+        }
+    },
+    {
+        "name": "deeppresenter",
+        "description": "Artifact inspection tools for deeppresenter",
+        "command": "uv",
+        "args": [
+            "run",
+            "$PACKAGE_DIR/tools/reflect.py",
+            "$WORKSPACE"
+        ],
+        "env": {
             "CONFIG_FILE": "$CONFIG_FILE"
         }
     },
@@ -24,9 +42,12 @@
         "name": "tool_agents",
         "description": "LLM-powered tool agents",
         "command": "uv",
-        "args": ["run", "deeppresenter/deeppresenter/tools/tool_agents.py", "$WORKSPACE"],
+        "args": [
+            "run",
+            "$PACKAGE_DIR/tools/tool_agents.py",
+            "$WORKSPACE"
+        ],
         "env": {
-            "FASTMCP_LOG_LEVEL": "$DEEPPRESENTER_LOG_LEVEL",
             "CONFIG_FILE": "$CONFIG_FILE"
         }
     },
@@ -34,18 +55,22 @@
         "name": "research",
         "description": "Academic paper search tools",
         "command": "uv",
-        "args": ["run", "deeppresenter/deeppresenter/tools/research.py", "$WORKSPACE"],
-        "env": {
-            "FASTMCP_LOG_LEVEL": "$DEEPPRESENTER_LOG_LEVEL"
-        }
+        "args": [
+            "run",
+            "$PACKAGE_DIR/tools/research.py",
+            "$WORKSPACE"
+        ]
     },
     {
         "name": "search",
         "description": "Web search tools",
         "command": "uv",
-        "args": ["run", "deeppresenter/deeppresenter/tools/search.py", "$WORKSPACE"],
+        "args": [
+            "run",
+            "$PACKAGE_DIR/tools/search.py",
+            "$WORKSPACE"
+        ],
         "env": {
-            "FASTMCP_LOG_LEVEL": "$DEEPPRESENTER_LOG_LEVEL",
             "TAVILY_API_KEY": "your_key"
         }
     },

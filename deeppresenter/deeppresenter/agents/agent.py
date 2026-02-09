@@ -122,23 +122,24 @@ class Agent:
         )
 
     def _setup_toolset(self):
-        if self.role_config.include_tool_servers == "all":
-            self.role_config.include_tool_servers = list(self.agent_env._server_tools)
-        for server in self.role_config.include_tool_servers:
+        toolset = self.role_config.toolset
+        if toolset.include_tool_servers == "all":
+            toolset.include_tool_servers = list(self.agent_env._server_tools)
+        for server in toolset.include_tool_servers:
             assert server in self.agent_env._server_tools, (
                 f"Server {server} is not available"
             )
-        for tool in self.role_config.include_tools + self.role_config.exclude_tools:
+        for tool in toolset.include_tools + toolset.exclude_tools:
             assert tool in self.agent_env._tools_dict, f"Tool {tool} is not available"
         self.tools = []
-        for server in self.role_config.include_tool_servers:
-            if server not in self.role_config.exclude_tool_servers:
+        for server in toolset.include_tool_servers:
+            if server not in toolset.exclude_tool_servers:
                 for tool in self.agent_env._server_tools[server]:
-                    if tool not in self.role_config.exclude_tools:
+                    if tool not in toolset.exclude_tools:
                         self.tools.append(self.agent_env._tools_dict[tool])
 
         for tool_name, tool in self.agent_env._tools_dict.items():
-            if tool_name in self.role_config.include_tools:
+            if tool_name in toolset.include_tools:
                 self.tools.append(tool)
 
     async def chat(
@@ -166,6 +167,7 @@ class Agent:
                 ChatMessage(
                     role=response.choices[0].message.role,
                     content=response.choices[0].message.content,
+                    cost=response.usage,
                     reasoning=getattr(response.choices[0].message, "reasoning", None)
                     if self.keep_reasoning
                     else None,
@@ -202,6 +204,7 @@ class Agent:
             ChatMessage(
                 role=agent_message.role,
                 content=agent_message.content,
+                cost=response.usage,
                 tool_calls=agent_message.tool_calls,
                 reasoning=getattr(agent_message, "reasoning", None)
                 if self.keep_reasoning
@@ -329,7 +332,7 @@ class Agent:
         else:
             debug(f"{self.name}: {msg.text[:MAX_LOGGING_LENGTH]}...")
 
-    async def compact_history(self, keep_head: int = 10, keep_tail: int = 8):
+    async def compact_history(self, keep_head: int = 10, keep_tail: int = 4):
         """Summarize the history."""
         # ? it's 10 = system + user + (thinking, read, design, write)*2
         if keep_head + keep_tail > len(self.chat_history):

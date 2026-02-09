@@ -137,6 +137,7 @@ async def document_summary(task: str, document_path: str) -> str:
     assert Path(document_path).is_file(), (
         f"Document path {document_path} does not exist"
     )
+    assert is_binary(document_path), "Provided document is not a text file"
     with open(document_path, encoding="utf-8") as f:
         document = f.read()
     response = await LLM_CONFIG.long_context_model.run(

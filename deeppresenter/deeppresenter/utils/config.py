@@ -20,7 +20,7 @@ from deeppresenter.utils.constants import (
     PIXEL_MULTIPLE,
     RETRY_TIMES,
 )
-from deeppresenter.utils.log import debug, error, info, logging_openai_exceptions
+from deeppresenter.utils.log import debug, info, logging_openai_exceptions
 
 
 def get_json_from_response(response: str) -> dict | list:
@@ -123,7 +123,7 @@ class Endpoint(BaseModel):
                 model=self.model,
                 messages=messages,
                 tools=tools,
-                tool_choice="required",
+                tool_choice="auto",
                 **self.sampling_parameters,
             )
         elif not soft_response_parsing and response_format is not None:
@@ -143,6 +143,7 @@ class Endpoint(BaseModel):
             f"No choices returned from the model, got {response}"
         )
         message = response.choices[0].message
+        debug(f"Response from {self.model}: {message}")
         if response_format is not None:
             message.content = response_format(
                 **get_json_from_response(message.content)

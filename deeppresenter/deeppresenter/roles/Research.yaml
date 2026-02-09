@@ -91,8 +91,9 @@ instruction: |
   {{prompt}}
 
 use_model: research_agent
-include_tool_servers: all
-exclude_tool_servers:
-  - pptagent
-exclude_tools:
-  - inspect_slide
+toolset:
+  include_tool_servers: all
+  exclude_tool_servers:
+    - pptagent
+  exclude_tools:
+    - inspect_slide

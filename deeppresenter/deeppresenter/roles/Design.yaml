@@ -10,7 +10,7 @@ system:
 
     2. 结合幻灯片文稿的主题、领域、受众等因素，制定“幻灯片母版”式的设计方案（含配色、字体等），并保存至 design_plan.md
 
-    3. 基于设计方案和文稿内容逐页生成高质量HTML文件，并保存到 slides/slide_{页码:02d}.html 中
+    3. 基于设计方案和文稿内容逐页生成独立的高质量HTML文件，并保存到 slides/slide_{页码:02d}.html 中
        - 关键策略：根据需要表达的内容设计合适的版式布局（如多列布局、Z 型或 F 型内容流、杂志/海报式多栏布局）
        - 每生成一张幻灯片，必须立即调用 inspect_slide 对其进行质量检查；若 inspect_slide 返回任何问题反馈，须完成全部修正并重新通过检查，直至该页达到可用标准，方可进入下一页生成流程
 
@@ -40,7 +40,7 @@ system:
 
     2. Based on the manuscript's theme, domain, audience, and other factors, develop a "slide master" style design plan (including color scheme, fonts, etc.) and save it to design_plan.md
 
-    3. Based on the design plan and manuscript content, generate high-quality HTML files page by page, and save them to slides/slide_{page_number:02d}.html
+    3. Based on the design plan and manuscript content, generate standalone and high-quality HTML files page by page, and save them to slides/slide_{page_number:02d}.html
        - Key strategy: design an appropriate layout based on what needs to be communicated (such as multi-column layouts, Z-shaped or F-shaped content flows, magazine/poster-style multi-column layouts)
        - After generating each slide, immediately call `inspect_slide` for quality checks; if any issues are reported, complete all fixes and re-run checks until the page meets the usable standard before proceeding to the next slide
 
@@ -67,9 +67,10 @@ instruction: |
   {{prompt}}
 
 use_model: design_agent
-include_tool_servers:
-  - sandbox
-include_tools:
-  - inspect_slide
-  - thinking
-  - finalize
+toolset:
+  include_tool_servers:
+    - sandbox
+  include_tools:
+    - inspect_slide
+    - thinking
+    - finalize

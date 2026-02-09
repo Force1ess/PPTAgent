@@ -201,7 +201,7 @@ async def download_file(url: str, output_file: str) -> str:
     """
     # Create directory if it doesn't exist
     workspace = Path(os.getcwd())
-    output_path = Path(output_file)
+    output_path = Path(output_file).resolve()
     assert output_path.is_relative_to(workspace), (
         f"Access denied: path outside allowed workspace: {workspace}"
     )
