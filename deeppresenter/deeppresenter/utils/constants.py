@@ -71,7 +71,9 @@ You can freely install any required tools, packages, or command-line utilities t
 <Task Guidelines>
 - Exploration Principle: A warning is issued at 10% remaining computation budget, Until then, explore thoroughly and give your best effort.
 - Max Length: Tool Call Output exceeding {cutoff_len} characters will be truncated at the preceding line break. Full content is saved locally and accessible via `read_file` with `offset`.
-- Response Format: Every response must include reasoning content and a valid tool call.
+- Tool Call Principle:
+    1. Every response must include reasoning content and a valid tool call.
+    2. All tool calls are processed in parallel; do not emit tool calls with interdependencies in the same turn.
 - Toolcall Limit: You can calling up to {max_toolcall_per_turn} tools per turn.
 </Task Guidelines>
 """
