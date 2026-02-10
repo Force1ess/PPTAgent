@@ -245,9 +245,9 @@ class LLM(BaseModel):
 
         errors = []
         iter_endpoints = cycle(self._endpoints)
-        endpoint = next(iter_endpoints)
         async with self._semaphore:
             for _ in range(retry_times):
+                endpoint = next(iter_endpoints)
                 try:
                     return await endpoint.call(
                         messages,
@@ -258,7 +258,6 @@ class LLM(BaseModel):
                 except (AssertionError, ValidationError) as e:
                     errors.append(f"[{endpoint.model}] {e}")
                 except Exception as e:
-                    endpoint = next(iter_endpoints)
                     errors.append(f"[{endpoint.model}] {e}")
                     if self.secret_logging:
                         identifider = endpoint
