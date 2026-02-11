@@ -519,10 +519,12 @@ async function rasterizeGradients(page, slideData, bodyDimensions, tmpDir) {
 
 /**
  * Add all extracted elements (images, text, shapes, tables, lists) to the PowerPoint slide
+ * @param {boolean} soft - If true, continue processing even when individual elements fail
  */
-function addElements(slideData, targetSlide, pres) {
+function addElements(slideData, targetSlide, pres, soft = false) {
   for (const el of slideData.elements) {
-    if (el.type === 'image') {
+    try {
+      if (el.type === 'image') {
       let imagePath = el.src.startsWith('file://') ? el.src.replace('file://', '') : el.src;
       targetSlide.addImage({
         path: imagePath,
@@ -667,6 +669,13 @@ function addElements(slideData, targetSlide, pres) {
       if (el.style.shadow) textOptions.shadow = el.style.shadow;
 
       targetSlide.addText(el.text, textOptions);
+    }
+    } catch (err) {
+      if (soft) {
+        console.warn(`[SOFT MODE] Failed to add element (type: ${el.type}): ${err.message}`);
+      } else {
+        throw err;
+      }
     }
   }
 }
@@ -2618,11 +2627,11 @@ async function extractSlideData(page) {
  * Main function: Convert HTML file to PowerPoint slide
  * @param {string} htmlFile - Path to HTML file
  * @param {Object} pres - PptxGenJS presentation instance
- * @param {Object} options - Optional configuration { slide, tmpDir }
+ * @param {Object} options - Optional configuration { slide, tmpDir, soft }
  * @returns {Promise<{slide, placeholders}>} Slide object and array of placeholder positions
  */
 async function html2pptx(htmlFile, pres, options = {}) {
-  const { slide = null } = options;
+  const { slide = null, soft = false } = options;
   const tmpDir = options.tmpDir || fs.mkdtempSync(path.join(os.tmpdir(), 'html2pptx-'));
 
   try {
@@ -2691,12 +2700,37 @@ async function html2pptx(htmlFile, pres, options = {}) {
         validationErrors.push(`Background image not found: ${backgroundPath}`);
       }
 
-      // Fail early with all errors
+      // Fail early with all errors (unless soft mode is enabled)
       if (validationErrors.length > 0) {
-        const errorMessage = validationErrors.length === 1
-          ? validationErrors[0]
-          : `Multiple validation errors found:\n${validationErrors.map((e, i) => `  ${i + 1}. ${e}`).join('\n')}`;
-        throw new Error(errorMessage);
+        if (soft) {
+          // In soft mode, log warnings but continue processing
+          console.warn(`[SOFT MODE] ${htmlFile}: ${validationErrors.length} validation warning(s) ignored:`);
+          validationErrors.forEach((err, i) => {
+            console.warn(`  ${i + 1}. ${err}`);
+          });
+
+          // Filter out elements with missing images in soft mode
+          slideData.elements = slideData.elements.filter((el) => {
+            if (el.type !== 'image') return true;
+            const imagePath = resolveImagePath(el.src);
+            if (imagePath && !fs.existsSync(imagePath)) {
+              console.warn(`[SOFT MODE] Skipping missing image: ${imagePath}`);
+              return false;
+            }
+            return true;
+          });
+
+          // Clear missing background image in soft mode
+          if (backgroundPath && !fs.existsSync(backgroundPath)) {
+            console.warn(`[SOFT MODE] Skipping missing background image: ${backgroundPath}`);
+            slideData.background = { type: 'color', value: 'FFFFFF' };
+          }
+        } else {
+          const errorMessage = validationErrors.length === 1
+            ? validationErrors[0]
+            : `Multiple validation errors found:\n${validationErrors.map((e, i) => `  ${i + 1}. ${e}`).join('\n')}`;
+          throw new Error(errorMessage);
+        }
       }
 
       await rasterizeGradients(page, slideData, bodyDimensions, tmpDir);
@@ -2707,7 +2741,7 @@ async function html2pptx(htmlFile, pres, options = {}) {
     const targetSlide = slide || pres.addSlide();
 
     await addBackground(slideData, targetSlide, tmpDir);
-    addElements(slideData, targetSlide, pres);
+    addElements(slideData, targetSlide, pres, soft);
 
     return { slide: targetSlide, placeholders: slideData.placeholders };
   } catch (error) {

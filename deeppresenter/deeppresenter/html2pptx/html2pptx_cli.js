@@ -39,6 +39,7 @@ async function run() {
   const layout = args.layout || "16:9";
   const outputFile = args.output;
   const validateOnly = Boolean(args.validate);
+  const softMode = Boolean(args.soft);
   const htmlDir = args.html_dir || args["html-dir"];
   let htmlFiles = [];
 
@@ -62,7 +63,7 @@ async function run() {
 
   if (!htmlFiles.length) {
     console.error(
-      "Usage: node html2pptx_cli.js --html_dir <dir> | --html <file> [--html <file2>] --output <file.pptx> --layout <16:9|4:3|A1|A2|A3|A4> [--validate]"
+      "Usage: node html2pptx_cli.js --html_dir <dir> | --html <file> [--html <file2>] --output <file.pptx> --layout <16:9|4:3|A1|A2|A3|A4> [--validate] [--soft]"
     );
     process.exit(1);
   }
@@ -93,7 +94,7 @@ async function run() {
   }
 
   for (const htmlFile of htmlFiles) {
-    await html2pptx(htmlFile, pptx);
+    await html2pptx(htmlFile, pptx, { soft: softMode });
   }
 
   if (!validateOnly) {
