@@ -18,8 +18,7 @@
  *   - Handles CSS gradients, borders, and margins
  *
  * VALIDATION:
- *   - Uses body width/height from HTML for viewport sizing
- *   - Throws error if HTML dimensions don't match presentation layout
+ *   - Automatically adapts presentation layout to match HTML body dimensions
  *   - Throws error if content overflows body (with overflow details)
  *
  * RETURNS:
@@ -81,11 +80,12 @@ async function getBodyDimensions(page) {
 }
 
 /**
- * Validate that HTML dimensions match the presentation layout
- * @returns {Array<string>} Array of validation error messages
+ * Adapt presentation layout to match HTML dimensions.
+ * - First slide: sets the layout from HTML body dimensions (if no layout pre-configured).
+ * - Subsequent slides: warns/errors if dimensions differ from the established layout.
+ * @returns {Array<string>} Array of validation error messages (empty if OK)
  */
-function validateDimensions(bodyDimensions, pres) {
-  const errors = [];
+function adaptLayout(bodyDimensions, pres) {
   const widthInches = bodyDimensions.width / PX_PER_IN;
   const heightInches = bodyDimensions.height / PX_PER_IN;
 
@@ -93,14 +93,25 @@ function validateDimensions(bodyDimensions, pres) {
     const layoutWidth = pres.presLayout.width / EMU_PER_IN;
     const layoutHeight = pres.presLayout.height / EMU_PER_IN;
 
-    if (Math.abs(layoutWidth - widthInches) > 0.1 || Math.abs(layoutHeight - heightInches) > 0.1) {
-      errors.push(
+    if (Math.abs(layoutWidth - widthInches) <= 0.1 && Math.abs(layoutHeight - heightInches) <= 0.1) {
+      return []; // already matches
+    }
+
+    // Layout already set (by a previous slide or by the caller) — mismatch
+    if (pres._html2pptx_layoutLocked) {
+      return [
         `HTML dimensions (${widthInches.toFixed(1)}" × ${heightInches.toFixed(1)}") ` +
-        `don't match presentation layout (${layoutWidth.toFixed(1)}" × ${layoutHeight.toFixed(1)}")`
-      );
+        `don't match the first slide's layout (${layoutWidth.toFixed(1)}" × ${layoutHeight.toFixed(1)}"). ` +
+        `All slides in a PPTX must share the same size.`
+      ];
     }
   }
-  return errors;
+
+  // First slide (or no layout pre-configured) — define layout from HTML
+  pres.defineLayout({ name: 'HTML_AUTO', width: widthInches, height: heightInches });
+  pres.layout = 'HTML_AUTO';
+  pres._html2pptx_layoutLocked = true;
+  return [];
 }
 
 /**
@@ -2682,7 +2693,7 @@ async function html2pptx(htmlFile, pres, options = {}) {
       if (bodyDimensions.errors && bodyDimensions.errors.length > 0) {
         validationErrors.push(...bodyDimensions.errors);
       }
-      validationErrors.push(...validateDimensions(bodyDimensions, pres));
+      validationErrors.push(...adaptLayout(bodyDimensions, pres));
       validationErrors.push(...validateTextBoxPosition(slideData, bodyDimensions));
 
       // Validate images exist

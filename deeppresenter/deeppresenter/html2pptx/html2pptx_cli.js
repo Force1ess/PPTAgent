@@ -36,7 +36,7 @@ const A4_LAYOUT = {
 
 async function run() {
   const args = minimist(process.argv.slice(2));
-  const layout = args.layout || "16:9";
+  const layout = args.layout || "auto";
   const outputFile = args.output;
   const validateOnly = Boolean(args.validate);
   const softMode = Boolean(args.soft);
@@ -63,7 +63,7 @@ async function run() {
 
   if (!htmlFiles.length) {
     console.error(
-      "Usage: node html2pptx_cli.js --html_dir <dir> | --html <file> [--html <file2>] --output <file.pptx> --layout <16:9|4:3|A1|A2|A3|A4> [--validate] [--soft]"
+      "Usage: node html2pptx_cli.js --html_dir <dir> | --html <file> [--html <file2>] --output <file.pptx> --layout <auto|16:9|4:3|A1|A2|A3|A4> [--author <name>] [--title <title>] [--subject <subject>] [--company <company>] [--revision <rev>] [--validate] [--soft]"
     );
     process.exit(1);
   }
@@ -74,20 +74,33 @@ async function run() {
   }
 
   const pptx = new pptxgen();
-  if (layout === "A1") {
+  pptx.author = args.author || "DeepPresenter";
+  pptx.title = args.title || "DeepPresenter Presentation";
+  pptx.subject = args.subject || "";
+  pptx.company = args.company || "DeepPresenter";
+  if (args.revision) pptx.revision = args.revision;
+
+  if (layout === "auto") {
+    // Layout will be auto-adapted from HTML body dimensions by html2pptx
+  } else if (layout === "A1") {
     pptx.defineLayout(A1_LAYOUT);
     pptx.layout = "A1";
+    pptx._html2pptx_layoutLocked = true;
   } else if (layout === "A2") {
     pptx.defineLayout(A2_LAYOUT);
     pptx.layout = "A2";
+    pptx._html2pptx_layoutLocked = true;
   } else if (layout === "A3") {
     pptx.defineLayout(A3_LAYOUT);
     pptx.layout = "A3";
+    pptx._html2pptx_layoutLocked = true;
   } else if (layout === "A4") {
     pptx.defineLayout(A4_LAYOUT);
     pptx.layout = "A4";
+    pptx._html2pptx_layoutLocked = true;
   } else if (LAYOUT_MAP[layout]) {
     pptx.layout = LAYOUT_MAP[layout];
+    pptx._html2pptx_layoutLocked = true;
   } else {
     console.error(`Unsupported layout: ${layout}`);
     process.exit(1);
