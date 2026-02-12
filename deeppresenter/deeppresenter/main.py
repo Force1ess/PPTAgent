@@ -157,6 +157,7 @@ class AgentLoop:
                         slide_html_dir,
                         pptx_path,
                         aspect_ratio=request.powerpoint_type,
+                        soft=True,
                     )
                 except Exception as e:
                     warning(

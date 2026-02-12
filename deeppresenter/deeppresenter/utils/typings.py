@@ -128,11 +128,14 @@ class ToolSet(BaseModel):
     include_tools: list[str] = []
     exclude_tools: list[str] = []
 
-    def __add__(self, other: "RoleConfig"):
-        self.include_tool_servers.extend(other.toolset.include_tool_servers)
-        self.exclude_tool_servers.extend(other.toolset.exclude_tool_servers)
-        self.include_tools.extend(other.toolset.include_tools)
-        self.exclude_tools.extend(other.toolset.exclude_tools)
+    def __add__(self, other: "ToolSet"):
+        if self.include_tool_servers == "all" or other.include_tool_servers == "all":
+            self.include_tool_servers = "all"
+        else:
+            self.include_tool_servers.extend(other.include_tool_servers)
+        self.exclude_tool_servers.extend(other.exclude_tool_servers)
+        self.include_tools.extend(other.include_tools)
+        self.exclude_tools.extend(other.exclude_tools)
         return self
 
 

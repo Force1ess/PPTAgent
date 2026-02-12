@@ -10,11 +10,10 @@ from typing import Literal
 from fastmcp import FastMCP
 from mcp.types import ImageContent
 from pptagent.model_utils import _get_lid_model
-from pptagent.utils import ppt_to_images
 
 from deeppresenter.utils.config import DeepPresenterConfig
-from deeppresenter.utils.log import error, set_logger
-from deeppresenter.utils.webview import convert_html_to_pptx
+from deeppresenter.utils.log import set_logger
+from deeppresenter.utils.webview import PlaywrightConverter, convert_html_to_pptx
 
 mcp = FastMCP("DeepPresenter")
 CONFIG = DeepPresenterConfig.load_from_file(os.getenv("CONFIG_FILE"))
@@ -38,18 +37,18 @@ async def inspect_slide(
         f"HTML path {html_path} does not exist or is not an HTML file"
     )
     try:
-        pptx_path = await convert_html_to_pptx(html_path, aspect_ratio=aspect_ratio)
+        await convert_html_to_pptx(html_path, aspect_ratio=aspect_ratio)
     except Exception as e:
         return e
 
     if CONFIG.design_agent.is_multimodal and CONFIG.heavy_reflect:
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            output_dir = Path(tmp_dir)
-            await ppt_to_images(str(pptx_path), str(output_dir))
-            image_path = output_dir / "slide_0001.jpg"
-            if not image_path.exists():
-                error(f"Image not found: {image_path}")
-            image_data = image_path.read_bytes()
+        pdf_path = Path(tempfile.mkdtemp()) / "slide.pdf"
+        async with PlaywrightConverter() as converter:
+            image_dir = await converter.convert_to_pdf(
+                [html_path], pdf_path, aspect_ratio
+            )
+        image_path = image_dir / "slide_01.jpg"
+        image_data = image_path.read_bytes()
         base64_data = (
             f"data:image/jpeg;base64,{base64.b64encode(image_data).decode('utf-8')}"
         )
