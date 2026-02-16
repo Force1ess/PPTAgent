@@ -37,7 +37,7 @@
 https://github.com/user-attachments/assets/938889e8-d7d8-4f4f-b2a1-07ee3ef3991a
 
 ## 📫 Contact
-> The main contributor of this repo is a Master's student graduating in 2026, currently on the job market. Feel free to reach out for collaboration or job opportunities.
+> The main contributor of this repo is a Master's student graduating in 2026, feel free to reach out for collaboration or opportunities.
 >
 > 本仓库的主要贡献者是一名 2026 届硕士毕业生，正在求职中，欢迎联系。
 
