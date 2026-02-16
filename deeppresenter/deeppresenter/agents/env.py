@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import json
 import logging
 import os
@@ -6,9 +7,12 @@ import sys
 import time
 import uuid
 from collections import defaultdict
+from collections.abc import Callable
 from pathlib import Path
 
 from docker.errors import DockerException, NotFound
+from fastmcp.utilities.json_schema import compress_schema
+from fastmcp.utilities.types import get_cached_typeadapter
 from mcp.types import CallToolResult, TextContent
 from openai.types.chat.chat_completion_message_tool_call import (
     ChatCompletionMessageFunctionToolCall as ToolCall,
@@ -85,6 +89,7 @@ class AgentEnv:
         self.client = MCPClient(envs=envs)
         # caching overlong content
         self.timing_dict = defaultdict(ToolTiming)
+        self._local_tools: dict[str, Callable] = {}
         self._tools_dict: dict[str, dict] = {}
         self._server_tools = defaultdict(list)
         self._tool_to_server = {}
@@ -97,14 +102,17 @@ class AgentEnv:
     ):
         try:
             start_time = time.time()
-            server_id = self._tool_to_server[tool_call.function.name]
             if len(tool_call.function.arguments) == 0:
                 arguments = None
             else:
                 arguments = json.loads(tool_call.function.arguments)
-            result = await self.client.tool_execute(
-                server_id, tool_call.function.name, arguments
-            )
+            if tool_call.function.name in self._local_tools:
+                result = await self._call_local_tool(tool_call.function.name, arguments)
+            else:
+                server_id = self._tool_to_server[tool_call.function.name]
+                result = await self.client.tool_execute(
+                    server_id, tool_call.function.name, arguments
+                )
         except KeyError:
             result = CallToolResult(
                 type="text",
@@ -308,8 +316,50 @@ class AgentEnv:
         await self.client._close_server(server_name)
         info(f"Disconnected from server {server_name}")
 
-    def get_server_tools(self, server_name: str):
+    def get_server_tools(self, server_name: str) -> list[dict]:
         tools = []
         for tool_name in self._server_tools[server_name]:
             tools.append(self._tools_dict[tool_name])
         return tools
+
+    def register_tool(
+        self,
+        func: Callable,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+    ) -> None:
+        """Register a callable (function or bound method) as a tool.
+
+        The JSON Schema for parameters is auto-generated from type hints.
+        Supports both sync and async callables.
+        """
+        tool_name = name or func.__name__
+        tool_desc = description or inspect.getdoc(func) or ""
+        schema = get_cached_typeadapter(func).json_schema()
+        schema = compress_schema(schema, prune_titles=True)
+        self._tools_dict[tool_name] = {
+            "type": "function",
+            "function": {
+                "name": tool_name,
+                "description": tool_desc,
+                "parameters": schema,
+            },
+        }
+        self._local_tools[tool_name] = func
+
+    async def _call_local_tool(
+        self, name: str, arguments: dict | None
+    ) -> CallToolResult:
+        """Execute a locally registered tool and wrap the result."""
+        func = self._local_tools[name]
+        kwargs = arguments or {}
+        raw = (
+            await func(**kwargs)
+            if asyncio.iscoroutinefunction(func)
+            else func(**kwargs)
+        )
+        return CallToolResult(
+            content=[TextContent(text=str(raw), type="text")],
+            isError=False,
+        )

@@ -56,7 +56,7 @@ class AgentLoop:
                 "Reflective design requires a multimodal LLM in the design agent, reflection will only enable on textual state."
             )
         if check_llms:
-            self.config.validate_llms()
+            await self.config.validate_llms()
         request.copy_to_workspace(self.workspace)
         with open(self.workspace / ".input_request.json", "w") as f:
             json.dump(request.model_dump(), f, ensure_ascii=False, indent=2)

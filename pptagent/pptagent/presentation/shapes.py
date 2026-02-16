@@ -1078,7 +1078,7 @@ class GroupShape(ShapeElement):
         if not isinstance(__value, GroupShape) or len(self.data) != len(__value.data):
             return False
         for shape1, shape2 in zip(self.data, __value.data):
-            if isinstance(shape1, type(shape2)):
+            if not isinstance(shape1, type(shape2)):
                 return False
         return True
 

@@ -97,6 +97,7 @@ class SlidePage:
         for i, s in enumerate(shapes):
             if isinstance(s, Picture) and s.area / s.slide_area > 0.95:
                 backgrounds.append(shapes.pop(i))
+                break
 
         slide_layout_name = slide.slide_layout.name if slide.slide_layout else None
         slide_title = slide.shapes.title.text if slide.shapes.title else None
