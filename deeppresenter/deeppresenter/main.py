@@ -43,11 +43,13 @@ class AgentLoop:
         self,
         request: InputRequest,
         check_llms: bool = False,
+        soft_parsing: bool = True,
     ) -> AsyncGenerator[str | ChatMessage, None]:
         """Main loop for DeepPresenter generation process.
         Arguments:
             request: InputRequest object containing task details.
             check_llms: Whether to check LLM availability before running.
+            soft_parsing: Whether to use soft parsing on html2pptx.
         Yields:
             ChatMessage or str: Messages or final output path.
         """
@@ -157,7 +159,7 @@ class AgentLoop:
                         slide_html_dir,
                         pptx_path,
                         aspect_ratio=request.powerpoint_type,
-                        soft=True,
+                        soft_parsing=soft_parsing,
                     )
                 except Exception as e:
                     warning(

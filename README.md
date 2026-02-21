@@ -94,7 +94,8 @@ Build docker images: `docker compose build`
 - **Running locally**:
 
   ```bash
-  pip install -e deeppresenter
+  cd deeppresenter
+  pip install -e .
   playwright install-deps
   playwright install chromium
   npm install
