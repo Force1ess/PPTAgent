@@ -130,7 +130,7 @@ async def convert_html_to_pptx(
     html_inputs: Path | str | Iterable[Path | str],
     output_pptx: Path | str | None = None,
     aspect_ratio: Literal["16:9", "4:3", "A1", "A2", "A3", "A4"] = "16:9",
-    soft: bool = False,
+    soft_parsing: bool = False,
 ):
     script_path = PACKAGE_DIR / "html2pptx" / "html2pptx_cli.js"
     if not script_path.exists():
@@ -177,7 +177,7 @@ async def convert_html_to_pptx(
         output_path.parent.mkdir(parents=True, exist_ok=True)
         cmd.extend(["--output", str(output_path)])
 
-    if soft:
+    if soft_parsing:
         cmd.append("--soft")
 
     process = await asyncio.create_subprocess_exec(
