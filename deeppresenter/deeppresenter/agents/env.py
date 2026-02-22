@@ -160,7 +160,9 @@ class AgentEnv:
         if len(result.content) != 1 or any(
             c.type not in ["image", "text"] for c in result.content
         ):
-            raise ValueError("Only one text/image block is supported currently.")
+            raise ValueError(
+                f"Only one text/image block is supported currently. While getting {result.content} from {tool_call.function.name}"
+            )
         content = []
         block = result.content[0]
         if block.type == "text":
