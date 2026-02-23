@@ -165,7 +165,7 @@ class Agent:
                 self.context_length = response.usage.total_tokens
             self.chat_history.append(
                 ChatMessage(
-                    role=response.choices[0].message.role,
+                    role=Role.ASSISTANT,
                     content=response.choices[0].message.content,
                     cost=response.usage,
                     reasoning=getattr(response.choices[0].message, "reasoning", None)
@@ -202,7 +202,7 @@ class Agent:
             agent_message: ChatCompletionMessage = response.choices[0].message
         self.chat_history.append(
             ChatMessage(
-                role=agent_message.role,
+                role=Role.ASSISTANT,
                 content=agent_message.content,
                 cost=response.usage,
                 tool_calls=agent_message.tool_calls,
