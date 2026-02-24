@@ -71,24 +71,6 @@ def get_json_from_response(response: str) -> dict | list:
     return json_repair.loads(response)
 
 
-def _align_image_size(width: int, height: int, pixel_multiple: int) -> tuple[int, int]:
-    if pixel_multiple <= 1:
-        return width, height
-
-    g = gcd(width, height)
-    base_w, base_h = width // g, height // g
-
-    k = lcm(
-        pixel_multiple // gcd(pixel_multiple, base_w),
-        pixel_multiple // gcd(pixel_multiple, base_h),
-    )
-    unit_w, unit_h = base_w * k, base_h * k
-
-    scale = max(1, ceil(max(width / unit_w, height / unit_h)))
-
-    return unit_w * scale, unit_h * scale
-
-
 class Endpoint(BaseModel):
     """LLM Endpoint Configuration"""
 
@@ -223,13 +205,15 @@ class LLM(BaseModel):
         assert len(self._endpoints) >= 1, "At least one endpoint must be configured"
 
         model_lower = self._endpoints[0].model.lower()
-        if self.is_multimodal is None and any(
-            word in model_lower for word in ("gpt", "claude", "gemini", "vl")
-        ):
-            self.is_multimodal = True
-            debug(
-                f"Model {self._endpoints[0].model} is detected as multimodal model, setting `is_multimodal` to True"
-            )
+        if self.is_multimodal is None:
+            if any(word in model_lower for word in ("gpt", "claude", "gemini", "vl")):
+                self.is_multimodal = True
+                debug(
+                    f"Model {self._endpoints[0].model} is detected as multimodal model, setting `is_multimodal` to True"
+                )
+            else:
+                self.is_multimodal = False
+
         return super().model_post_init(context)
 
     async def run(
@@ -281,7 +265,9 @@ class LLM(BaseModel):
             ratio = (int(self.min_image_size) / (width * height)) ** 0.5
             width = int(width * ratio)
             height = int(height * ratio)
-        width, height = _align_image_size(width, height, pixel_multiple)
+        assert (width % PIXEL_MULTIPLE == 0) and (height % PIXEL_MULTIPLE == 0), (
+            f"Image width and height must be a multiple of {pixel_multiple}"
+        )
         async with self._semaphore:
             errors = []
             random.shuffle(self._endpoints)
