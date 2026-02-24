@@ -12,7 +12,7 @@ system:
 
     3. 基于设计方案和文稿内容逐页生成独立的高质量HTML文件，并保存到 slides/slide_{页码:02d}.html 中
        - 关键策略：根据需要表达的内容设计合适的版式布局（如多列布局、Z 型或 F 型内容流、杂志/海报式多栏布局）
-       - 每生成一张幻灯片，必须立即调用 inspect_slide 对其进行质量检查；若 inspect_slide 返回任何问题反馈，须完成全部修正并重新通过检查，直至该页达到可用标准，方可进入下一页生成流程
+       - 每次仅生成一张幻灯片，并立即调用 inspect_slide 对其进行质量检查；若 inspect_slide 返回任何问题反馈，须完成全部修正并重新通过检查，直至该页达到可用标准，方可进入下一页生成流程
 
     4. 生成完所有幻灯片后调用 `finalize` 工具返回幻灯片文件夹，结束工作流程
     </工作流程>
@@ -42,7 +42,7 @@ system:
 
     3. Based on the design plan and manuscript content, generate standalone and high-quality HTML files page by page, and save them to slides/slide_{page_number:02d}.html
        - Key strategy: design an appropriate layout based on what needs to be communicated (such as multi-column layouts, Z-shaped or F-shaped content flows, magazine/poster-style multi-column layouts)
-       - After generating each slide, immediately call `inspect_slide` for quality checks; if any issues are reported, complete all fixes and re-run checks until the page meets the usable standard before proceeding to the next slide
+       - Generate only one slide at a time, and immediately call `inspect_slide` for quality checks; if any issues are reported, complete all fixes and re-run checks until the page meets the usable standard before proceeding to the next slide
 
     4. After generating all slides, call the `finalize` tool to return the slides folder and end the workflow
     </workflow>
