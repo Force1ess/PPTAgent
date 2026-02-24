@@ -12,12 +12,13 @@ from mcp.types import ImageContent
 from pptagent.model_utils import _get_lid_model
 
 from deeppresenter.utils.config import DeepPresenterConfig
-from deeppresenter.utils.log import set_logger
+from deeppresenter.utils.log import info, set_logger
 from deeppresenter.utils.webview import PlaywrightConverter, convert_html_to_pptx
 
 mcp = FastMCP("DeepPresenter")
 CONFIG = DeepPresenterConfig.load_from_file(os.getenv("CONFIG_FILE"))
 LID_MODEL = _get_lid_model()
+REFLECTIVE_DESIGN = CONFIG.design_agent.is_multimodal and CONFIG.heavy_reflect
 
 
 @mcp.tool()
@@ -41,7 +42,7 @@ async def inspect_slide(
     except Exception as e:
         return e
 
-    if CONFIG.design_agent.is_multimodal and CONFIG.heavy_reflect:
+    if REFLECTIVE_DESIGN:
         pdf_path = Path(tempfile.mkdtemp()) / "slide.pdf"
         async with PlaywrightConverter() as converter:
             image_dir = await converter.convert_to_pdf(
@@ -122,5 +123,8 @@ if __name__ == "__main__":
     assert work_dir.exists(), f"Workspace {work_dir} does not exist."
     os.chdir(work_dir)
     set_logger(f"task-{work_dir.stem}", work_dir / ".history" / "task.log")
+
+    if REFLECTIVE_DESIGN:
+        info("Reflective Design is enabled.")
 
     mcp.run(show_banner=False)

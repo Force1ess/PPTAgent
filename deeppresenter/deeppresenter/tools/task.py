@@ -47,8 +47,8 @@ def _rewrite_image_link(match: re.Match[str], md_dir: Path) -> str:
             factor = math.gcd(width, height)
             ratio = f"{width // factor}:{height // factor}"
             updated_alt = f"{updated_alt}, {ratio}" if updated_alt else ratio
-    except OSError:
-        warning(f"Failed to get image size for {p}")
+    except Exception as e:
+        warning(f"Failed to get image size for {p}: {e}")
 
     # ? since slides were placed in an independent folder, we convert image path to absolute path to avoid broken links
     new_path = p.resolve().as_posix()
