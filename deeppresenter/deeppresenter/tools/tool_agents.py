@@ -9,6 +9,7 @@ from fastmcp import FastMCP
 from PIL import Image
 
 from deeppresenter.utils.config import DeepPresenterConfig
+from deeppresenter.utils.constants import PIXEL_MULTIPLE
 from deeppresenter.utils.log import debug, info, set_logger
 
 mcp = FastMCP(name="ToolAgents")
@@ -18,18 +19,15 @@ LLM_CONFIG = DeepPresenterConfig.load_from_file(os.getenv("CONFIG_FILE"))
 
 if LLM_CONFIG.t2i_model is not None:
 
-    @mcp.tool()
+    @mcp.tool(
+        description=f"Generate an image and save it to the specified path.\n\n"
+        f"Args:\n"
+        f"    prompt: Text description of the image to generate. Should be detailed and specific, but do not include aspect ratio.\n"
+        f"    width: Width of the image in pixels, must be a multiple of {PIXEL_MULTIPLE}\n"
+        f"    height: Height of the image in pixels, must be a multiple of {PIXEL_MULTIPLE}\n"
+        f"    path: Full path where the image should be saved"
+    )
     async def image_generation(prompt: str, width: int, height: int, path: str) -> str:
-        """
-        Generate an image and save it to the specified path.
-
-        Args:
-            prompt: Text description of the image to generate. Should be detailed and specific, but do not include aspect ratio.
-            width: Width of the image, in pixels
-            height: Height of the image, in pixels
-            path: Full path where the image should be saved
-        """
-
         response = await LLM_CONFIG.t2i_model.generate_image(
             prompt=prompt, width=width, height=height
         )
