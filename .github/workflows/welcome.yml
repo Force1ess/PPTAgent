@@ -1,0 +1,17 @@
+name: First Interaction
+description: Greet first-time contributors when they open an issue or PR
+author: GitHub
+
+inputs:
+  issue_message:
+    description: Comment to post on an individual's first issue
+  pr_message:
+    description: Comment to post on an individual's first pull request
+  repo_token:
+    description: Token with permissions to post issue and PR comments
+    required: true
+    default: ${{ github.token }}
+
+runs:
+  using: node24
+  main: dist/index.js
