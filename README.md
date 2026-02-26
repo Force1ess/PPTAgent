@@ -36,7 +36,7 @@
 
 https://github.com/user-attachments/assets/938889e8-d7d8-4f4f-b2a1-07ee3ef3991a
 
-## 📫 Contact
+## Contact 📫
 > The main contributor of this repo is a Master's student graduating in 2026, feel free to reach out for collaboration or opportunities.
 >
 > 本仓库的主要贡献者是一名 2026 届硕士毕业生，欢迎联系合作或交流机会。
@@ -45,7 +45,7 @@ https://github.com/user-attachments/assets/938889e8-d7d8-4f4f-b2a1-07ee3ef3991a
   <img src="resource/wechat.jpg" width="140px">
 </div>
 
-## 📅 News
+## News 📅
 - [2026/01]: We support freeform and template generation support PPTX export, offline mode now! Context management is added to avoid context overflow.
 - [2025/12]: 🔥 Released V2 with major improvements - Deep Research Integration, Free-Form Visual Design, Autonomous Asset Creation, Text-to-Image Generation, and Agent Environment with sandbox & 20+ tools.
 - [2025/09]: 🛠️ MCP server support added - see [MCP Server](PPTAgent/DOC.md#mcp-server-) for configuration details
@@ -54,7 +54,7 @@ https://github.com/user-attachments/assets/938889e8-d7d8-4f4f-b2a1-07ee3ef3991a
 - [2025/05]: ✨ Released v1 with core functionality and 🌟 breakthrough: reached 1,000 stars on GitHub! - see [release notes](https://github.com/icip-cas/PPTAgent/releases/tag/v0.1.0) for details
 - [2025/01]: 🔓 Open-sourced the codebase, with experimental code archived at [experiment release](https://github.com/icip-cas/PPTAgent/releases/tag/experiment)
 
-## 📖 Usage
+## Usage 📖
 
 > [!IMPORTANT]
 > 1. All these API keys, configurations, and services are **required**.
@@ -106,7 +106,7 @@ Build docker images: `docker compose build`
 > [!TIP]
 > 🚀 All configurable variables can be found in [constants.py](deeppresenter/deeppresenter/utils/constants.py).
 
-## 💡 Case Study
+## Case Study 💡
 
 - #### Prompt: Please present the given document to me.
 
@@ -190,43 +190,7 @@ Build docker images: `docker compose build`
 
 ---
 
-
-[![Star History Chart](https://api.star-history.com/svg?repos=icip-cas/PPTAgent&type=Date)](https://star-history.com/#icip-cas/PPTAgent&Date)
-
-## Citation 🙏
-
-If you find this project helpful, please use the following to cite it:
-```bibtex
-@inproceedings{zheng-etal-2025-pptagent,
-    title = "{PPTA}gent: Generating and Evaluating Presentations Beyond Text-to-Slides",
-    author = "Zheng, Hao  and
-      Guan, Xinyan  and
-      Kong, Hao  and
-      Zhang, Wenkai  and
-      Zheng, Jia  and
-      Zhou, Weixiang  and
-      Lin, Hongyu  and
-      Lu, Yaojie  and
-      Han, Xianpei  and
-      Sun, Le",
-    editor = "Christodoulopoulos, Christos  and
-      Chakraborty, Tanmoy  and
-      Rose, Carolyn  and
-      Peng, Violet",
-    booktitle = "Proceedings of the 2025 Conference on Empirical Methods in Natural Language Processing",
-    month = nov,
-    year = "2025",
-    address = "Suzhou, China",
-    publisher = "Association for Computational Linguistics",
-    url = "https://aclanthology.org/2025.emnlp-main.728/",
-    doi = "10.18653/v1/2025.emnlp-main.728",
-    pages = "14413--14429",
-    ISBN = "979-8-89176-332-6",
-    abstract = "Automatically generating presentations from documents is a challenging task that requires accommodating content quality, visual appeal, and structural coherence. Existing methods primarily focus on improving and evaluating the content quality in isolation, overlooking visual appeal and structural coherence, which limits their practical applicability. To address these limitations, we propose PPTAgent, which comprehensively improves presentation generation through a two-stage, edit-based approach inspired by human workflows. PPTAgent first analyzes reference presentations to extract slide-level functional types and content schemas, then drafts an outline and iteratively generates editing actions based on selected reference slides to create new slides. To comprehensively evaluate the quality of generated presentations, we further introduce PPTEval, an evaluation framework that assesses presentations across three dimensions: Content, Design, and Coherence. Results demonstrate that PPTAgent significantly outperforms existing automatic presentation generation methods across all three dimensions."
-}
-```
-
-## Contributors
+## Contributors 🌟
 
 <table>
 <tr>
@@ -341,3 +305,38 @@ If you find this project helpful, please use the following to cite it:
     </td>
 </tr>
 </table>
+
+[![Star History Chart](https://api.star-history.com/svg?repos=icip-cas/PPTAgent&type=Date)](https://star-history.com/#icip-cas/PPTAgent&Date)
+
+## Citation 🙏
+
+If you find this project helpful, please use the following to cite it:
+```bibtex
+@inproceedings{zheng-etal-2025-pptagent,
+    title = "{PPTA}gent: Generating and Evaluating Presentations Beyond Text-to-Slides",
+    author = "Zheng, Hao  and
+      Guan, Xinyan  and
+      Kong, Hao  and
+      Zhang, Wenkai  and
+      Zheng, Jia  and
+      Zhou, Weixiang  and
+      Lin, Hongyu  and
+      Lu, Yaojie  and
+      Han, Xianpei  and
+      Sun, Le",
+    editor = "Christodoulopoulos, Christos  and
+      Chakraborty, Tanmoy  and
+      Rose, Carolyn  and
+      Peng, Violet",
+    booktitle = "Proceedings of the 2025 Conference on Empirical Methods in Natural Language Processing",
+    month = nov,
+    year = "2025",
+    address = "Suzhou, China",
+    publisher = "Association for Computational Linguistics",
+    url = "https://aclanthology.org/2025.emnlp-main.728/",
+    doi = "10.18653/v1/2025.emnlp-main.728",
+    pages = "14413--14429",
+    ISBN = "979-8-89176-332-6",
+    abstract = "Automatically generating presentations from documents is a challenging task that requires accommodating content quality, visual appeal, and structural coherence. Existing methods primarily focus on improving and evaluating the content quality in isolation, overlooking visual appeal and structural coherence, which limits their practical applicability. To address these limitations, we propose PPTAgent, which comprehensively improves presentation generation through a two-stage, edit-based approach inspired by human workflows. PPTAgent first analyzes reference presentations to extract slide-level functional types and content schemas, then drafts an outline and iteratively generates editing actions based on selected reference slides to create new slides. To comprehensively evaluate the quality of generated presentations, we further introduce PPTEval, an evaluation framework that assesses presentations across three dimensions: Content, Design, and Coherence. Results demonstrate that PPTAgent significantly outperforms existing automatic presentation generation methods across all three dimensions."
+}
+```
