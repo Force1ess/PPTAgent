@@ -28,6 +28,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 
+from deeppresenter import __version__ as version
 from deeppresenter.main import AgentLoop, InputRequest
 from deeppresenter.utils.config import DeepPresenterConfig
 from deeppresenter.utils.constants import PACKAGE_DIR
@@ -53,7 +54,7 @@ def is_onboarded() -> bool:
 def load_example_configs() -> tuple[dict, list]:
     """Load example config files from package"""
     config_example = PACKAGE_DIR / "config.yaml.example"
-    mcp_example = PACKAGE_DIR / "mcp.json"
+    mcp_example = PACKAGE_DIR / "mcp.json.example"
 
     with open(config_example) as f:
         config_data = yaml.safe_load(f)
@@ -64,13 +65,42 @@ def load_example_configs() -> tuple[dict, list]:
     return config_data, mcp_data
 
 
-def prompt_llm_config(name: str, optional: bool = False) -> dict | None:
-    """Prompt user for LLM configuration"""
+def prompt_llm_config(
+    name: str,
+    optional: bool = False,
+    existing: dict | None = None,
+    previous_config: tuple[str, dict] | None = None,
+) -> dict | None:
+    """Prompt user for LLM configuration
+
+    Args:
+        name: Name of the LLM to configure
+        optional: Whether this configuration is optional
+        existing: Existing configuration from previous onboarding
+        previous_config: (name, config) tuple from the last configured model
+    """
     if optional:
         if not Confirm.ask(f"Configure {name}?", default=False):
             return None
 
     console.print(f"\n[bold cyan]Configuring {name}[/bold cyan]")
+
+    # Show existing config from previous onboarding
+    if existing:
+        console.print(
+            f"[dim]Previous: {existing.get('model', 'N/A')} @ {existing.get('base_url', 'N/A')}[/dim]"
+        )
+        if Confirm.ask(f"Reuse previous {name} configuration?", default=True):
+            return existing
+
+    # Show last configured model in this session
+    if previous_config:
+        prev_name, prev_cfg = previous_config
+        console.print(
+            f"[dim]Last configured: {prev_name} - {prev_cfg.get('model', 'N/A')} @ {prev_cfg.get('base_url', 'N/A')}[/dim]"
+        )
+        if Confirm.ask(f"Reuse {prev_name} configuration?", default=True):
+            return prev_cfg
 
     base_url = Prompt.ask("Base URL")
     model = Prompt.ask("Model name")
@@ -202,7 +232,8 @@ def onboard():
     """Configure DeepPresenter (config.yaml and mcp.json)"""
     ensure_config_dir()
 
-    # Check if already configured
+    # Load existing config if available
+    existing_config = None
     if is_onboarded():
         console.print("[yellow]Configuration already exists.[/yellow]")
         console.print(f"Config: {CONFIG_FILE}")
@@ -214,6 +245,10 @@ def onboard():
         ):
             console.print("[green]Keeping existing configuration.[/green]")
             return
+
+        # Load existing config to potentially reuse
+        with open(CONFIG_FILE) as f:
+            existing_config = yaml.safe_load(f)
 
         # Backup existing config
         import shutil
@@ -228,7 +263,7 @@ def onboard():
 
     console.print(
         Panel.fit(
-            "[bold green]Welcome to DeepPresenter![/bold green]\n"
+            f"[bold green]Welcome to DeepPresenter v{version}![/bold green]\n"
             "Let's configure your environment.",
             title="Onboarding",
         )
@@ -263,23 +298,60 @@ def onboard():
     if config_data is None or mcp_data is None:
         config_data, mcp_data = load_example_configs()
 
+        # Track last configured model
+        last_config = None
+
         # Configure required LLMs
         console.print("\n[bold yellow]Required LLM Configurations[/bold yellow]")
 
-        config_data["research_agent"] = prompt_llm_config("Research Agent")
-        config_data["design_agent"] = prompt_llm_config("Design Agent")
-        config_data["long_context_model"] = prompt_llm_config("Long Context Model")
-        config_data["vision_model"] = prompt_llm_config("Vision Model")
+        research_agent = prompt_llm_config(
+            "Research Agent",
+            existing=existing_config.get("research_agent") if existing_config else None,
+            previous_config=last_config,
+        )
+        config_data["research_agent"] = research_agent
+        last_config = ("Research Agent", research_agent)
+
+        design_agent = prompt_llm_config(
+            "Design Agent",
+            existing=existing_config.get("design_agent") if existing_config else None,
+            previous_config=last_config,
+        )
+        config_data["design_agent"] = design_agent
+        last_config = ("Design Agent", design_agent)
+
+        long_context = prompt_llm_config(
+            "Long Context Model",
+            existing=existing_config.get("long_context_model")
+            if existing_config
+            else None,
+            previous_config=last_config,
+        )
+        config_data["long_context_model"] = long_context
+        last_config = ("Long Context Model", long_context)
+
+        vision_model = prompt_llm_config(
+            "Vision Model",
+            existing=existing_config.get("vision_model") if existing_config else None,
+            previous_config=last_config,
+        )
+        config_data["vision_model"] = vision_model
+        last_config = ("Vision Model", vision_model)
 
         # Optional T2I model
         console.print("\n[bold yellow]Optional Configurations[/bold yellow]")
-        t2i_config = prompt_llm_config("Text-to-Image Model", optional=True)
+        t2i_config = prompt_llm_config(
+            "Text-to-Image Model",
+            optional=True,
+            existing=existing_config.get("t2i_model") if existing_config else None,
+            previous_config=last_config,
+        )
         if t2i_config:
             config_data["t2i_model"] = t2i_config
 
         # Configure MCP (optional Tavily API key)
         console.print("\n[bold cyan]MCP Configuration[/bold cyan]")
-        if Confirm.ask("Configure Tavily API key for web search?", default=True):
+        if Confirm.ask("Configure Tavily API key for web search?", default=False):
             tavily_key = Prompt.ask("Tavily API key", password=True)
             # Update tavily key in mcp config
             for server in mcp_data:

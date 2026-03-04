@@ -66,22 +66,21 @@ https://github.com/user-attachments/assets/938889e8-d7d8-4f4f-b2a1-07ee3ef3991a
 DeepPresenter now provides a command-line interface for easy usage:
 
 ```bash
-# Install
-cd deeppresenter
-pip install -e .
+# Install `uv` for package management
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Interactive configuration (first time)
-deeppresenter onboard
+uvx deeppresenter onboard
 
 # Generate presentation
-deeppresenter generate "Single Page with Title: Hello World"
+uvx deeppresenter generate "Single Page with Title: Hello World" -o hello.pptx
 
 # With attachments and options
-deeppresenter generate "Q4 Report" \
+uvx deeppresenter generate "Q4 Report" \
   -f data.xlsx \
   -f charts.pdf \
   -p "10-12" \
-  -o ./output
+  -o report.pptx
 ```
 
 **CLI Commands:**
@@ -132,7 +131,7 @@ Build docker images: `docker compose build`
 
   ```bash
   cd deeppresenter
-  pip install -e .
+  uv pip install -e .
   playwright install-deps
   playwright install chromium
   npm install
