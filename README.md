@@ -58,9 +58,46 @@ https://github.com/user-attachments/assets/938889e8-d7d8-4f4f-b2a1-07ee3ef3991a
 
 > [!IMPORTANT]
 > 1. All these API keys, configurations, and services are **required**.
-> 2. Agent Backbone Recommendation: Use Claude for the Research Agent and Gemini for the Design Agent. GLM-4.7 is also a good choice in open-source models.
+> 2. Agent Backbone Recommendation: Use Claude for the Research Agent and Gemini for the Design Agent. GLM-5 is also a good choice in open-source models.
 > 3. Offline mode is supported with limited capabilities (see Offline Setup below).
 
+### Quick Start with CLI 🚀
+
+DeepPresenter now provides a command-line interface for easy usage:
+
+```bash
+# Install
+cd deeppresenter
+pip install -e .
+
+# Interactive configuration (first time)
+deeppresenter onboard
+
+# Generate presentation
+deeppresenter generate "Single Page with Title: Hello World"
+
+# With attachments and options
+deeppresenter generate "Q4 Report" \
+  -f data.xlsx \
+  -f charts.pdf \
+  -p "10-12" \
+  -o ./output
+```
+
+**CLI Commands:**
+- `deeppresenter onboard` - Interactive configuration wizard
+- `deeppresenter generate` - Generate presentations
+- `deeppresenter config` - View current configuration
+- `deeppresenter reset` - Reset configuration
+
+**Options:**
+- `-f, --file` - Attachment files (multiple allowed)
+- `-p, --pages` - Number of pages (e.g., "8" or "5-10")
+- `-a, --aspect` - Aspect ratio (16:9, 4:3, A1, A3, A2, A4)
+- `-l, --lang` - Language (en/zh)
+- `-o, --output` - Output directory
+
+---
 
 ### 1. Environment Configuration
 
