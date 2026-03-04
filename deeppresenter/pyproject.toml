@@ -76,6 +76,8 @@ where = ["."]
 "deeppresenter" = [
     "roles/*.yaml",
     "html2pptx/*.js",
+    "config.yaml.example",
+    "mcp.json.example",
 ]
 
 [tool.pytest.ini_options]

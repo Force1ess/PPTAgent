@@ -2,22 +2,20 @@
     {
         "name": "any2markdown",
         "description": "File conversion tools",
-        "command": "uv",
+        "command": "python",
         "args": [
-            "run",
             "$PACKAGE_DIR/tools/any2markdown.py",
             "$WORKSPACE"
         ],
         "env": {
-            "MINERU_API_KEY": "your_mineru_api_key_for_online_mode"
+            "MINERU_API_KEY": "your_mineru_api_key_here"
         }
     },
     {
         "name": "task",
         "description": "Task management tools",
-        "command": "uv",
+        "command": "python",
         "args": [
-            "run",
             "$PACKAGE_DIR/tools/task.py",
             "$WORKSPACE"
         ],
@@ -28,9 +26,8 @@
     {
         "name": "deeppresenter",
         "description": "Artifact inspection tools for deeppresenter",
-        "command": "uv",
+        "command": "python",
         "args": [
-            "run",
             "$PACKAGE_DIR/tools/reflect.py",
             "$WORKSPACE"
         ],
@@ -41,22 +38,17 @@
     {
         "name": "tool_agents",
         "description": "LLM-powered tool agents",
-        "command": "uv",
+        "command": "python",
         "args": [
-            "run",
             "$PACKAGE_DIR/tools/tool_agents.py",
             "$WORKSPACE"
-        ],
-        "env": {
-            "CONFIG_FILE": "$CONFIG_FILE"
-        }
+        ]
     },
     {
         "name": "research",
         "description": "Academic paper search tools",
-        "command": "uv",
+        "command": "python",
         "args": [
-            "run",
             "$PACKAGE_DIR/tools/research.py",
             "$WORKSPACE"
         ]
@@ -64,35 +56,21 @@
     {
         "name": "search",
         "description": "Web search tools",
-        "command": "uv",
+        "command": "python",
         "args": [
-            "run",
             "$PACKAGE_DIR/tools/search.py",
             "$WORKSPACE"
         ],
         "env": {
-            "TAVILY_API_KEY": "your_key"
-        }
-    },
-    {
-        "name": "pptagent",
-        "description": "https://github.com/icip-cas/PPTAgent",
-        "command": "uv",
-        "args": ["run", "pptagent-mcp"],
-        "env": {
-            "PPTAGENT_MODEL": "glm-4.6",
-            "PPTAGENT_API_KEY": "your_key",
-            "PPTAGENT_API_BASE": "https://open.bigmodel.cn/api/paas/v4/"
+            "TAVILY_API_KEY": "your_tavily_api_key_here"
         }
     },
     {
         "name": "sandbox",
-        "description": "https://github.com/wonderwhy-er/DesktopCommanderMCP",
+        "description": "An agent sandbox developed on https://github.com/wonderwhy-er/DesktopCommanderMCP",
         "command": "docker",
         "args": [
             "run",
-            "--security-opt",
-            "seccomp=unconfined",
             "--init",
             "--name",
             "$WORKSPACE_ID",

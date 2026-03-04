@@ -1,6 +1,6 @@
 """DeepPresenter - An agentic and reflective presentation generation system"""
 
-__version__ = "1.0.0"
+__version__ = "1.0.6"
 __author__ = "Hao Zheng"
 __email__ = "wszh712811@gmail.com"
 
