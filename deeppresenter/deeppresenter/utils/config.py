@@ -383,7 +383,6 @@ class DeepPresenterConfig(BaseModel):
             self.design_agent.validate(),
             self.long_context_model.validate(),
             self.vision_model.validate(),
-            self.t2i_model.validate() if self.t2i_model else asyncio.sleep(0),
         )
 
     def __getitem__(self, key: str) -> Any:
