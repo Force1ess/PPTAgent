@@ -50,6 +50,9 @@ def create_logger(
     logger.setLevel(logging.DEBUG)
     logger.propagate = False
 
+    # Clear existing handlers to avoid duplicates
+    logger.handlers.clear()
+
     console_handler = logging.StreamHandler()
     console_handler.setLevel(LOGGING_LEVEL)
     formatter = colorlog.ColoredFormatter(

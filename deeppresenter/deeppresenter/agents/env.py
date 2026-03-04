@@ -83,6 +83,7 @@ class AgentEnv:
             "CONFIG_FILE": str(config.file_path),
             "FASTMCP_LOG_LEVEL": "CRITICAL",
             "PACKAGE_DIR": str(PACKAGE_DIR),
+            "PYTHONWARNINGS": "ignore",
         }
         if config.offline_mode:
             envs["OFFLINE_MODE"] = "1"
@@ -285,7 +286,7 @@ class AgentEnv:
         """Connect to a single MCP server and register its tools."""
         name = server.name
         await self.client.connect_server(name, server)
-        info(f"Connected to server {name}")
+        debug(f"Connected to server {name}")
 
         keep_tools = server.keep_tools
         exclude_tools = set(server.exclude_tools)
@@ -316,7 +317,7 @@ class AgentEnv:
             self._tool_to_server.pop(tool_name, None)
         del self._server_tools[server_name]
         await self.client._close_server(server_name)
-        info(f"Disconnected from server {server_name}")
+        debug(f"Disconnected from server {server_name}")
 
     def get_server_tools(self, server_name: str) -> list[dict]:
         tools = []
