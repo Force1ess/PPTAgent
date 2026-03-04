@@ -10,7 +10,7 @@ from platformdirs import user_cache_dir
 PACKAGE_DIR = Path(__file__).parent.parent
 
 # ============ Logging ===========
-LOGGING_LEVEL = int(os.getenv("DEEPPRESENTER_LOG_LEVEL", logging.WARNING))
+LOGGING_LEVEL = int(os.getenv("DEEPPRESENTER_LOG_LEVEL", logging.INFO))
 MAX_LOGGING_LENGTH = int(os.getenv("DEEPPRESENTER_MAX_LOGGING_LENGTH", 1024))
 
 # ============ Agent  ============
@@ -41,6 +41,7 @@ GLOBAL_ENV_LIST = [
     "https_proxy",
     "no_proxy",
     "all_proxy",
+    "PYTHONWARNINGS",
 ]
 
 # ============ Webview ============

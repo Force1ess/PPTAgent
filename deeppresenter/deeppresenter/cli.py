@@ -1,13 +1,27 @@
 #!/usr/bin/env python3
 """DeepPresenter CLI - Terminal interface for PPT generation"""
 
+import os
+import sys
+
+# Suppress warnings before importing anything else
+os.environ["PYTHONWARNINGS"] = "ignore"
+
 import asyncio
 import json
 import shutil
-import sys
+import warnings
 from pathlib import Path
 from typing import Annotated
 
+# Suppress common warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", message=".*urllib3.*")
+warnings.filterwarnings("ignore", message=".*chardet.*")
+warnings.filterwarnings("ignore", message=".*charset_normalizer.*")
+
+# ruff: noqa: E402
+# Import after setting environment variables to suppress warnings
 import typer
 import yaml
 from rich.console import Console
@@ -309,11 +323,12 @@ def onboard():
 @app.command()
 def generate(
     prompt: Annotated[str, typer.Argument(help="Presentation prompt/instruction")],
+    output: Annotated[
+        Path,
+        typer.Option("--output", "-o", help="Output file path (e.g., output.pptx)"),
+    ],
     files: Annotated[
         list[Path], typer.Option("--file", "-f", help="Attachment files")
-    ] = None,
-    output: Annotated[
-        Path, typer.Option("--output", "-o", help="Output directory")
     ] = None,
     pages: Annotated[
         str, typer.Option("--pages", "-p", help="Number of pages (e.g., '8', '5-10')")
@@ -358,6 +373,7 @@ def generate(
 
     # Run generation
     async def run():
+        import shutil
         import uuid
 
         session_id = str(uuid.uuid4())[:8]
@@ -365,7 +381,7 @@ def generate(
         loop = AgentLoop(
             config=config,
             session_id=session_id,
-            workspace=output,
+            workspace=None,  # Let AgentLoop create workspace automatically
             language=language,
         )
 
@@ -381,8 +397,19 @@ def generate(
         try:
             async for msg in loop.run(request):
                 if isinstance(msg, (str, Path)):
-                    console.print(f"\n[bold green]✓[/bold green] Generated: {msg}")
-                    return str(msg)
+                    generated_file = Path(msg)
+
+                    # Copy to output location
+                    output_path = Path(output).resolve()
+                    output_path.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy(generated_file, output_path)
+                    console.print(
+                        f"\n[bold green]✓[/bold green] Generated: {generated_file}"
+                    )
+                    console.print(
+                        f"[bold green]✓[/bold green] Copied to: {output_path}"
+                    )
+                    return str(output_path)
         except Exception as e:
             console.print(f"[bold red]✗[/bold red] Generation failed: {e}")
             raise

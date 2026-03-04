@@ -11,7 +11,7 @@ from playwright.async_api import async_playwright
 from pypdf import PdfWriter
 
 from deeppresenter.utils.constants import PACKAGE_DIR, PDF_OPTIONS
-from deeppresenter.utils.log import error, info
+from deeppresenter.utils.log import debug, error
 
 FAKE_UA = UserAgent()
 
@@ -122,7 +122,7 @@ class PlaywrightConverter:
 
         for idx, page in enumerate(convert_from_path(output_pdf, dpi=100)):
             page.save(folder / f"slide_{(idx + 1):02d}.jpg")
-        info(f"Converted PDF saved at: {output_pdf}")
+        debug(f"Converted PDF saved at: {output_pdf}")
         return folder
 
 

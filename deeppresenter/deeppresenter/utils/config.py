@@ -351,11 +351,11 @@ class DeepPresenterConfig(BaseModel):
                 self.context_window = CONTEXT_LENGTH_LIMIT
 
         if self.context_folding:
-            info(
+            debug(
                 f"Context folding is enabled, context window: {self.context_window}, max folds: {self.max_context_folds}"
             )
         else:
-            info(f"Context folding is disabled, context window: {self.context_window}")
+            debug(f"Context folding is disabled, context window: {self.context_window}")
 
         return super().model_post_init(context)
 

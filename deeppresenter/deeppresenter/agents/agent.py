@@ -265,6 +265,7 @@ class Agent:
                     info(f"Tool call `{t.function}` encountered error: {e}")
                     continue
             used_tools.add(t.function.name)
+            info(f"{self.name} Agent calling tool `{t.function.name}`")
             coros.append(self.agent_env.tool_execute(t))
 
         observations.extend(await asyncio.gather(*coros))
@@ -436,6 +437,6 @@ class Agent:
                 for msg in self.error_history:
                     writer.write(msg.model_dump())
 
-        info(
+        debug(
             f"{self.name} done | cost:{self.cost} ctx:{self.context_length} | history:{history_file.name} config:{config_file.name}"
         )

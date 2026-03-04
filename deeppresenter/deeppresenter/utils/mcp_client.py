@@ -8,7 +8,7 @@ from mcp.client.sse import sse_client
 from mcp.client.stdio import logger, stdio_client
 
 from deeppresenter.utils.constants import MCP_CALL_TIMEOUT, MCP_CONNECT_TIMEOUT
-from deeppresenter.utils.log import error, exception, info, warning
+from deeppresenter.utils.log import debug, error, exception, warning
 from deeppresenter.utils.typings import MCPServer
 
 logger.setLevel("WARNING")
@@ -76,7 +76,7 @@ class MCPClient:
                     await exit_stack.aclose()
                 except Exception:
                     exception("Error during exit stack close")
-                info(f"MCP session {server_id} closed")
+                debug(f"MCP session {server_id} closed")
 
         asyncio.create_task(mcp_session_runner())
         await ready_event.wait()
@@ -95,7 +95,7 @@ class MCPClient:
             )
             await asyncio.wait_for(session.initialize(), timeout=MCP_CONNECT_TIMEOUT)
             self.sessions[server_id] = session
-            info(f"Connected to server {server_id}")
+            debug(f"Connected to server {server_id}")
         except TimeoutError:
             error(f"Timeout connecting to SSE server {server_id}")
             self._close_server(server_id)
@@ -123,7 +123,7 @@ class MCPClient:
             session = await exit_stack.enter_async_context(ClientSession(stdio, write))
             await asyncio.wait_for(session.initialize(), timeout=MCP_CONNECT_TIMEOUT)
             self.sessions[server_id] = session
-            info(f"Connected to server {server_id}.")
+            debug(f"Connected to server {server_id}.")
         except TimeoutError:
             error(f"Timeout connecting to server {server_id}")
             await self._close_server(server_id)

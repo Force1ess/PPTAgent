@@ -67,7 +67,7 @@ class AgentLoop:
             hello_message = f"DeepPresenter running in {self.workspace}, with {len(request.attachments)} attachments, prompt={request.instruction}"
             if self.config.offline_mode:
                 hello_message += " [Offline Mode]"
-            info(hello_message)
+            debug(hello_message)
             yield ChatMessage(role=Role.SYSTEM, content=hello_message)
             self.research_agent = Research(
                 self.config,
@@ -180,7 +180,7 @@ class AgentLoop:
                 self.intermediate_output["final"] = str(pptx_path)
                 msg = pptx_path
             self.save_results()
-            info(f"DeepPresenter finished, final output at: {msg}")
+            debug(f"DeepPresenter finished, final output at: {msg}")
             yield msg
 
     def save_results(self):
