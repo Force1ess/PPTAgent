@@ -9,11 +9,11 @@ from typing import Literal
 
 from fastmcp import FastMCP
 from mcp.types import ImageContent
-from pptagent.model_utils import _get_lid_model
 
 from deeppresenter.utils.config import DeepPresenterConfig
 from deeppresenter.utils.log import info, set_logger
 from deeppresenter.utils.webview import PlaywrightConverter, convert_html_to_pptx
+from pptagent.model_utils import _get_lid_model
 
 mcp = FastMCP("DeepPresenter")
 CONFIG = DeepPresenterConfig.load_from_file(os.getenv("CONFIG_FILE"))

@@ -10,6 +10,7 @@ from collections import defaultdict
 from collections.abc import Callable
 from pathlib import Path
 
+import docker
 from docker.errors import DockerException, NotFound
 from fastmcp.utilities.json_schema import compress_schema
 from fastmcp.utilities.types import get_cached_typeadapter
@@ -19,8 +20,7 @@ from openai.types.chat.chat_completion_message_tool_call import (
 )
 from pydantic import BaseModel
 
-import docker
-from deeppresenter.utils.config import GLOBAL_CONFIG, DeepPresenterConfig
+from deeppresenter.utils.config import DeepPresenterConfig
 from deeppresenter.utils.constants import (
     CUTOFF_WARNING,
     LOGGING_LEVEL,
@@ -51,7 +51,7 @@ class AgentEnv:
     def __init__(
         self,
         workspace: Path,
-        config: DeepPresenterConfig = GLOBAL_CONFIG,
+        config: DeepPresenterConfig,
         cutoff_len: int = TOOL_CUTOFF_LEN,
     ):
         if isinstance(workspace, str):

@@ -3,22 +3,17 @@
 from __future__ import annotations
 
 import json
-import sys
 import uuid
 from pathlib import Path
-
-# Must set sys.path before importing deeppresenter
-PROJECT_ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
 
 import pytest  # noqa: E402
 from openai.types.chat.chat_completion_message_tool_call import (
     ChatCompletionMessageFunctionToolCall as ToolCall,  # noqa: E402
 )
 from openai.types.chat.chat_completion_message_tool_call import Function  # noqa: E402
+from utils.config import DeepPresenterConfig  # noqa: E402
 
-from deeppresenter.agents.env import AgentEnv  # noqa: E402
-from deeppresenter.utils.config import GLOBAL_CONFIG  # noqa: E402
+from deeppresenter.agents.env import AgentEnv
 
 TEST_OUTPUT_DIR = Path(__file__).parent / "test_outputs"
 
@@ -73,7 +68,7 @@ def workspace(tmp_path: Path, request) -> Path:
 async def agent_env(workspace: Path):
     """Create an AgentEnv instance with test MCP config (sandbox only)."""
     # Use test config that only includes sandbox server
-    config = GLOBAL_CONFIG.model_copy()
+    config = DeepPresenterConfig.load_from_file()
     async with AgentEnv(workspace, config=config) as env:
         yield env
 
@@ -94,10 +89,10 @@ sequenceDiagram
     participant 后端
     participant 数据库
 
-    用户->>前端: 提交请求
-    前端->>后端: 发送API调用
-    后端->>数据库: 查询数据
-    数据库-->>后端: 返回结果
-    后端-->>前端: 返回JSON数据
-    前端-->>用户: 显示结果
+    用户->>前端：提交请求
+    前端->>后端：发送 API 调用
+    后端->>数据库：查询数据
+    数据库-->>后端：返回结果
+    后端-->>前端：返回 JSON 数据
+    前端-->>用户：显示结果
 """

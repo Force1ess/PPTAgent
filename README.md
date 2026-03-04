@@ -31,7 +31,7 @@
 </div>
 
 <div align="center">
-  <img src="resource/pptagent-logo.png" width="240px">
+  <img src="resource/pptagent-logo.png" width="240px" alt="https://github.com/icip-cas/PPTAgent">
 </div>
 
 https://github.com/user-attachments/assets/938889e8-d7d8-4f4f-b2a1-07ee3ef3991a
@@ -70,13 +70,13 @@ DeepPresenter now provides a command-line interface for easy usage:
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Interactive configuration (first time)
-uvx deeppresenter onboard
+uvx pptagent onboard
 
 # Generate presentation
-uvx deeppresenter generate "Single Page with Title: Hello World" -o hello.pptx
+uvx pptagent generate "Single Page with Title: Hello World" -o hello.pptx
 
 # With attachments and options
-uvx deeppresenter generate "Q4 Report" \
+uvx pptagent generate "Q4 Report" \
   -f data.xlsx \
   -f charts.pdf \
   -p "10-12" \
@@ -84,10 +84,10 @@ uvx deeppresenter generate "Q4 Report" \
 ```
 
 **CLI Commands:**
-- `deeppresenter onboard` - Interactive configuration wizard
-- `deeppresenter generate` - Generate presentations
-- `deeppresenter config` - View current configuration
-- `deeppresenter reset` - Reset configuration
+- `pptagent onboard` - Interactive configuration wizard
+- `pptagent generate` - Generate presentations
+- `pptagent config` - View current configuration
+- `pptagent reset` - Reset configuration
 
 **Options:**
 - `-f, --file` - Attachment files (multiple allowed)
@@ -103,8 +103,8 @@ uvx deeppresenter generate "Q4 Report" \
 - **Create configuration files** (from project root):
 
   ```bash
-  cp deeppresenter/deeppresenter/config.yaml.example deeppresenter/deeppresenter/config.yaml
-  cp deeppresenter/deeppresenter/mcp.json.example deeppresenter/deeppresenter/mcp.json
+  cp deeppresenter/config.yaml.example deeppresenter/config.yaml
+  cp deeppresenter/mcp.json.example deeppresenter/mcp.json
   ```
 
 - **Online setup**:
@@ -114,8 +114,8 @@ uvx deeppresenter generate "Q4 Report" \
 
 - **Offline setup**:
   - **MinerU**: Deploy the MinerU server by following the instructions at [MinerU docker guide](https://opendatalab.github.io/MinerU/quick_start/docker_deployment/#start-services-directly-with-docker-compose)
-  - **Config switch**: Set `offline_mode: true` in [`config.yaml`](deeppresenter/deeppresenter/config.yaml) to avoid loading network-dependent tools (e.g., `fetch`, `search`).
-  - **MinerU endpoint**: Set `MINERU_API_URL` in [`mcp.json`](deeppresenter/deeppresenter/mcp.json) to your local MinerU service URL
+  - **Config switch**: Set `offline_mode: true` in [`config.yaml`](deeppresenter/config.yaml) to avoid loading network-dependent tools (e.g., `fetch`, `search`).
+  - **MinerU endpoint**: Set `MINERU_API_URL` in [`mcp.json`](deeppresenter/mcp.json) to your local MinerU service URL
 
 ### 2. Service Startup
 
@@ -130,17 +130,16 @@ Build docker images: `docker compose build`
 - **Running locally**:
 
   ```bash
-  cd deeppresenter
   uv pip install -e .
   playwright install-deps
   playwright install chromium
-  npm install
-  npx playwright install chromium
+  # Install Node.js dependencies for html2pptx
+  cd deeppresenter/html2pptx && npm install && cd ../..
   python webui.py
   ```
 
 > [!TIP]
-> 🚀 All configurable variables can be found in [constants.py](deeppresenter/deeppresenter/utils/constants.py).
+> 🚀 All configurable variables can be found in [constants.py](deeppresenter/utils/constants.py).
 
 ## Case Study 💡
 

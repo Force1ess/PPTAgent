@@ -387,6 +387,3 @@ class DeepPresenterConfig(BaseModel):
 
     def __getitem__(self, key: str) -> Any:
         return getattr(self, key)
-
-
-GLOBAL_CONFIG = DeepPresenterConfig.load_from_file()

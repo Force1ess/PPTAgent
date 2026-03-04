@@ -13,16 +13,16 @@ Features:
 
 Usage:
     # First time setup
-    deeppresenter onboard
+    deeppresenter onboard  # or: pptagent onboard
 
     # Generate presentation
     deeppresenter generate "Your topic" -f file1.pdf -f file2.xlsx
 
     # View configuration
-    deeppresenter config
+    deeppresenter config  # or: pptagent config
 
     # Reset configuration
-    deeppresenter reset
+    deeppresenter reset  # or: pptagent reset
 
 For detailed usage, see README_CLI.md and USAGE_EXAMPLE.md
 """

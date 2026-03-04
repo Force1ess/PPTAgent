@@ -152,6 +152,69 @@ def check_playwright_browsers():
         return False
 
 
+def check_npm_dependencies():
+    """Check and install required npm packages for html2pptx"""
+    import subprocess
+
+    console.print("\n[bold cyan]Checking Node.js dependencies...[/bold cyan]")
+
+    required_packages = ["fast-glob", "minimist", "pptxgenjs"]
+
+    # Install to package directory
+    html2pptx_dir = PACKAGE_DIR / "html2pptx"
+
+    try:
+        # Check if npm is available
+        npm_check = subprocess.run(
+            ["npm", "--version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+
+        if npm_check.returncode != 0:
+            console.print(
+                "[yellow]⚠[/yellow] npm not found. Please install Node.js to use html2pptx features."
+            )
+            return False
+
+        # Install required packages to html2pptx directory
+        console.print(
+            f"[dim]Installing to {html2pptx_dir}: {', '.join(required_packages)}[/dim]"
+        )
+        install_result = subprocess.run(
+            ["npm", "install", "--prefix", str(html2pptx_dir)] + required_packages,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+
+        if install_result.returncode == 0:
+            console.print("[green]✓[/green] Node.js dependencies installed")
+            return True
+        else:
+            console.print(
+                f"[yellow]⚠[/yellow] Failed to install npm packages: {install_result.stderr}"
+            )
+            console.print("[yellow]You can install them manually:[/yellow]")
+            console.print(
+                f"  cd {html2pptx_dir} && npm install {' '.join(required_packages)}"
+            )
+            return False
+
+    except subprocess.TimeoutExpired:
+        console.print("[yellow]⚠[/yellow] npm installation timed out")
+        return False
+    except FileNotFoundError:
+        console.print(
+            "[yellow]⚠[/yellow] npm not found. Please install Node.js to use html2pptx features."
+        )
+        return False
+    except Exception as e:
+        console.print(f"[yellow]⚠[/yellow] Error installing npm packages: {e}")
+        return False
+
+
 def check_docker_image():
     """Check if deeppresenter-sandbox image exists, pull if not"""
     import subprocess
@@ -274,6 +337,9 @@ def onboard():
 
     # Check and install Playwright browsers
     check_playwright_browsers()
+
+    # Check and install npm dependencies
+    check_npm_dependencies()
 
     # Check if config files exist in current directory
     local_config = Path.cwd() / "deeppresenter" / "deeppresenter" / "config.yaml"
@@ -418,7 +484,7 @@ def generate(
     # Check onboarding
     if not is_onboarded():
         console.print(
-            "[bold red]Error:[/bold red] Please run 'deeppresenter onboard' first"
+            "[bold red]Error:[/bold red] Please run 'deeppresenter onboard' (or 'pptagent onboard') first"
         )
         sys.exit(1)
 
@@ -461,7 +527,8 @@ def generate(
             Panel.fit(
                 f"[bold]Prompt:[/bold] {prompt}\n"
                 f"[bold]Attachments:[/bold] {len(attachments)}\n"
-                f"[bold]Workspace:[/bold] {loop.workspace}",
+                f"[bold]Workspace:[/bold] {loop.workspace}\n"
+                f"[bold]Version:[/bold] {version}",
                 title="Generation Task",
             )
         )
@@ -493,7 +560,11 @@ def generate(
         console.print("\n[yellow]Interrupted by user[/yellow]")
         sys.exit(1)
     except Exception as e:
+        import traceback
+
         console.print(f"\n[bold red]Failed:[/bold red] {e}")
+        console.print("\n[dim]Traceback:[/dim]")
+        console.print(traceback.format_exc())
         sys.exit(1)
 
 
@@ -502,7 +573,7 @@ def config():
     """Show current configuration"""
     if not is_onboarded():
         console.print(
-            "[bold red]Not configured.[/bold red] Run 'deeppresenter onboard' first."
+            "[bold red]Not configured.[/bold red] Run 'deeppresenter onboard' (or 'pptagent onboard') first."
         )
         return
 

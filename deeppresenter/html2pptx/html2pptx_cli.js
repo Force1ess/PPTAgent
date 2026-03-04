@@ -1,5 +1,12 @@
 const fs = require("node:fs");
 const path = require("node:path");
+
+// Add local node_modules to module search path
+const localNodeModules = path.join(__dirname, "node_modules");
+if (fs.existsSync(localNodeModules)) {
+  module.paths.unshift(localNodeModules);
+}
+
 const fg = require("fast-glob");
 const minimist = require("minimist");
 const pptxgen = require("pptxgenjs");

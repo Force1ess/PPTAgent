@@ -9,7 +9,7 @@ from deeppresenter.agents.design import Design
 from deeppresenter.agents.env import AgentEnv
 from deeppresenter.agents.pptagent import PPTAgent
 from deeppresenter.agents.research import Research
-from deeppresenter.utils.config import GLOBAL_CONFIG, DeepPresenterConfig
+from deeppresenter.utils.config import DeepPresenterConfig
 from deeppresenter.utils.constants import WORKSPACE_BASE
 from deeppresenter.utils.log import debug, error, info, set_logger, timer, warning
 from deeppresenter.utils.typings import ChatMessage, ConvertType, InputRequest, Role
@@ -19,7 +19,7 @@ from deeppresenter.utils.webview import PlaywrightConverter, convert_html_to_ppt
 class AgentLoop:
     def __init__(
         self,
-        config: DeepPresenterConfig = GLOBAL_CONFIG,
+        config: DeepPresenterConfig,
         session_id: str | None = None,
         workspace: Path = None,
         language: Literal["zh", "en"] = "en",

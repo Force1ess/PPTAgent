@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pptagent"
 authors = [{ name = "Hao Zheng", email = "wszh712811@gmail.com" }]
-description = "PPTAgent, a tool for utilizing LLMs to generate PowerPoint presentations from documents."
+description = "An Agentic Framework for Reflective PowerPoint Generation"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
@@ -27,38 +27,61 @@ keywords = [
     "document-processing",
 ]
 dependencies = [
+    "aiohttp>=3.9.0",
     "aiometer",
     "aiofiles",
-    "aiohttp",
+    "arxiv>=2.2.0",
     "beautifulsoup4",
+    "binaryornot>=0.4.4",
+    "colorlog>=6.9.0",
+    "docker>=7.1.0",
+    "fake-useragent>=2.2.0",
     "fastapi[all]",
-    "fastmcp>=2.10.0",
+    "fastmcp>=2.10.0,<2.14.0",
+    "fasttext>=0.9.3",
+    "filelock>=3.0.0",
+    "firecrawl-py>=4.10.2",
     "func_argparse",
+    "gradio>=5.47.2,<6.0",
     "html2image",
-    "jinja2",
-    "json_repair",
-    "jsonlines",
+    "httpx>=0.28.0",
+    "httpx-retries>=0.4.5",
+    "jinja2>=3.1.6",
+    "json-repair>=0.51.0",
+    "jsonlines>=4.0.0",
+    "langchain_mcp_adapters",
     "lxml",
+    "markitdown>=0.0.2",
     "mcp>=1.14.0",
-    "mistune",
+    "mistune>=3.1.4",
     "numpy<2.0.0",
     "oaib",
-    "openai>=1.107.3",
+    "openai>=1.108.2",
     "opencv-python-headless",
     "openpyxl",
     "pdf2image",
     "pillow",
-    "pydantic>=2.10.0",
-    "PyYAML",
+    "platformdirs>=4.0.0",
+    "playwright>=1.55.0",
+    "pptagent-pptx>=0.0.1",
+    "pre-commit>=4.3.0",
+    "pydantic>=2.11.9",
+    "pypdf>=6.1.1",
+    "python-dotenv>=1.0.0",
     "python-Levenshtein",
     "python-multipart",
-    "pptagent-pptx>=0.0.1",
+    "python-pptx>=0.6.21",
+    "PyYAML",
     "pytest",
     "pytest-asyncio",
     "pytest-xdist",
-    "rich",
+    "rich>=13.0.0",
+    "semanticscholar>=0.11.0",
     "socksio",
+    "tavily-python>=0.7.14",
     "tenacity",
+    "trafilatura>=2.0.0",
+    "typer>=0.9.0",
     "uvicorn",
 ]
 
@@ -78,6 +101,7 @@ full = [
 "Bug Tracker" = "https://github.com/icip-cas/PPTAgent/issues"
 
 [project.scripts]
+pptagent = "deeppresenter.cli:main"
 pptagent-mcp = "pptagent.mcp_server:main"
 
 [tool.setuptools]
@@ -85,8 +109,8 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["pptagent*"]
-exclude = ["pptagent_ui*", "test"]
+include = ["pptagent*", "deeppresenter*"]
+exclude = ["pptagent_ui*", "*.test", "*.test.*", "test.*", "test", "sarl*", "data*", "harness*"]
 
 [tool.setuptools.package-data]
 "pptagent" = [
@@ -97,6 +121,13 @@ exclude = ["pptagent_ui*", "test"]
     "templates/**/*.txt",
     "templates/**/*.json",
     "templates/**/*.pptx",
+]
+"deeppresenter" = [
+    "roles/*.yaml",
+    "html2pptx/*.js",
+    "html2pptx/package.json",
+    "config.yaml.example",
+    "mcp.json.example",
 ]
 
 [tool.pytest.ini_options]
@@ -110,7 +141,6 @@ markers = [
 
 [tool.ruff.lint]
 ignore = ["F403", "F405", "E741", "E722"]
-
 
 [tool.setuptools.dynamic]
 version = { attr = "pptagent.__version__" }
