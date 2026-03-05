@@ -2,8 +2,8 @@ import json
 import warnings
 from os.path import join
 
-from src.model_utils import ModelManager
-from src.utils import Config
+from pptagent.model_utils import ModelManager
+from pptagent.utils import Config
 
 
 # warning of zipfile indicates that presentation save failed

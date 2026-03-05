@@ -1,14 +1,14 @@
 from bs4 import BeautifulSoup
 from pptagent_pptx import Presentation
-from src.apis import (
+from test.conftest import test_config
+
+from pptagent.apis import (
     API_TYPES,
     CodeExecutor,
     markdown,
     process_element,
     replace_para,
 )
-
-from test.conftest import test_config
 
 
 def test_api_docs():

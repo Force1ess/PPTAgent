@@ -15,9 +15,9 @@ CLAUDE.md
 AGENTS.md
 **/images/*.png
 **/images/*.jpg
-deeppresenter/deeppresenter/config.yaml
-deeppresenter/deeppresenter/mcp.json
-deeppresenter/deeppresenter/.tools.json
+*/config.yaml
+*/mcp.json
+*/.tools.json
 **/test_output
 
 # Copy from vuejs

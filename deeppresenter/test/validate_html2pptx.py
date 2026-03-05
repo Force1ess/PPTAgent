@@ -10,13 +10,13 @@ from collections.abc import Iterable
 from pathlib import Path
 
 import torch
-from pptagent.model_utils import get_image_embedding, get_image_model
-from pptagent.utils import ppt_to_images
 from pptx import Presentation
 from tqdm.asyncio import tqdm_asyncio
 
 from deeppresenter.main import InputRequest
 from deeppresenter.utils.webview import PlaywrightConverter, convert_html_to_pptx
+from pptagent.model_utils import get_image_embedding, get_image_model
+from pptagent.utils import ppt_to_images
 
 SIMILARITY_THRESHOLD = 0.8
 MAX_CONCURRENCY = 4
