@@ -11,7 +11,7 @@ from deeppresenter.agents.pptagent import PPTAgent
 from deeppresenter.agents.research import Research
 from deeppresenter.utils.config import DeepPresenterConfig
 from deeppresenter.utils.constants import WORKSPACE_BASE
-from deeppresenter.utils.log import debug, error, info, set_logger, timer, warning
+from deeppresenter.utils.log import debug, error, set_logger, timer, warning
 from deeppresenter.utils.typings import ChatMessage, ConvertType, InputRequest, Role
 from deeppresenter.utils.webview import PlaywrightConverter, convert_html_to_pptx
 

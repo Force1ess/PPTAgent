@@ -133,8 +133,7 @@ Build docker images: `docker compose build`
   uv pip install -e .
   playwright install-deps
   playwright install chromium
-  # Install Node.js dependencies for html2pptx
-  cd deeppresenter/html2pptx && npm install && cd ../..
+  npm install
   python webui.py
   ```
 

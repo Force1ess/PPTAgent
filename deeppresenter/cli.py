@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
 """DeepPresenter CLI - Terminal interface for PPT generation"""
 
-import os
-import sys
-
-# Suppress warnings before importing anything else
-os.environ["PYTHONWARNINGS"] = "ignore"
-
 import asyncio
 import json
+import platform
 import shutil
+import subprocess
+import sys
+import time
+import traceback
+import uuid
 import warnings
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 # Suppress common warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -28,41 +31,113 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 
+import deeppresenter.utils.webview as webview
 from deeppresenter import __version__ as version
 from deeppresenter.main import AgentLoop, InputRequest
 from deeppresenter.utils.config import DeepPresenterConfig
 from deeppresenter.utils.constants import PACKAGE_DIR
 
-app = typer.Typer(help="DeepPresenter - Agentic PowerPoint Generation")
+app = typer.Typer(
+    help="DeepPresenter - Agentic PowerPoint Generation", no_args_is_help=True
+)
 console = Console()
 
 CONFIG_DIR = Path.home() / ".config" / "deeppresenter"
 CONFIG_FILE = CONFIG_DIR / "config.yaml"
 MCP_FILE = CONFIG_DIR / "mcp.json"
 
+LOCAL_MODEL = "Forceless/DeepPresenter-9B-GGUF:q4_K_M"
+LOCAL_BASE_URL = "http://127.0.0.1:8080/v1"
+REQUIRED_LLM_KEYS = [
+    "research_agent",
+    "design_agent",
+    "long_context_model",
+]
 
-def ensure_config_dir():
-    """Ensure config directory exists"""
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+
+def is_local_model_server_running() -> bool:
+    """Check whether local OpenAI-compatible server responds on /v1/models."""
+    try:
+        models_url = f"{LOCAL_BASE_URL.rstrip('/')}/models"
+        req = Request(models_url, method="GET")
+        with urlopen(req, timeout=2) as resp:
+            if resp.status != 200:
+                return False
+            payload = json.loads(resp.read().decode("utf-8") or "{}")
+            return isinstance(payload, dict) and isinstance(payload.get("data"), list)
+    except (
+        HTTPError,
+        URLError,
+        TimeoutError,
+        ValueError,
+        json.JSONDecodeError,
+        OSError,
+    ):
+        return False
+
+
+def setup_inference() -> bool:
+    """Ensure local inference service is running."""
+    if is_local_model_server_running():
+        return True
+
+    system = platform.system().lower()
+    cmd: list[str] | None = None
+
+    if system == "darwin":
+        console.print(
+            f"[cyan]Local model service is not running, starting llama-server -hf {LOCAL_MODEL}[/cyan]"
+        )
+        cmd = ["llama-server", "-hf", LOCAL_MODEL, "-c", "50000"]
+    elif system == "linux":
+        script_path = PACKAGE_DIR / "deeppresenter" / "sglang.sh"
+        if not script_path.exists():
+            console.print(
+                f"[bold red]Error:[/bold red] Missing startup script: {script_path}"
+            )
+            return False
+        console.print(
+            f"[cyan]Local model service is not running, starting {script_path}[/cyan]"
+        )
+        cmd = ["bash", str(script_path)]
+    elif system == "windows":
+        console.print(
+            "[bold red]Error:[/bold red] Please use WSL and run resource/sglang.sh inside WSL first."
+        )
+        return False
+
+    if cmd is None:
+        return False
+
+    try:
+        process = subprocess.Popen(cmd)
+    except FileNotFoundError:
+        console.print(
+            "[bold red]Error:[/bold red] llama-server not found. Please install llama.cpp first."
+        )
+        return False
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] Failed to start local service: {e}")
+        return False
+
+    while True:
+        if is_local_model_server_running():
+            return True
+
+        if process.poll() is not None:
+            if is_local_model_server_running():
+                return True
+            console.print(
+                f"[bold red]Error:[/bold red] Local model service exited unexpectedly with code {process.returncode}."
+            )
+            return False
+
+        time.sleep(1)
 
 
 def is_onboarded() -> bool:
     """Check if user has completed onboarding"""
     return CONFIG_FILE.exists() and MCP_FILE.exists()
-
-
-def load_example_configs() -> tuple[dict, list]:
-    """Load example config files from package"""
-    config_example = PACKAGE_DIR / "config.yaml.example"
-    mcp_example = PACKAGE_DIR / "mcp.json.example"
-
-    with open(config_example) as f:
-        config_data = yaml.safe_load(f)
-
-    with open(mcp_example) as f:
-        mcp_data = json.load(f)
-
-    return config_data, mcp_data
 
 
 def prompt_llm_config(
@@ -117,8 +192,6 @@ def prompt_llm_config(
 
 def check_playwright_browsers():
     """Check if Playwright browsers are installed, install if not"""
-    import subprocess
-
     console.print("\n[bold cyan]Checking Playwright browsers...[/bold cyan]")
 
     try:
@@ -153,72 +226,60 @@ def check_playwright_browsers():
 
 
 def check_npm_dependencies():
-    """Check and install required npm packages for html2pptx"""
-    import subprocess
-
+    """Check required html2pptx npm dependencies"""
     console.print("\n[bold cyan]Checking Node.js dependencies...[/bold cyan]")
 
-    required_packages = ["fast-glob", "minimist", "pptxgenjs"]
-
-    # Install to package directory
-    html2pptx_dir = PACKAGE_DIR / "html2pptx"
-
-    try:
-        # Check if npm is available
-        npm_check = subprocess.run(
-            ["npm", "--version"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-
-        if npm_check.returncode != 0:
-            console.print(
-                "[yellow]⚠[/yellow] npm not found. Please install Node.js to use html2pptx features."
-            )
-            return False
-
-        # Install required packages to html2pptx directory
+    if webview._NODE_PATH:
         console.print(
-            f"[dim]Installing to {html2pptx_dir}: {', '.join(required_packages)}[/dim]"
+            f"[green]✓[/green] Node.js dependencies found at {webview._NODE_PATH}"
         )
-        install_result = subprocess.run(
-            ["npm", "install", "--prefix", str(html2pptx_dir)] + required_packages,
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
+        return True
 
-        if install_result.returncode == 0:
-            console.print("[green]✓[/green] Node.js dependencies installed")
-            return True
-        else:
-            console.print(
-                f"[yellow]⚠[/yellow] Failed to install npm packages: {install_result.stderr}"
-            )
-            console.print("[yellow]You can install them manually:[/yellow]")
-            console.print(
-                f"  cd {html2pptx_dir} && npm install {' '.join(required_packages)}"
-            )
-            return False
+    cache_html2pptx_dir = webview._CACHE_HTML2PPTX_DIR
+    cache_html2pptx_dir.mkdir(parents=True, exist_ok=True)
 
-    except subprocess.TimeoutExpired:
-        console.print("[yellow]⚠[/yellow] npm installation timed out")
-        return False
-    except FileNotFoundError:
+    console.print(
+        "[yellow]⚠[/yellow] html2pptx Node dependencies are missing, installing to cache..."
+    )
+
+    result = subprocess.run(
+        [
+            "npm",
+            "install",
+            "--prefix",
+            str(cache_html2pptx_dir),
+            *webview._REQUIRED_PACKAGES,
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    if result.returncode != 0:
         console.print(
-            "[yellow]⚠[/yellow] npm not found. Please install Node.js to use html2pptx features."
+            f"[yellow]⚠[/yellow] Failed to install Node.js dependencies: {result.stderr or result.stdout}"
         )
+        console.print("[yellow]Please install dependencies manually:[/yellow]")
+        console.print(f"  cd {cache_html2pptx_dir} && npm install")
         return False
-    except Exception as e:
-        console.print(f"[yellow]⚠[/yellow] Error installing npm packages: {e}")
-        return False
+
+    node_modules_dir = cache_html2pptx_dir / "node_modules"
+    if all((node_modules_dir / pkg).exists() for pkg in webview._REQUIRED_PACKAGES):
+        webview._NODE_PATH = str(node_modules_dir)
+        console.print(
+            f"[green]✓[/green] Node.js dependencies installed at {webview._NODE_PATH}"
+        )
+        return True
+
+    console.print(
+        "[yellow]⚠[/yellow] Install finished but required packages are still missing"
+    )
+    console.print("[yellow]Please install dependencies manually:[/yellow]")
+    console.print(f"  cd {cache_html2pptx_dir} && npm install")
+    return False
 
 
 def check_docker_image():
     """Check if deeppresenter-sandbox image exists, pull if not"""
-    import subprocess
-
     console.print("\n[bold cyan]Checking Docker sandbox image...[/bold cyan]")
 
     try:
@@ -293,7 +354,7 @@ def check_docker_image():
 @app.command()
 def onboard():
     """Configure DeepPresenter (config.yaml and mcp.json)"""
-    ensure_config_dir()
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
     # Load existing config if available
     existing_config = None
@@ -313,10 +374,6 @@ def onboard():
         with open(CONFIG_FILE) as f:
             existing_config = yaml.safe_load(f)
 
-        # Backup existing config
-        import shutil
-        from datetime import datetime
-
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_dir = CONFIG_DIR / f"backup_{timestamp}"
         backup_dir.mkdir(exist_ok=True)
@@ -335,15 +392,15 @@ def onboard():
     # Check Docker sandbox image
     check_docker_image()
 
-    # Check and install Playwright browsers
+    # Check Playwright browsers
     check_playwright_browsers()
 
-    # Check and install npm dependencies
+    # Check npm dependencies
     check_npm_dependencies()
 
     # Check if config files exist in current directory
-    local_config = Path.cwd() / "deeppresenter" / "deeppresenter" / "config.yaml"
-    local_mcp = Path.cwd() / "deeppresenter" / "deeppresenter" / "mcp.json"
+    local_config = Path.cwd() / "deeppresenter" / "config.yaml"
+    local_mcp = Path.cwd() / "deeppresenter" / "mcp.json"
 
     config_data = None
     mcp_data = None
@@ -362,7 +419,68 @@ def onboard():
 
     # Load example configs if not reusing
     if config_data is None or mcp_data is None:
-        config_data, mcp_data = load_example_configs()
+        config_example = PACKAGE_DIR / "config.yaml.example"
+        mcp_example = PACKAGE_DIR / "mcp.json.example"
+
+        with open(config_example) as f:
+            config_data = yaml.safe_load(f)
+
+        with open(mcp_example) as f:
+            mcp_data = json.load(f)
+
+        use_local_model = False
+        if not (
+            isinstance(existing_config, dict)
+            and all(
+                isinstance(existing_config.get(key), dict)
+                and existing_config.get(key, {}).get("base_url")
+                and existing_config.get(key, {}).get("model")
+                for key in REQUIRED_LLM_KEYS
+            )
+        ):
+            console.print("\n[bold yellow]Quick Setup[/bold yellow]")
+            use_local_model = Confirm.ask(
+                f"No complete model configuration found. Configure local model service with {LOCAL_MODEL}?",
+                default=True,
+            )
+            if use_local_model:
+                system = platform.system().lower()
+                if system == "darwin":
+                    if shutil.which("brew") is None:
+                        console.print(
+                            "[bold red]✗[/bold red] Homebrew not found. Please install Homebrew first."
+                        )
+                        use_local_model = False
+                    else:
+                        console.print(
+                            "[cyan]Installing llama.cpp with Homebrew...[/cyan]"
+                        )
+                        result = subprocess.run(
+                            ["brew", "install", "llama.cpp"],
+                            capture_output=True,
+                            text=True,
+                        )
+                        if result.returncode != 0:
+                            console.print(
+                                f"[bold red]✗[/bold red] Failed to install llama.cpp: {result.stderr.strip() or result.stdout.strip()}"
+                            )
+                            use_local_model = False
+                        else:
+                            console.print("[green]✓[/green] llama.cpp installed")
+                elif system == "windows":
+                    console.print(
+                        "[bold red]✗[/bold red] Windows is not directly supported for local service setup."
+                    )
+                    console.print(
+                        "[yellow]Please use WSL, then run onboarding again inside WSL.[/yellow]"
+                    )
+                    use_local_model = False
+
+                if use_local_model and not setup_inference():
+                    console.print(
+                        "[yellow]Falling back to manual model configuration because local service is not running.[/yellow]"
+                    )
+                    use_local_model = False
 
         # Track last configured model
         last_config = None
@@ -370,39 +488,61 @@ def onboard():
         # Configure required LLMs
         console.print("\n[bold yellow]Required LLM Configurations[/bold yellow]")
 
-        research_agent = prompt_llm_config(
-            "Research Agent",
-            existing=existing_config.get("research_agent") if existing_config else None,
-            previous_config=last_config,
-        )
-        config_data["research_agent"] = research_agent
-        last_config = ("Research Agent", research_agent)
+        if use_local_model:
+            local_cfg = {
+                "base_url": LOCAL_BASE_URL,
+                "model": LOCAL_MODEL,
+                "api_key": "",
+            }
+            for key in REQUIRED_LLM_KEYS:
+                display_name = " ".join([i.capitalize() for i in key.split("_")])
+                config_data[key] = dict(local_cfg)
+                last_config = (display_name, dict(local_cfg))
+                console.print(
+                    f"[green]✓[/green] {display_name}: {LOCAL_MODEL} @ {LOCAL_BASE_URL}"
+                )
+            config_data["vision_model"] = None
+        else:
+            research_agent = prompt_llm_config(
+                "Research Agent",
+                existing=existing_config.get("research_agent")
+                if existing_config
+                else None,
+                previous_config=last_config,
+            )
+            config_data["research_agent"] = research_agent
+            last_config = ("Research Agent", research_agent)
 
-        design_agent = prompt_llm_config(
-            "Design Agent",
-            existing=existing_config.get("design_agent") if existing_config else None,
-            previous_config=last_config,
-        )
-        config_data["design_agent"] = design_agent
-        last_config = ("Design Agent", design_agent)
+            design_agent = prompt_llm_config(
+                "Design Agent",
+                existing=existing_config.get("design_agent")
+                if existing_config
+                else None,
+                previous_config=last_config,
+            )
+            config_data["design_agent"] = design_agent
+            last_config = ("Design Agent", design_agent)
 
-        long_context = prompt_llm_config(
-            "Long Context Model",
-            existing=existing_config.get("long_context_model")
-            if existing_config
-            else None,
-            previous_config=last_config,
-        )
-        config_data["long_context_model"] = long_context
-        last_config = ("Long Context Model", long_context)
+            long_context = prompt_llm_config(
+                "Long Context Model",
+                existing=existing_config.get("long_context_model")
+                if existing_config
+                else None,
+                previous_config=last_config,
+            )
+            config_data["long_context_model"] = long_context
+            last_config = ("Long Context Model", long_context)
 
-        vision_model = prompt_llm_config(
-            "Vision Model",
-            existing=existing_config.get("vision_model") if existing_config else None,
-            previous_config=last_config,
-        )
-        config_data["vision_model"] = vision_model
-        last_config = ("Vision Model", vision_model)
+            vision_model = prompt_llm_config(
+                "Vision Model",
+                optional=True,
+                existing=existing_config.get("vision_model")
+                if existing_config
+                else None,
+                previous_config=last_config,
+            )
+            config_data["vision_model"] = vision_model
+            last_config = ("Vision Model", vision_model)
 
         # Optional T2I model
         console.print("\n[bold yellow]Optional Configurations[/bold yellow]")
@@ -459,6 +599,15 @@ def onboard():
 
 
 @app.command()
+def serve():
+    """Start local inference service and stream server output"""
+    if setup_inference():
+        console.print("[bold green]✓[/bold green] Local model service is ready")
+        return
+    sys.exit(1)
+
+
+@app.command()
 def generate(
     prompt: Annotated[str, typer.Argument(help="Presentation prompt/instruction")],
     output: Annotated[
@@ -501,7 +650,7 @@ def generate(
     request = InputRequest(
         instruction=prompt,
         attachments=attachments,
-        num_pages=pages or "about 8 pages",
+        num_pages=pages,
         powerpoint_type=aspect_ratio,
     )
 
@@ -509,11 +658,17 @@ def generate(
     config = DeepPresenterConfig.load_from_file(str(CONFIG_FILE))
     config.mcp_config_file = str(MCP_FILE)
 
+    # Ensure local model service is available
+    if any(
+        "127.0.0.1" in str(config.model_dump().get(key, {}).get("base_url", ""))
+        or "localhost" in str(config.model_dump().get(key, {}).get("base_url", ""))
+        for key in REQUIRED_LLM_KEYS
+    ):
+        if not is_local_model_server_running() and not setup_inference():
+            sys.exit(1)
+
     # Run generation
     async def run():
-        import shutil
-        import uuid
-
         session_id = str(uuid.uuid4())[:8]
 
         loop = AgentLoop(
@@ -560,8 +715,6 @@ def generate(
         console.print("\n[yellow]Interrupted by user[/yellow]")
         sys.exit(1)
     except Exception as e:
-        import traceback
-
         console.print(f"\n[bold red]Failed:[/bold red] {e}")
         console.print("\n[dim]Traceback:[/dim]")
         console.print(traceback.format_exc())

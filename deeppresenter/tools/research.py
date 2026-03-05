@@ -6,15 +6,14 @@ from typing import Any, Literal
 
 import arxiv
 from fastmcp import FastMCP
-from semanticscholar import SemanticScholar
-from semanticscholar.Author import Author
+from semanticscholar import AsyncSemanticScholar
 
 from deeppresenter.utils.log import set_logger
 
 mcp = FastMCP(name="Research")
 PAGE_SIZE = int(os.getenv("ARXIV_PAGE_SIZE", "5"))
 client = arxiv.Client(page_size=PAGE_SIZE)
-sch = SemanticScholar()
+sch = AsyncSemanticScholar()
 
 
 @mcp.tool()
@@ -61,7 +60,7 @@ def search_papers(
 
 
 @mcp.tool()
-def get_paper_authors(arxiv_id: str) -> dict:
+async def get_paper_authors(arxiv_id: str) -> dict:
     """
     Get the authors of a paper by arxiv id.
     Args:
@@ -73,12 +72,12 @@ def get_paper_authors(arxiv_id: str) -> dict:
         "Invalid arxiv_id format. It should be like ARXIV:2501.03936"
     )
     fields = ["name", "citationCount", "affiliations"]
-    authors: list[Author] = list(sch.get_paper_authors(arxiv_id, fields=fields))
+    authors = await sch.get_paper_authors(arxiv_id, fields=fields)
     return {"authors": [author._data for author in authors]}
 
 
 @mcp.tool()
-def get_scholar_details(
+async def get_scholar_details(
     author_id: str,
     paper_start_index: int = 0,
     sort_by: Literal["citationCount", "year"] | None = None,
@@ -109,7 +108,7 @@ def get_scholar_details(
         "papers.year",
         "name",
     ]
-    author = sch.get_author(author_id, fields=fields)
+    author = await sch.get_author(author_id, fields=fields)
     author, papers = author._data, author._data.pop("papers")
     processed_papers = []
     for p in papers:

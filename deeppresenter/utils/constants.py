@@ -4,8 +4,6 @@ import logging
 import os
 from pathlib import Path
 
-from platformdirs import user_cache_dir
-
 # ============ Path ============
 PACKAGE_DIR = Path(__file__).parent.parent
 
@@ -28,7 +26,10 @@ PIXEL_MULTIPLE = int(os.getenv("PIXEL_MULTIPLE", 16))
 MCP_CONNECT_TIMEOUT = int(os.getenv("MCP_CONNECT_TIMEOUT", 120))
 MCP_CALL_TIMEOUT = int(os.getenv("MCP_CALL_TIMEOUT", 1800))
 WORKSPACE_BASE = Path(
-    os.getenv("DEEPPRESENTER_WORKSPACE_BASE", user_cache_dir("deeppresenter"))
+    os.getenv(
+        "DEEPPRESENTER_WORKSPACE_BASE",
+        "/tmp",
+    )
 )
 TOOL_CACHE = PACKAGE_DIR / ".tools.json"
 

@@ -5,18 +5,17 @@ from datetime import datetime
 from pathlib import Path
 
 import gradio as gr
+
 from deeppresenter.main import AgentLoop
 from deeppresenter.utils.constants import WORKSPACE_BASE
 from deeppresenter.utils.log import create_logger
 from deeppresenter.utils.typings import ChatMessage, ConvertType, InputRequest, Role
-from platformdirs import user_cache_dir
-
 from pptagent import PPTAgentServer
 
 timestamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 logger = create_logger(
     "DeepPresenterUI",
-    log_file=user_cache_dir("deeppresenter") + f"/logs/{timestamp}.log",
+    log_file=str(Path.home() / f".cache/deeppresenter/logs/{timestamp}.log"),
 )
 
 

@@ -10,7 +10,7 @@ from PIL import Image
 
 from deeppresenter.utils.config import DeepPresenterConfig
 from deeppresenter.utils.constants import PIXEL_MULTIPLE
-from deeppresenter.utils.log import debug, info, set_logger
+from deeppresenter.utils.log import debug, set_logger
 
 mcp = FastMCP(name="ToolAgents")
 
@@ -53,7 +53,7 @@ if LLM_CONFIG.t2i_model is not None:
         with open(path, "wb") as file:
             file.write(image_bytes)
 
-        info(
+        debug(
             f"Image generated: prompt='{prompt}', size=({width}x{height}), saved to '{path}'"
         )
         return "Image generated successfully, saved to " + path
@@ -70,42 +70,44 @@ Now give your answer in one sentence only, without line breaks:
 """
 
 
-@mcp.tool()
-async def image_caption(image_path: str) -> dict:
-    """
-    Generate a caption for the image, including its type and a brief description.
+if LLM_CONFIG.vision_model is not None:
 
-    Args:
-        image_path: The path to the image to caption.
+    @mcp.tool()
+    async def image_caption(image_path: str) -> dict:
+        """
+        Generate a caption for the image, including its type and a brief description.
 
-    Returns:
-        The caption and size for the image
-    """
-    assert Path(image_path).is_file(), f"Image path {image_path} does not exist"
-    with Image.open(image_path) as img:
-        img.verify()
-        size = img.size
-    with open(image_path, "rb") as f:
-        image_b64 = (
-            f"data:image/jpeg;base64,{base64.b64encode(f.read()).decode('utf-8')}"
+        Args:
+            image_path: The path to the image to caption.
+
+        Returns:
+            The caption and size for the image
+        """
+        assert Path(image_path).is_file(), f"Image path {image_path} does not exist"
+        with Image.open(image_path) as img:
+            img.verify()
+            size = img.size
+        with open(image_path, "rb") as f:
+            image_b64 = (
+                f"data:image/jpeg;base64,{base64.b64encode(f.read()).decode('utf-8')}"
+            )
+        response = await LLM_CONFIG.vision_model.run(
+            messages=[
+                {"role": "system", "content": _CAPTION_SYSTEM},
+                {
+                    "role": "user",
+                    "content": [{"type": "image_url", "image_url": {"url": image_b64}}],
+                },
+            ],
         )
-    response = await LLM_CONFIG.vision_model.run(
-        messages=[
-            {"role": "system", "content": _CAPTION_SYSTEM},
-            {
-                "role": "user",
-                "content": [{"type": "image_url", "image_url": {"url": image_b64}}],
-            },
-        ],
-    )
 
-    info(
-        f"Image captioned: path='{image_path}', caption='{response.choices[0].message.content}'"
-    )
-    return {
-        "size": size,
-        "caption": response.choices[0].message.content,
-    }
+        debug(
+            f"Image captioned: path='{image_path}', caption='{response.choices[0].message.content}'"
+        )
+        return {
+            "size": size,
+            "caption": response.choices[0].message.content,
+        }
 
 
 _SUMMARY_SYSTEM = """

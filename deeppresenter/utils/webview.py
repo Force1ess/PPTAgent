@@ -42,6 +42,19 @@ ASPECT_RATIOS = {
     "A4": {"width": "794px", "height": "1123px"},
 }
 
+_REQUIRED_PACKAGES = ("fast-glob", "minimist", "pptxgenjs")
+_CACHE_HTML2PPTX_DIR = Path.home() / ".cache/deeppresenter/html2pptx"
+_NODE_MODULE_CANDIDATES = (
+    PACKAGE_DIR / "html2pptx" / "node_modules",
+    _CACHE_HTML2PPTX_DIR / "node_modules",
+)
+
+_NODE_PATH = None
+for p in _NODE_MODULE_CANDIDATES:
+    if all((p / pkg).exists() for pkg in _REQUIRED_PACKAGES):
+        _NODE_PATH = str(p)
+        break
+
 
 class PlaywrightConverter:
     _playwright = None
@@ -132,6 +145,10 @@ async def convert_html_to_pptx(
     aspect_ratio: Literal["16:9", "4:3", "A1", "A2", "A3", "A4"] = "16:9",
     soft_parsing: bool = False,
 ):
+    if _NODE_PATH is None:
+        raise FileNotFoundError(
+            "Node.js dependencies not found, please run `pptagent onboard` first"
+        )
     script_path = PACKAGE_DIR / "html2pptx" / "html2pptx_cli.js"
     if not script_path.exists():
         raise FileNotFoundError(f"html2pptx CLI not found at {script_path}")
@@ -164,6 +181,9 @@ async def convert_html_to_pptx(
     if html_dir is None and not html_files:
         raise ValueError("No HTML inputs provided")
 
+    env = os.environ.copy()
+    env["NODE_PATH"] = _NODE_PATH
+
     cmd = ["node", str(script_path), "--layout", aspect_ratio]
     if html_dir is not None:
         cmd.extend(["--html_dir", str(html_dir.resolve())])
@@ -182,17 +202,17 @@ async def convert_html_to_pptx(
 
     process = await asyncio.create_subprocess_exec(
         *cmd,
-        env=os.environ.copy(),
-        cwd=PACKAGE_DIR.parent.parent,
+        env=env,
+        cwd=str(script_path.parent),
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
     stdout, stderr = await process.communicate()
     if process.returncode != 0:
         details = (stderr or stdout or b"").decode("utf-8", errors="replace").strip()
-        if "Cannot find module 'pptxgenjs'" in details:
+        if "Cannot find module" in details:
             raise RuntimeError(
-                "html2pptx dependency 'pptxgenjs' is not installed. "
-                "Run `npm install` in the repo root."
+                "html2pptx Node dependencies are missing. "
+                f"Try: cd {_CACHE_HTML2PPTX_DIR} && npm install"
             )
         raise RuntimeError(f"html2pptx failed: {details.split('at html2pptx (')[0]}")

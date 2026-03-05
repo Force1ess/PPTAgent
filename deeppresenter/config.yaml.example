@@ -17,12 +17,13 @@ long_context_model:
   model: "glm-4.5"
   api_key: "your_key"
 
-vision_model:
-  base_url: "https://open.bigmodel.cn/api/paas/v4/"
-  model: "glm-4.6v-flash"
-  api_key: "your_key"
-
 # # this is not neccessarily required,
+
+# vision_model:
+#   base_url: "https://open.bigmodel.cn/api/paas/v4/"
+#   model: "glm-4.6v-flash"
+#   api_key: "your_key"
+
 # t2i_model:
 #   base_url: "https://ark.cn-beijing.volces.com/api/v3"
 #   model: "doubao-seedream-4.5-251128"

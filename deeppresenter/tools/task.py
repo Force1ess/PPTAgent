@@ -4,6 +4,7 @@ import os
 import re
 import shutil
 import sys
+import warnings
 from pathlib import Path
 from typing import Literal
 
@@ -14,7 +15,11 @@ from pptagent_pptx import Presentation
 from pydantic import BaseModel
 
 from deeppresenter.utils.config import DeepPresenterConfig
-from deeppresenter.utils.log import info, set_logger, warning
+from deeppresenter.utils.log import debug, set_logger, warning
+
+warnings.filterwarnings(
+    "ignore", category=DeprecationWarning, module="fastmcp.tools.tool"
+)
 
 Image.MAX_IMAGE_PIXELS = None  # only reading metadata, no actual decompression
 
@@ -166,7 +171,7 @@ def ask_user(question: str) -> str:
 @mcp.tool()
 def thinking(thought: str):
     """This tool is for explicitly reasoning about the current task state and next actions."""
-    info(f"Thought: {thought}")
+    debug(f"Thought: {thought}")
     return thought
 
 
@@ -220,7 +225,7 @@ def finalize(outcome: str, agent_name: str = "") -> str:
     if LOCAL_TODO_LOCK_PATH.exists():
         LOCAL_TODO_LOCK_PATH.unlink()
 
-    info(f"Agent {agent_name} finalized the outcome: {outcome}")
+    debug(f"Agent {agent_name} finalized the outcome: {outcome}")
     return outcome
 
 

@@ -61,7 +61,6 @@ dependencies = [
     "openpyxl",
     "pdf2image",
     "pillow",
-    "platformdirs>=4.0.0",
     "playwright>=1.55.0",
     "pptagent-pptx>=0.0.1",
     "pre-commit>=4.3.0",
@@ -128,6 +127,7 @@ exclude = ["pptagent_ui*", "*.test", "*.test.*", "test.*", "test", "sarl*", "dat
     "html2pptx/package.json",
     "config.yaml.example",
     "mcp.json.example",
+    "sglang.sh",
 ]
 
 [tool.pytest.ini_options]
@@ -143,4 +143,4 @@ markers = [
 ignore = ["F403", "F405", "E741", "E722"]
 
 [tool.setuptools.dynamic]
-version = { attr = "pptagent.__version__" }
+version = { attr = "deeppresenter.__version__" }

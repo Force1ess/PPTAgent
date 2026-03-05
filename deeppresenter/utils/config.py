@@ -338,7 +338,9 @@ class DeepPresenterConfig(BaseModel):
     research_agent: LLM = Field(description="Research agent model configuration")
     design_agent: LLM = Field(description="Design agent model configuration")
     long_context_model: LLM = Field(description="Long context model configuration")
-    vision_model: LLM = Field(description="Vision model configuration")
+    vision_model: LLM | None = Field(
+        default=None, description="Vision model configuration"
+    )
     t2i_model: LLM | None = Field(
         default=None, description="Text-to-image model configuration"
     )
@@ -378,12 +380,14 @@ class DeepPresenterConfig(BaseModel):
 
     async def validate_llms(self):
         # ? t2i endpoints might not support this api
-        await asyncio.gather(
+        tasks = [
             self.research_agent.validate(),
             self.design_agent.validate(),
             self.long_context_model.validate(),
-            self.vision_model.validate(),
-        )
+        ]
+        if self.vision_model is not None:
+            tasks.append(self.vision_model.validate())
+        await asyncio.gather(*tasks)
 
     def __getitem__(self, key: str) -> Any:
         return getattr(self, key)

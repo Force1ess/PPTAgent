@@ -11,3 +11,4 @@ recursive-include deeppresenter/roles *.yaml
 recursive-include deeppresenter/html2pptx *.js *.json
 include deeppresenter/config.yaml.example
 include deeppresenter/mcp.json.example
+include deeppresenter/sglang.sh
