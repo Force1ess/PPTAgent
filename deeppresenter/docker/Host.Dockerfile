@@ -72,7 +72,7 @@ ENV PATH="/opt/.venv/bin:${PATH}" \
 
 # Create Python virtual environment and install packages
 RUN uv venv --python 3.13 $VIRTUAL_ENV && \
-    uv pip install -e deeppresenter
+    uv pip install -e .
 
 # install libreoffice for pptx2image converting
 RUN apt install -y libreoffice poppler-utils

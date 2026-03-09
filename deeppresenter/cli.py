@@ -4,6 +4,7 @@
 import asyncio
 import json
 import platform
+import shlex
 import shutil
 import subprocess
 import sys
@@ -53,6 +54,60 @@ REQUIRED_LLM_KEYS = [
     "design_agent",
     "long_context_model",
 ]
+
+
+def format_command(cmd: list[str]) -> str:
+    """Format command for display."""
+    return shlex.join(cmd)
+
+
+def run_streaming_command(
+    cmd: list[str],
+    *,
+    success_message: str | None = None,
+    failure_message: str | None = None,
+    timeout: int | None = None,
+) -> bool:
+    """Run command and stream output to console."""
+    console.print(f"[dim]$ {format_command(cmd)}[/dim]")
+
+    try:
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        )
+    except FileNotFoundError:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] Failed to start command: {e}")
+        return False
+
+    try:
+        if process.stdout is not None:
+            for line in process.stdout:
+                console.print(line.rstrip())
+
+        returncode = process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        if process.stdout is not None:
+            remaining_output = process.stdout.read()
+            if remaining_output:
+                console.print(remaining_output.rstrip())
+        console.print("[yellow]⚠[/yellow] Command timed out")
+        return False
+
+    if returncode == 0:
+        if success_message:
+            console.print(success_message)
+        return True
+
+    if failure_message:
+        console.print(failure_message)
+    return False
 
 
 def is_local_model_server_running() -> bool:
@@ -195,26 +250,12 @@ def check_playwright_browsers():
     console.print("\n[bold cyan]Checking Playwright browsers...[/bold cyan]")
 
     try:
-        # Try to run playwright install
-        result = subprocess.run(
+        return run_streaming_command(
             ["playwright", "install", "chromium"],
-            capture_output=True,
-            text=True,
+            success_message="[green]✓[/green] Playwright browsers installed",
+            failure_message="[yellow]⚠[/yellow] Failed to install Playwright browsers",
             timeout=300,
         )
-
-        if result.returncode == 0:
-            console.print("[green]✓[/green] Playwright browsers installed")
-            return True
-        else:
-            console.print(
-                f"[yellow]⚠[/yellow] Failed to install Playwright browsers: {result.stderr}"
-            )
-            return False
-
-    except subprocess.TimeoutExpired:
-        console.print("[yellow]⚠[/yellow] Playwright installation timed out")
-        return False
     except FileNotFoundError:
         console.print(
             "[yellow]⚠[/yellow] Playwright not found. Installing browsers may fail."
@@ -242,22 +283,22 @@ def check_npm_dependencies():
         "[yellow]⚠[/yellow] html2pptx Node dependencies are missing, installing to cache..."
     )
 
-    result = subprocess.run(
-        [
-            "npm",
-            "install",
-            "--prefix",
-            str(cache_html2pptx_dir),
-            *webview._REQUIRED_PACKAGES,
-        ],
-        capture_output=True,
-        text=True,
-    )
-
-    if result.returncode != 0:
-        console.print(
-            f"[yellow]⚠[/yellow] Failed to install Node.js dependencies: {result.stderr or result.stdout}"
+    try:
+        success = run_streaming_command(
+            [
+                "npm",
+                "install",
+                "--prefix",
+                str(cache_html2pptx_dir),
+                *webview._REQUIRED_PACKAGES,
+            ],
+            failure_message="[yellow]⚠[/yellow] Failed to install Node.js dependencies",
         )
+    except FileNotFoundError:
+        console.print("[yellow]⚠[/yellow] npm not found. Please install Node.js first.")
+        return False
+
+    if not success:
         console.print("[yellow]Please install dependencies manually:[/yellow]")
         console.print(f"  cd {cache_html2pptx_dir} && npm install")
         return False
@@ -302,33 +343,11 @@ def check_docker_image():
             "[yellow]Docker image not found, pulling from forceless/deeppresenter-sandbox...[/yellow]"
         )
 
-        pull_result = subprocess.run(
+        if not run_streaming_command(
             ["docker", "pull", "forceless/deeppresenter-sandbox:0.1.0"],
-            capture_output=True,
-            text=True,
+            failure_message="[yellow]⚠[/yellow] Failed to pull Docker image",
             timeout=300,
-        )
-
-        if pull_result.returncode == 0:
-            # Tag the pulled image
-            subprocess.run(
-                [
-                    "docker",
-                    "tag",
-                    "forceless/deeppresenter-sandbox:0.1.0",
-                    "deeppresenter-sandbox:0.1.0",
-                ],
-                capture_output=True,
-                timeout=10,
-            )
-            console.print(
-                "[green]✓[/green] Successfully pulled and tagged Docker image"
-            )
-            return True
-        else:
-            console.print(
-                f"[yellow]⚠[/yellow] Failed to pull Docker image: {pull_result.stderr}"
-            )
+        ):
             console.print(
                 "[yellow]Sandbox functionality may not work. You can pull it manually:[/yellow]"
             )
@@ -337,6 +356,26 @@ def check_docker_image():
                 "  docker tag forceless/deeppresenter-sandbox:0.1.0 deeppresenter-sandbox:0.1.0"
             )
             return False
+
+        tag_result = subprocess.run(
+            [
+                "docker",
+                "tag",
+                "forceless/deeppresenter-sandbox:0.1.0",
+                "deeppresenter-sandbox:0.1.0",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if tag_result.returncode != 0:
+            console.print(
+                f"[yellow]⚠[/yellow] Failed to tag Docker image: {tag_result.stderr.strip() or tag_result.stdout.strip()}"
+            )
+            return False
+
+        console.print("[green]✓[/green] Successfully pulled and tagged Docker image")
+        return True
 
     except subprocess.TimeoutExpired:
         console.print("[yellow]⚠[/yellow] Docker command timed out")
@@ -455,15 +494,10 @@ def onboard():
                         console.print(
                             "[cyan]Installing llama.cpp with Homebrew...[/cyan]"
                         )
-                        result = subprocess.run(
+                        if not run_streaming_command(
                             ["brew", "install", "llama.cpp"],
-                            capture_output=True,
-                            text=True,
-                        )
-                        if result.returncode != 0:
-                            console.print(
-                                f"[bold red]✗[/bold red] Failed to install llama.cpp: {result.stderr.strip() or result.stdout.strip()}"
-                            )
+                            failure_message="[bold red]✗[/bold red] Failed to install llama.cpp",
+                        ):
                             use_local_model = False
                         else:
                             console.print("[green]✓[/green] llama.cpp installed")
