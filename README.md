@@ -31,7 +31,7 @@
 </div>
 
 <div align="center">
-  <img src="resource/pptagent-logo.png" width="240px" alt="https://github.com/icip-cas/PPTAgent">
+  <img src="resource/pptagent-logo.jpg" width="240px" alt="https://github.com/icip-cas/PPTAgent">
 </div>
 
 https://github.com/user-attachments/assets/938889e8-d7d8-4f4f-b2a1-07ee3ef3991a
@@ -46,6 +46,7 @@ https://github.com/user-attachments/assets/938889e8-d7d8-4f4f-b2a1-07ee3ef3991a
 </div>
 
 ## News 📅
+- [2026/03]: We now support CLI and have released our fine-tuned models on [Hugging Face 🤗](https://huggingface.co/collections/ICIP/deeppresenter)!
 - [2026/01]: We support freeform and template generation support PPTX export, offline mode now! Context management is added to avoid context overflow.
 - [2025/12]: 🔥 Released V2 with major improvements - Deep Research Integration, Free-Form Visual Design, Autonomous Asset Creation, Text-to-Image Generation, and Agent Environment with sandbox & 20+ tools.
 - [2025/09]: 🛠️ MCP server support added - see [MCP Server](PPTAgent/DOC.md#mcp-server-) for configuration details
