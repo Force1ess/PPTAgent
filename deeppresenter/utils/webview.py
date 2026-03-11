@@ -145,10 +145,6 @@ async def convert_html_to_pptx(
     aspect_ratio: Literal["16:9", "4:3", "A1", "A2", "A3", "A4"] = "16:9",
     soft_parsing: bool = False,
 ):
-    if _NODE_PATH is None:
-        raise FileNotFoundError(
-            "Node.js dependencies not found, please run `pptagent onboard` first"
-        )
     script_path = PACKAGE_DIR / "html2pptx" / "html2pptx_cli.js"
     if not script_path.exists():
         raise FileNotFoundError(f"html2pptx CLI not found at {script_path}")
