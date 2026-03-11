@@ -7,11 +7,13 @@ from pathlib import Path
 import gradio as gr
 
 from deeppresenter.main import AgentLoop
+from deeppresenter.utils.config import DeepPresenterConfig
 from deeppresenter.utils.constants import WORKSPACE_BASE
 from deeppresenter.utils.log import create_logger
 from deeppresenter.utils.typings import ChatMessage, ConvertType, InputRequest, Role
 from pptagent import PPTAgentServer
 
+config = DeepPresenterConfig.load_from_file()
 timestamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 logger = create_logger(
     "DeepPresenterUI",
@@ -92,6 +94,7 @@ class UserSession:
 
     def __init__(self):
         self.loop = AgentLoop(
+            config,
             session_id=f"{datetime.now().strftime('%Y%m%d')}/{uuid.uuid4().hex[:8]}",
         )
         self.created_time = time.time()
