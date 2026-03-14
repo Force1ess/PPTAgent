@@ -69,71 +69,72 @@ async def search_with_fallback(**kwargs) -> dict[str, Any]:
     ) from last_error
 
 
-@mcp.tool()
-async def search_web(
-    query: str,
-    max_results: int = 3,
-    time_range: Literal["month", "year"] | None = None,
-) -> dict:
-    """
-    Search the web
+if len(TAVILY_KEYS):
 
-    Args:
-        query: Search keywords
-        max_results: Maximum number of search results, default 3
-        time_range: Time range filter for search results, can be "month", "year", or None
+    @mcp.tool()
+    async def search_web(
+        query: str,
+        max_results: int = 3,
+        time_range: Literal["month", "year"] | None = None,
+    ) -> dict:
+        """
+        Search the web
 
-    Returns:
-        dict: Dictionary containing search results
-    """
-    kwargs = {"query": query, "max_results": max_results, "include_images": False}
-    if time_range:
-        kwargs["time_range"] = time_range
+        Args:
+            query: Search keywords
+            max_results: Maximum number of search results, default 3
+            time_range: Time range filter for search results, can be "month", "year", or None
 
-    result = await search_with_fallback(**kwargs)
+        Returns:
+            dict: Dictionary containing search results
+        """
+        kwargs = {"query": query, "max_results": max_results, "include_images": False}
+        if time_range:
+            kwargs["time_range"] = time_range
 
-    results = [
-        {
-            "url": item["url"],
-            "content": item["content"],
+        result = await search_with_fallback(**kwargs)
+
+        results = [
+            {
+                "url": item["url"],
+                "content": item["content"],
+            }
+            for item in result.get("results", [])
+        ]
+
+        return {
+            "query": query,
+            "total_results": len(results),
+            "results": results,
         }
-        for item in result.get("results", [])
-    ]
 
-    return {
-        "query": query,
-        "total_results": len(results),
-        "results": results,
-    }
+    @mcp.tool()
+    async def search_images(
+        query: str,
+    ) -> dict:
+        """
+        Search for web images
+        """
+        result = await search_with_fallback(
+            query=query,
+            max_results=4,
+            include_images=True,
+            include_image_descriptions=True,
+        )
 
+        images = [
+            {
+                "url": img["url"],
+                "description": img["description"],
+            }
+            for img in result.get("images", [])
+        ]
 
-@mcp.tool()
-async def search_images(
-    query: str,
-) -> dict:
-    """
-    Search for web images
-    """
-    result = await search_with_fallback(
-        query=query,
-        max_results=4,
-        include_images=True,
-        include_image_descriptions=True,
-    )
-
-    images = [
-        {
-            "url": img["url"],
-            "description": img["description"],
+        return {
+            "query": query,
+            "total_results": len(images),
+            "images": images,
         }
-        for img in result.get("images", [])
-    ]
-
-    return {
-        "query": query,
-        "total_results": len(images),
-        "images": images,
-    }
 
 
 @mcp.tool()
