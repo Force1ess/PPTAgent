@@ -110,6 +110,103 @@ def run_streaming_command(
     return False
 
 
+def ensure_homebrew() -> bool:
+    """Ensure Homebrew is installed on macOS."""
+    if shutil.which("brew") is not None:
+        console.print("[green]✓[/green] Homebrew already installed")
+        return True
+
+    console.print("[yellow]Homebrew not found, installing...[/yellow]")
+    if not Confirm.ask(
+        "Install Homebrew? (required for other dependencies)", default=True
+    ):
+        return False
+
+    console.print("[cyan]Running Homebrew installer (may require password)...[/cyan]")
+    try:
+        result = subprocess.run(
+            [
+                "/bin/bash",
+                "-c",
+                "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)",
+            ],
+            check=False,
+        )
+        if result.returncode == 0 and shutil.which("brew") is not None:
+            console.print("[green]✓[/green] Homebrew installed successfully")
+            return True
+        console.print("[bold red]✗[/bold red] Homebrew installation failed")
+        return False
+    except Exception as e:
+        console.print(f"[bold red]✗[/bold red] Failed to install Homebrew: {e}")
+        return False
+
+
+def ensure_docker() -> bool:
+    """Ensure Docker is installed on macOS."""
+    if shutil.which("docker") is not None:
+        console.print("[green]✓[/green] Docker already installed")
+        return True
+
+    console.print("[yellow]Docker not found, installing via Homebrew...[/yellow]")
+    if not Confirm.ask("Install Docker? (required for sandbox features)", default=True):
+        console.print(
+            "[yellow]⚠[/yellow] Skipping Docker installation. Sandbox features will not work."
+        )
+        return False
+
+    if not ensure_homebrew():
+        return False
+
+    try:
+        success = run_streaming_command(
+            ["brew", "install", "--cask", "docker"],
+            success_message="[green]✓[/green] Docker installed",
+            failure_message="[bold red]✗[/bold red] Failed to install Docker",
+            timeout=600,
+        )
+        if success:
+            console.print(
+                "[yellow]Note: You may need to start Docker Desktop manually[/yellow]"
+            )
+        return success
+    except FileNotFoundError:
+        console.print(
+            "[bold red]✗[/bold red] brew command not found after installation"
+        )
+        return False
+
+
+def ensure_node() -> bool:
+    """Ensure Node.js/npm is installed on macOS."""
+    if shutil.which("npm") is not None:
+        console.print("[green]✓[/green] Node.js/npm already installed")
+        return True
+
+    console.print("[yellow]Node.js not found, installing via Homebrew...[/yellow]")
+    if not Confirm.ask("Install Node.js? (required for PPT generation)", default=True):
+        console.print(
+            "[bold red]✗[/bold red] Node.js is required for DeepPresenter to work"
+        )
+        return False
+
+    if not ensure_homebrew():
+        return False
+
+    try:
+        return run_streaming_command(
+            ["brew", "install", "node"],
+            success_message="[green]✓[/green] Node.js installed",
+            failure_message="[bold red]✗[/bold red] Failed to install Node.js",
+            timeout=300,
+        )
+    except FileNotFoundError:
+        console.print(
+            "[bold red]✗[/bold red] brew command not found after installation"
+        )
+        return False
+
+
 def is_local_model_server_running() -> bool:
     """Check whether local OpenAI-compatible server responds on /v1/models."""
     try:
@@ -270,6 +367,13 @@ def check_npm_dependencies():
     """Check required html2pptx npm dependencies"""
     console.print("\n[bold cyan]Checking Node.js dependencies...[/bold cyan]")
 
+    if platform.system().lower() == "darwin" and shutil.which("npm") is None:
+        if not ensure_node():
+            console.print(
+                "[bold red]✗[/bold red] Node.js is required but not available"
+            )
+            return False
+
     if webview._NODE_PATH:
         console.print(
             f"[green]✓[/green] Node.js dependencies found at {webview._NODE_PATH}"
@@ -322,6 +426,13 @@ def check_npm_dependencies():
 def check_docker_image():
     """Check if deeppresenter-sandbox image exists, pull if not"""
     console.print("\n[bold cyan]Checking Docker sandbox image...[/bold cyan]")
+
+    if shutil.which("docker") is None:
+        if not ensure_docker():
+            console.print(
+                "[yellow]⚠[/yellow] Docker not available. Please install Docker first."
+            )
+            return False
 
     try:
         # Check if image exists
@@ -485,9 +596,9 @@ def onboard():
             if use_local_model:
                 system = platform.system().lower()
                 if system == "darwin":
-                    if shutil.which("brew") is None:
+                    if not ensure_homebrew():
                         console.print(
-                            "[bold red]✗[/bold red] Homebrew not found. Please install Homebrew first."
+                            "[bold red]✗[/bold red] Homebrew is required for local model setup"
                         )
                         use_local_model = False
                     else:

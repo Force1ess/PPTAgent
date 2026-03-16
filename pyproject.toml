@@ -109,7 +109,7 @@ include-package-data = true
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["pptagent*", "deeppresenter*"]
-exclude = ["pptagent_ui*", "*.test", "*.test.*", "test.*", "test", "sarl*", "data*", "harness*"]
+exclude = ["*.test", "*.test.*", "test.*", "test", "sarl*", "data*", "harness*"]
 
 [tool.setuptools.package-data]
 "pptagent" = [

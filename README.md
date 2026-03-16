@@ -57,14 +57,7 @@ https://github.com/user-attachments/assets/938889e8-d7d8-4f4f-b2a1-07ee3ef3991a
 
 ## Usage 📖
 
-> [!IMPORTANT]
-> 1. All these API keys, configurations, and services are **required**.
-> 2. Agent Backbone Recommendation: Use Claude for the Research Agent and Gemini for the Design Agent. GLM-5 is also a good choice in open-source models.
-> 3. Offline mode is supported with limited capabilities (see Offline Setup below).
-
 ### Quick Start with CLI 🚀
-
-DeepPresenter now provides a command-line interface for easy usage:
 
 ```bash
 # Install `uv` for package management
@@ -84,62 +77,70 @@ uvx pptagent generate "Q4 Report" \
   -o report.pptx
 ```
 
-**CLI Commands:**
-- `pptagent onboard` - Interactive configuration wizard
-- `pptagent generate` - Generate presentations
-- `pptagent config` - View current configuration
-- `pptagent reset` - Reset configuration
+**Commands:**
+| Command | Description |
+|---------|-------------|
+| `pptagent onboard` | Interactive configuration wizard |
+| `pptagent generate` | Generate presentations |
+| `pptagent config` | View current configuration |
+| `pptagent reset` | Reset configuration |
 
 **Options:**
-- `-f, --file` - Attachment files (multiple allowed)
-- `-p, --pages` - Number of pages (e.g., "8" or "5-10")
-- `-a, --aspect` - Aspect ratio (16:9, 4:3, A1, A3, A2, A4)
-- `-l, --lang` - Language (en/zh)
-- `-o, --output` - Output directory
+| Option | Description |
+|--------|-------------|
+| `-f, --file` | Attachment files (multiple allowed) |
+| `-p, --pages` | Number of pages (e.g., "8" or "5-10") |
+| `-a, --aspect` | Aspect ratio (16:9, 4:3, A1, A3, A2, A4) |
+| `-l, --lang` | Language (en/zh) |
+| `-o, --output` | Output directory |
 
 ---
 
-### 1. Environment Configuration
+### Build From Source 🛠️
 
-- **Create configuration files** (from project root):
+#### 1. Environment Configuration
 
-  ```bash
-  cp deeppresenter/config.yaml.example deeppresenter/config.yaml
-  cp deeppresenter/mcp.json.example deeppresenter/mcp.json
-  ```
+Create configuration files from project root:
 
-- **Online setup**:
-  - **MinerU**: Apply for an API key at [mineru.net](https://mineru.net/apiManage/docs). Note that each key is valid for 14 days.
-  - **Tavily**: Apply for an API key at [tavily.com](https://www.tavily.com/).
-  - **LLM**: Set your model endpoint, API keys, and related parameters in `config.yaml`.
+```bash
+cp deeppresenter/config.yaml.example deeppresenter/config.yaml
+cp deeppresenter/mcp.json.example deeppresenter/mcp.json
+```
 
-- **Offline setup**:
-  - **MinerU**: Deploy the MinerU server by following the instructions at [MinerU docker guide](https://opendatalab.github.io/MinerU/quick_start/docker_deployment/#start-services-directly-with-docker-compose)
-  - **Config switch**: Set `offline_mode: true` in [`config.yaml`](deeppresenter/config.yaml) to avoid loading network-dependent tools (e.g., `fetch`, `search`).
-  - **MinerU endpoint**: Set `MINERU_API_URL` in [`mcp.json`](deeppresenter/mcp.json) to your local MinerU service URL
+Then set up API keys depending on your deployment mode:
 
-### 2. Service Startup
+<details>
+<summary>Online setup</summary>
 
-Build docker images: `docker compose build`
+- **MinerU**: Apply for an API key at [mineru.net](https://mineru.net/apiManage/docs). Note that each key is valid for 14 days.
+- **Tavily**: Apply for an API key at [tavily.com](https://www.tavily.com/).
+- **LLM**: Set your model endpoint, API keys, and related parameters in `config.yaml`.
 
-- **From Docker Compose**:
+</details>
 
-  ```bash
-  docker compose up -d
-  ```
+<details>
+<summary>Offline setup</summary>
 
-- **Running locally**:
+- **MinerU**: Deploy the MinerU server by following the [MinerU docker guide](https://opendatalab.github.io/MinerU/quick_start/docker_deployment/#start-services-directly-with-docker-compose).
 
-  ```bash
-  uv pip install -e .
-  playwright install-deps
-  playwright install chromium
-  npm install
-  python webui.py
-  ```
+- **MinerU endpoint**: Set `MINERU_API_URL` in [`mcp.json`](deeppresenter/mcp.json) to your local MinerU service URL.
+
+- **Config switch**: Set `offline_mode: true` in [`config.yaml`](deeppresenter/config.yaml) to avoid loading network-dependent tools (e.g., `fetch`, `search`).
+
+</details>
+
+#### 2. Service Startup
+
+```bash
+uv pip install -e .
+playwright install-deps
+playwright install chromium
+npm install
+python webui.py
+```
 
 > [!TIP]
-> 🚀 All configurable variables can be found in [constants.py](deeppresenter/utils/constants.py).
+> All configurable variables can be found in [constants.py](deeppresenter/utils/constants.py).
 
 ## Case Study 💡
 
