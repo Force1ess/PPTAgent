@@ -3,6 +3,7 @@
 
 import asyncio
 import json
+import os
 import platform
 import shlex
 import shutil
@@ -235,12 +236,14 @@ def setup_inference() -> bool:
 
     system = platform.system().lower()
     cmd: list[str] | None = None
+    env = os.environ.copy()
+    env["MODEL_ENDPOINT"] = "https://www.modelscope.cn"
 
     if system == "darwin":
         console.print(
             f"[cyan]Local model service is not running, starting llama-server -hf {LOCAL_MODEL}[/cyan]"
         )
-        cmd = ["llama-server", "-hf", LOCAL_MODEL, "-c", "50000"]
+        cmd = ["llama-server", "-hf", LOCAL_MODEL, "-c", "64000", "--log-disable"]
     elif system == "linux":
         script_path = PACKAGE_DIR / "deeppresenter" / "sglang.sh"
         if not script_path.exists():
@@ -262,7 +265,7 @@ def setup_inference() -> bool:
         return False
 
     try:
-        process = subprocess.Popen(cmd)
+        process = subprocess.Popen(cmd, env=env)
     except FileNotFoundError:
         console.print(
             "[bold red]Error:[/bold red] llama-server not found. Please install llama.cpp first."
@@ -374,52 +377,35 @@ def check_npm_dependencies():
             )
             return False
 
-    if webview._NODE_PATH:
-        console.print(
-            f"[green]✓[/green] Node.js dependencies found at {webview._NODE_PATH}"
-        )
+    cache_nm = webview._CACHE_NODE_MODULES
+    required = webview._REQUIRED_PACKAGES
+
+    if all((cache_nm / pkg).exists() for pkg in required):
+        console.print(f"[green]✓[/green] Node.js dependencies found at {cache_nm}")
         return True
 
-    cache_html2pptx_dir = webview._CACHE_HTML2PPTX_DIR
-    cache_html2pptx_dir.mkdir(parents=True, exist_ok=True)
+    cache_dir = cache_nm.parent
+    cache_dir.mkdir(parents=True, exist_ok=True)
 
     console.print(
-        "[yellow]⚠[/yellow] html2pptx Node dependencies are missing, installing to cache..."
+        "[yellow]⚠[/yellow] html2pptx Node dependencies missing, installing..."
     )
 
     try:
         success = run_streaming_command(
-            [
-                "npm",
-                "install",
-                "--prefix",
-                str(cache_html2pptx_dir),
-                *webview._REQUIRED_PACKAGES,
-            ],
+            ["npm", "install", "--prefix", str(cache_dir), *required],
             failure_message="[yellow]⚠[/yellow] Failed to install Node.js dependencies",
         )
     except FileNotFoundError:
         console.print("[yellow]⚠[/yellow] npm not found. Please install Node.js first.")
         return False
 
-    if not success:
-        console.print("[yellow]Please install dependencies manually:[/yellow]")
-        console.print(f"  cd {cache_html2pptx_dir} && npm install")
-        return False
-
-    node_modules_dir = cache_html2pptx_dir / "node_modules"
-    if all((node_modules_dir / pkg).exists() for pkg in webview._REQUIRED_PACKAGES):
-        webview._NODE_PATH = str(node_modules_dir)
-        console.print(
-            f"[green]✓[/green] Node.js dependencies installed at {webview._NODE_PATH}"
-        )
+    if success and all((cache_nm / pkg).exists() for pkg in required):
+        console.print("[green]✓[/green] Node.js dependencies installed")
         return True
 
-    console.print(
-        "[yellow]⚠[/yellow] Install finished but required packages are still missing"
-    )
     console.print("[yellow]Please install dependencies manually:[/yellow]")
-    console.print(f"  cd {cache_html2pptx_dir} && npm install")
+    console.print(f"  cd {cache_dir} && npm install {' '.join(required)}")
     return False
 
 
@@ -601,7 +587,7 @@ def onboard():
                             "[bold red]✗[/bold red] Homebrew is required for local model setup"
                         )
                         use_local_model = False
-                    else:
+                    elif shutil.which("llama-server") is None:
                         console.print(
                             "[cyan]Installing llama.cpp with Homebrew...[/cyan]"
                         )

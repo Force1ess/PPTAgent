@@ -1,5 +1,4 @@
 import asyncio
-import os
 import tempfile
 from collections.abc import Iterable
 from pathlib import Path
@@ -42,18 +41,17 @@ ASPECT_RATIOS = {
     "A4": {"width": "794px", "height": "1123px"},
 }
 
-_REQUIRED_PACKAGES = ("fast-glob", "minimist", "pptxgenjs")
-_CACHE_HTML2PPTX_DIR = Path.home() / ".cache/deeppresenter/html2pptx"
-_NODE_MODULE_CANDIDATES = (
-    PACKAGE_DIR / "html2pptx" / "node_modules",
-    _CACHE_HTML2PPTX_DIR / "node_modules",
-)
+_REQUIRED_PACKAGES = ("fast-glob", "minimist", "pptxgenjs", "playwright", "sharp")
+_CACHE_NODE_MODULES = Path.home() / ".cache/deeppresenter/html2pptx/node_modules"
+SCRIPT_PATH = PACKAGE_DIR / "html2pptx" / "html2pptx_cli.js"
+LOCAL_NM = SCRIPT_PATH.parent / "node_modules"
 
-_NODE_PATH = None
-for p in _NODE_MODULE_CANDIDATES:
-    if all((p / pkg).exists() for pkg in _REQUIRED_PACKAGES):
-        _NODE_PATH = str(p)
-        break
+if not all((LOCAL_NM / pkg).exists() for pkg in _REQUIRED_PACKAGES):
+    if all((_CACHE_NODE_MODULES / pkg).exists() for pkg in _REQUIRED_PACKAGES):
+        if LOCAL_NM.is_symlink():
+            LOCAL_NM.unlink()
+        LOCAL_NM.symlink_to(_CACHE_NODE_MODULES)
+        print(f"Symlinked node_modules: {_CACHE_NODE_MODULES} -> {LOCAL_NM}")
 
 
 class PlaywrightConverter:
@@ -145,9 +143,8 @@ async def convert_html_to_pptx(
     aspect_ratio: Literal["16:9", "4:3", "A1", "A2", "A3", "A4"] = "16:9",
     soft_parsing: bool = False,
 ):
-    script_path = PACKAGE_DIR / "html2pptx" / "html2pptx_cli.js"
-    if not script_path.exists():
-        raise FileNotFoundError(f"html2pptx CLI not found at {script_path}")
+    if not SCRIPT_PATH.exists():
+        raise FileNotFoundError(f"html2pptx CLI not found at {SCRIPT_PATH}")
 
     validate_only = output_pptx is None
     output_path = None if validate_only else Path(output_pptx)
@@ -177,10 +174,7 @@ async def convert_html_to_pptx(
     if html_dir is None and not html_files:
         raise ValueError("No HTML inputs provided")
 
-    env = os.environ.copy()
-    env["NODE_PATH"] = _NODE_PATH
-
-    cmd = ["node", str(script_path), "--layout", aspect_ratio]
+    cmd = ["node", str(SCRIPT_PATH), "--layout", aspect_ratio]
     if html_dir is not None:
         cmd.extend(["--html_dir", str(html_dir.resolve())])
     else:
@@ -198,8 +192,7 @@ async def convert_html_to_pptx(
 
     process = await asyncio.create_subprocess_exec(
         *cmd,
-        env=env,
-        cwd=str(script_path.parent),
+        cwd=str(SCRIPT_PATH.parent),
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
@@ -207,8 +200,5 @@ async def convert_html_to_pptx(
     if process.returncode != 0:
         details = (stderr or stdout or b"").decode("utf-8", errors="replace").strip()
         if "Cannot find module" in details:
-            raise RuntimeError(
-                "html2pptx Node dependencies are missing. "
-                f"Try: cd {_CACHE_HTML2PPTX_DIR} && npm install"
-            )
+            raise RuntimeError("html2pptx Node dependencies are missing. ")
         raise RuntimeError(f"html2pptx failed: {details.split('at html2pptx (')[0]}")
