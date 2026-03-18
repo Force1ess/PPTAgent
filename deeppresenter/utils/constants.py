@@ -28,7 +28,7 @@ MCP_CALL_TIMEOUT = int(os.getenv("MCP_CALL_TIMEOUT", 1800))
 WORKSPACE_BASE = Path(
     os.getenv(
         "DEEPPRESENTER_WORKSPACE_BASE",
-        "/tmp",
+        str(Path.home() / ".cache/deeppresenter"),
     )
 )
 TOOL_CACHE = PACKAGE_DIR / ".tools.json"

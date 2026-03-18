@@ -67,7 +67,6 @@ def run_streaming_command(
     *,
     success_message: str | None = None,
     failure_message: str | None = None,
-    timeout: int | None = None,
 ) -> bool:
     """Run command and stream output to console."""
     console.print(f"[dim]$ {format_command(cmd)}[/dim]")
@@ -86,20 +85,11 @@ def run_streaming_command(
         console.print(f"[bold red]Error:[/bold red] Failed to start command: {e}")
         return False
 
-    try:
-        if process.stdout is not None:
-            for line in process.stdout:
-                console.print(line.rstrip())
+    if process.stdout is not None:
+        for line in process.stdout:
+            console.print(line.rstrip())
 
-        returncode = process.wait(timeout=timeout)
-    except subprocess.TimeoutExpired:
-        process.kill()
-        if process.stdout is not None:
-            remaining_output = process.stdout.read()
-            if remaining_output:
-                console.print(remaining_output.rstrip())
-        console.print("[yellow]⚠[/yellow] Command timed out")
-        return False
+    returncode = process.wait()
 
     if returncode == 0:
         if success_message:
@@ -150,11 +140,6 @@ def ensure_docker() -> bool:
         return True
 
     console.print("[yellow]Docker not found, installing via Homebrew...[/yellow]")
-    if not Confirm.ask("Install Docker? (required for sandbox features)", default=True):
-        console.print(
-            "[yellow]⚠[/yellow] Skipping Docker installation. Sandbox features will not work."
-        )
-        return False
 
     if not ensure_homebrew():
         return False
@@ -164,7 +149,6 @@ def ensure_docker() -> bool:
             ["brew", "install", "--cask", "docker"],
             success_message="[green]✓[/green] Docker installed",
             failure_message="[bold red]✗[/bold red] Failed to install Docker",
-            timeout=600,
         )
         if success:
             console.print(
@@ -199,7 +183,33 @@ def ensure_node() -> bool:
             ["brew", "install", "node"],
             success_message="[green]✓[/green] Node.js installed",
             failure_message="[bold red]✗[/bold red] Failed to install Node.js",
-            timeout=300,
+        )
+    except FileNotFoundError:
+        console.print(
+            "[bold red]✗[/bold red] brew command not found after installation"
+        )
+        return False
+
+
+def ensure_libreoffice() -> bool:
+    """Ensure LibreOffice is installed on macOS."""
+    if (
+        shutil.which("soffice") is not None
+        or Path("/Applications/LibreOffice.app").exists()
+    ):
+        console.print("[green]✓[/green] LibreOffice already installed")
+        return True
+
+    console.print("[yellow]LibreOffice not found, installing via Homebrew...[/yellow]")
+
+    if not ensure_homebrew():
+        return False
+
+    try:
+        return run_streaming_command(
+            ["brew", "install", "--cask", "libreoffice"],
+            success_message="[green]✓[/green] LibreOffice installed",
+            failure_message="[bold red]✗[/bold red] Failed to install LibreOffice",
         )
     except FileNotFoundError:
         console.print(
@@ -213,7 +223,7 @@ def is_local_model_server_running() -> bool:
     try:
         models_url = f"{LOCAL_BASE_URL.rstrip('/')}/models"
         req = Request(models_url, method="GET")
-        with urlopen(req, timeout=2) as resp:
+        with urlopen(req) as resp:
             if resp.status != 200:
                 return False
             payload = json.loads(resp.read().decode("utf-8") or "{}")
@@ -354,7 +364,6 @@ def check_playwright_browsers():
             ["playwright", "install", "chromium"],
             success_message="[green]✓[/green] Playwright browsers installed",
             failure_message="[yellow]⚠[/yellow] Failed to install Playwright browsers",
-            timeout=300,
         )
     except FileNotFoundError:
         console.print(
@@ -426,7 +435,6 @@ def check_docker_image():
             ["docker", "images", "-q", "deeppresenter-sandbox:0.1.0"],
             capture_output=True,
             text=True,
-            timeout=10,
         )
 
         if result.returncode == 0 and result.stdout.strip():
@@ -437,20 +445,22 @@ def check_docker_image():
 
         # Image not found, try to pull
         console.print(
-            "[yellow]Docker image not found, pulling from forceless/deeppresenter-sandbox...[/yellow]"
+            "[yellow]Docker image not found, pulling from Aliyun registry...[/yellow]"
         )
 
         if not run_streaming_command(
-            ["docker", "pull", "forceless/deeppresenter-sandbox:0.1.0"],
+            [
+                "docker",
+                "pull",
+                "crpi-0dz9m86qyvrdt6ju.cn-beijing.personal.cr.aliyuncs.com/pptagent/deeppresenter-sandbox:v0.1.0",
+            ],
             failure_message="[yellow]⚠[/yellow] Failed to pull Docker image",
-            timeout=300,
         ):
             console.print(
                 "[yellow]Sandbox functionality may not work. You can pull it manually:[/yellow]"
             )
-            console.print("  docker pull forceless/deeppresenter-sandbox:0.1.0")
             console.print(
-                "  docker tag forceless/deeppresenter-sandbox:0.1.0 deeppresenter-sandbox:0.1.0"
+                "  docker pull crpi-0dz9m86qyvrdt6ju.cn-beijing.personal.cr.aliyuncs.com/pptagent/deeppresenter-sandbox:v0.1.0"
             )
             return False
 
@@ -458,12 +468,11 @@ def check_docker_image():
             [
                 "docker",
                 "tag",
-                "forceless/deeppresenter-sandbox:0.1.0",
+                "crpi-0dz9m86qyvrdt6ju.cn-beijing.personal.cr.aliyuncs.com/pptagent/deeppresenter-sandbox:v0.1.0",
                 "deeppresenter-sandbox:0.1.0",
             ],
             capture_output=True,
             text=True,
-            timeout=10,
         )
         if tag_result.returncode != 0:
             console.print(
@@ -474,9 +483,6 @@ def check_docker_image():
         console.print("[green]✓[/green] Successfully pulled and tagged Docker image")
         return True
 
-    except subprocess.TimeoutExpired:
-        console.print("[yellow]⚠[/yellow] Docker command timed out")
-        return False
     except FileNotFoundError:
         console.print(
             "[yellow]⚠[/yellow] Docker not found. Please install Docker to use sandbox features."
@@ -533,6 +539,10 @@ def onboard():
 
     # Check npm dependencies
     check_npm_dependencies()
+
+    if platform.system().lower() == "darwin":
+        console.print("\n[bold cyan]Checking LibreOffice...[/bold cyan]")
+        ensure_libreoffice()
 
     # Check if config files exist in current directory
     local_config = Path.cwd() / "deeppresenter" / "config.yaml"
@@ -727,6 +737,26 @@ def onboard():
         console.print(f"[bold red]✗[/bold red] Validation failed: {e}")
         console.print("Please check your configuration and try again.")
         sys.exit(1)
+
+    # Keep a package-local copy for direct package usage.
+    package_config = PACKAGE_DIR / "config.yaml"
+    package_mcp = PACKAGE_DIR / "mcp.json"
+
+    saved_local_files: list[Path] = []
+    if not package_config.exists():
+        with open(package_config, "w") as f:
+            yaml.dump(config_data, f, default_flow_style=False, allow_unicode=True)
+        saved_local_files.append(package_config)
+
+    if not package_mcp.exists():
+        with open(package_mcp, "w") as f:
+            json.dump(mcp_data, f, indent=2, ensure_ascii=False)
+        saved_local_files.append(package_mcp)
+
+    if saved_local_files:
+        console.print("\n[bold green]✓[/bold green] Saved local configuration files:")
+        for path in saved_local_files:
+            console.print(f"  • {path}")
 
 
 @app.command()
