@@ -30,8 +30,4 @@ docker run --gpus all \
         --host 0.0.0.0 \
         --port 8080 \
         --tp $tp \
-        --speculative-draft-model-path Qwen/Qwen3.5-0.8B \
-        --speculative-num-steps 4 \
-        --speculative-eagle-topk 2 \
-        --speculative-num-draft-tokens 4 \
         --disable-custom-all-reduce"

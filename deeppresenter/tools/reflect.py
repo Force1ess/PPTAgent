@@ -37,10 +37,7 @@ async def inspect_slide(
     assert html_path.is_file() and html_path.suffix == ".html", (
         f"HTML path {html_path} does not exist or is not an HTML file"
     )
-    try:
-        await convert_html_to_pptx(html_path, aspect_ratio=aspect_ratio)
-    except Exception as e:
-        return e
+    await convert_html_to_pptx(html_path, aspect_ratio=aspect_ratio)
 
     if REFLECTIVE_DESIGN:
         pdf_path = Path(tempfile.mkdtemp()) / "slide.pdf"

@@ -113,8 +113,6 @@ Available tools:
 > When using a remote server, ensure both ports `8088` and `9297` are forwarded.
 
 ```bash
-# use docker proxy if you are in China
-# docker pull dockerproxy.net/forceless/pptagent:latest
 docker pull forceless/pptagent:latest
 
 # mapping home directory to /root to allow caching of models

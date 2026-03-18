@@ -13,6 +13,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen
 
 # Install Chromium and dependencies
+
 RUN apt-get update && apt-get install -y --fix-missing --no-install-recommends \
         chromium \
         fonts-liberation \
@@ -57,50 +58,22 @@ RUN mkdir -p /usr/src/pptagent&& \
 
 # ? project dependency
 
-WORKDIR /usr/src/app
+WORKDIR /usr/src/pptagent
 
-# Puppeteer config for mermaid-cli
-RUN echo '{"args":["--no-sandbox","--disable-setuid-sandbox"]}' > /root/.puppeteerrc.json
-
-# Set environment variables (for CMD and non-shell contexts)
+# Set environment variables
 ENV PATH="/opt/.venv/bin:${PATH}" \
     PYTHONUNBUFFERED=1 \
     VIRTUAL_ENV="/opt/.venv" \
-    PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
-    LANG=en_US.UTF-8 \
-    LC_ALL=en_US.UTF-8 \
-    MPLCONFIGDIR=/etc/matplotlib \
-    MCP_CLIENT_DOCKER=true
-
-# Export ENV to /etc/profile.d/ for bash -lc and interactive shells
-RUN printenv | grep -E '^(PATH|PYTHONUNBUFFERED|VIRTUAL_ENV|PUPPETEER_|LANG|LC_ALL|MPLCONFIGDIR|MCP_CLIENT_DOCKER)=' | sed 's/^/export /' > /etc/profile.d/docker-env.sh && \
-    echo 'source /etc/profile.d/docker-env.sh' >> /etc/bash.bashrc
-
-# Clone the repository at specific commit
-RUN git clone https://github.com/wonderwhy-er/DesktopCommanderMCP.git . && \
-    git checkout 252a00d624c2adc5707fa743c57a1b68bc223689 && \
-    rm -rf .git
-RUN npm install --ignore-scripts && npm install -g @mermaid-js/mermaid-cli pptxgenjs playwright sharp
+    DEEPPRESENTER_WORKSPACE_BASE="/opt/workspace"
 
 # Create Python virtual environment and install packages
 RUN uv venv --python 3.13 $VIRTUAL_ENV && \
-    uv pip install pip python-pptx matplotlib seaborn plotly numpy pandas opencv-python-headless pillow
+    uv pip install -e .
 
-# Copying config and tailored server files
-COPY config.json /root/.claude-server-commander/config.json
-COPY server.ts src/server.ts
-COPY improved-process-tools.ts src/tools/improved-process-tools.ts
+# install libreoffice for pptx2image converting
+RUN apt install -y libreoffice poppler-utils
+RUN apt install -y docker.io
 
-# Configure matplotlib for CJK fonts
-RUN fc-cache -f && \
-    mkdir -p /etc/matplotlib && \
-    printf '%s\n' \
-      'font.family: sans-serif' \
-      'font.sans-serif: Noto Sans CJK SC, WenQuanYi Zen Hei, DejaVu Sans' \
-      > /etc/matplotlib/matplotlibrc
+RUN fc-cache -f
 
-# Rebuild the package
-RUN npm run build
-
-CMD ["node",  "/usr/src/app/dist/index.js", "--no-onboarding"]
+CMD ["bash", "-c", "umask 000 && python webui.py 0.0.0.0"]

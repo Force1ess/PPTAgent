@@ -68,19 +68,51 @@
 
 ## Usage 📖
 
-### Quick Start with CLI 🚀
+> [!IMPORTANT]
+> Windows is not supported. If you are on Windows, please use WSL.
+
+### Configuration
+
+If you use the CLI, `uvx pptagent onboard` can help create and update these configurations interactively. If you use Docker Compose or build from source, you should prepare them manually:
 
 ```bash
-# Install `uv` for package management
+cp deeppresenter/config.yaml.example deeppresenter/config.yaml
+cp deeppresenter/mcp.json.example deeppresenter/mcp.json
+```
+
+#### Optional Services That Improve Quality
+
+The following services can noticeably improve generation quality, especially for research depth, PDF parsing, and visual asset creation:
+
+- **Tavily**: improves web search quality. Apply for an API key at [tavily.com](https://www.tavily.com/), then set `TAVILY_API_KEY` in [`deeppresenter/mcp.json`](deeppresenter/mcp.json).
+- **MinerU**: improves PDF parsing quality. You can either apply for an API key at [mineru.net](https://mineru.net/apiManage/docs) and set `MINERU_API_KEY` in [`deeppresenter/mcp.json`](deeppresenter/mcp.json), or deploy MinerU locally and set `MINERU_API_URL` instead.
+- **Text-to-image model**: improves image generation quality. Configure `t2i_model` in [`deeppresenter/config.yaml`](deeppresenter/config.yaml).
+
+
+If you want a fully offline setup, deploy MinerU locally and set `offline_mode: true` in `deeppresenter/config.yaml` to avoid loading network-dependent tools such as web search.
+
+More configurable variables can be found in [constants.py](deeppresenter/utils/constants.py).
+
+### 1. Personal Use / OpenClaw Integration: CLI
+
+> [!NOTE]
+> On macOS, the CLI may automatically install several local dependencies, including Homebrew, Node.js, Docker, Playwright, and llama.cpp.
+>
+> On Linux, you should prepare the environment as described [here](#2-minimal-setup--development-build-from-source).
+
+Use this mode if you want the fastest local setup or want to plug DeepPresenter into OpenClaw through the CLI.
+
+```bash
+# Install uv
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Interactive configuration (first time)
+# First-time interactive setup
 uvx pptagent onboard
 
-# Generate presentation
+# Generate a presentation
 uvx pptagent generate "Single Page with Title: Hello World" -o hello.pptx
 
-# With attachments and options
+# Generate with attachments
 uvx pptagent generate "Q4 Report" \
   -f data.xlsx \
   -f charts.pdf \
@@ -88,81 +120,51 @@ uvx pptagent generate "Q4 Report" \
   -o report.pptx
 ```
 
-**Commands:**
 | Command | Description |
 |---------|-------------|
 | `pptagent onboard` | Interactive configuration wizard |
 | `pptagent generate` | Generate presentations |
 | `pptagent config` | View current configuration |
 | `pptagent reset` | Reset configuration |
+| `pptagent serve` | Start the local inference service used by the CLI |
 
-**Options:**
-| Option | Description |
-|--------|-------------|
-| `-f, --file` | Attachment files (multiple allowed) |
-| `-p, --pages` | Number of pages (e.g., "8" or "5-10") |
-| `-a, --aspect` | Aspect ratio (16:9, 4:3, A1, A3, A2, A4) |
-| `-l, --lang` | Language (en/zh) |
-| `-o, --output` | Output directory |
+### 2. Minimal Setup / Development: Build From Source
 
----
-
-### Build From Source 🛠️
-
-#### 1. Environment Configuration
-
-Create configuration files from project root:
-
-```bash
-cp deeppresenter/config.yaml.example deeppresenter/config.yaml
-cp deeppresenter/mcp.json.example deeppresenter/mcp.json
-```
-
-Then set up API keys depending on your deployment mode:
-
-<details>
-<summary>Online setup</summary>
-
-- **MinerU**: Apply for an API key at [mineru.net](https://mineru.net/apiManage/docs). Note that each key is valid for 14 days.
-- **Tavily**: Apply for an API key at [tavily.com](https://www.tavily.com/).
-- **LLM**: Set your model endpoint, API keys, and related parameters in `config.yaml`.
-
-</details>
-
-<details>
-<summary>Offline setup</summary>
-
-- **MinerU**: Deploy the MinerU server by following the [MinerU docker guide](https://opendatalab.github.io/MinerU/quick_start/docker_deployment/#start-services-directly-with-docker-compose).
-
-- **MinerU endpoint**: Set `MINERU_API_URL` in [`mcp.json`](deeppresenter/mcp.json) to your local MinerU service URL.
-
-- **Config switch**: Set `offline_mode: true` in [`config.yaml`](deeppresenter/config.yaml) to avoid loading network-dependent tools (e.g., `fetch`, `search`).
-
-</details>
-
-#### 2. Service Startup
+Use this mode if you want the smallest abstraction layer and full control over dependencies during development.
 
 ```bash
 uv pip install -e .
 playwright install-deps
 playwright install chromium
 npm install --prefix deeppresenter/html2pptx
+docker pull crpi-0dz9m86qyvrdt6ju.cn-beijing.personal.cr.aliyuncs.com/pptagent/deeppresenter-sandbox:v0.1.0
+docker tag crpi-0dz9m86qyvrdt6ju.cn-beijing.personal.cr.aliyuncs.com/pptagent/deeppresenter-sandbox:v0.1.0 deeppresenter-sandbox:0.1.0
+```
+
+Start the app:
+
+```bash
 python webui.py
 ```
 
-The sandbox Docker image is required for code execution features. You can either pull the pre-built image or build it locally:
+### 3. Server Deployment: Docker Compose (Linux Only)
+
+Use this mode for a stable server environment with explicit dependencies.
 
 ```bash
-# Pull pre-built image
+# Pull the public images
+docker pull crpi-0dz9m86qyvrdt6ju.cn-beijing.personal.cr.aliyuncs.com/pptagent/deeppresenter-host:v0.1.0
 docker pull crpi-0dz9m86qyvrdt6ju.cn-beijing.personal.cr.aliyuncs.com/pptagent/deeppresenter-sandbox:v0.1.0
+
+# Tag them to the local names expected by docker-compose.yml
+docker tag crpi-0dz9m86qyvrdt6ju.cn-beijing.personal.cr.aliyuncs.com/pptagent/deeppresenter-host:v0.1.0 deeppresenter-host:0.1.0
 docker tag crpi-0dz9m86qyvrdt6ju.cn-beijing.personal.cr.aliyuncs.com/pptagent/deeppresenter-sandbox:v0.1.0 deeppresenter-sandbox:0.1.0
 
-# Or build from source
-docker build -t deeppresenter-sandbox:0.1.0 -f deeppresenter/docker/SandBox.Dockerfile deeppresenter/docker
+# Start the host service
+docker compose up -d deeppresenter-host
 ```
 
-> [!TIP]
-> All configurable variables can be found in [constants.py](deeppresenter/utils/constants.py).
+The service exposes the web UI on `http://localhost:7861`.
 
 ## Case Study 💡
 

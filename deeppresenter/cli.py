@@ -221,8 +221,6 @@ def setup_inference() -> bool:
     system = platform.system().lower()
     cmd: list[str] | None = None
     env = os.environ.copy()
-    env["MODEL_ENDPOINT"] = "https://www.modelscope.cn"
-
     if system == "darwin":
         console.print(
             f"[cyan]Local model service is not running, starting llama-server -hf {LOCAL_MODEL} --reasoning-budget 0[/cyan]"
@@ -433,43 +431,13 @@ def check_docker_image():
 
         # Image not found, try to pull
         console.print(
-            "[yellow]Docker image not found, pulling from Aliyun registry...[/yellow]"
+            "[yellow]Docker image not found. Please build it locally from source.[/yellow]"
         )
 
-        if not run_streaming_command(
-            [
-                "docker",
-                "pull",
-                "crpi-0dz9m86qyvrdt6ju.cn-beijing.personal.cr.aliyuncs.com/pptagent/deeppresenter-sandbox:v0.1.0",
-            ],
-            failure_message="[yellow]⚠[/yellow] Failed to pull Docker image",
-        ):
-            console.print(
-                "[yellow]Sandbox functionality may not work. You can pull it manually:[/yellow]"
-            )
-            console.print(
-                "  docker pull crpi-0dz9m86qyvrdt6ju.cn-beijing.personal.cr.aliyuncs.com/pptagent/deeppresenter-sandbox:v0.1.0"
-            )
-            return False
-
-        tag_result = subprocess.run(
-            [
-                "docker",
-                "tag",
-                "crpi-0dz9m86qyvrdt6ju.cn-beijing.personal.cr.aliyuncs.com/pptagent/deeppresenter-sandbox:v0.1.0",
-                "deeppresenter-sandbox:0.1.0",
-            ],
-            capture_output=True,
-            text=True,
+        console.print(
+            "[yellow]Build command:[/yellow] docker build -t deeppresenter-sandbox:0.1.0 -f deeppresenter/docker/SandBox.Dockerfile deeppresenter/docker"
         )
-        if tag_result.returncode != 0:
-            console.print(
-                f"[yellow]⚠[/yellow] Failed to tag Docker image: {tag_result.stderr.strip() or tag_result.stdout.strip()}"
-            )
-            return False
-
-        console.print("[green]✓[/green] Successfully pulled and tagged Docker image")
-        return True
+        return False
 
     except FileNotFoundError:
         console.print(
