@@ -146,8 +146,19 @@ Then set up API keys depending on your deployment mode:
 uv pip install -e .
 playwright install-deps
 playwright install chromium
-npm install
+npm install --prefix deeppresenter/html2pptx
 python webui.py
+```
+
+The sandbox Docker image is required for code execution features. You can either pull the pre-built image or build it locally:
+
+```bash
+# Pull pre-built image
+docker pull crpi-0dz9m86qyvrdt6ju.cn-beijing.personal.cr.aliyuncs.com/pptagent/deeppresenter-sandbox:v0.1.0
+docker tag crpi-0dz9m86qyvrdt6ju.cn-beijing.personal.cr.aliyuncs.com/pptagent/deeppresenter-sandbox:v0.1.0 deeppresenter-sandbox:0.1.0
+
+# Or build from source
+docker build -t deeppresenter-sandbox:0.1.0 -f deeppresenter/docker/SandBox.Dockerfile deeppresenter/docker
 ```
 
 > [!TIP]

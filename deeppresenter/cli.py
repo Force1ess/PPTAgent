@@ -47,6 +47,7 @@ console = Console()
 CONFIG_DIR = Path.home() / ".config" / "deeppresenter"
 CONFIG_FILE = CONFIG_DIR / "config.yaml"
 MCP_FILE = CONFIG_DIR / "mcp.json"
+CACHE_DIR = Path.home() / ".cache" / "deeppresenter"
 
 LOCAL_MODEL = "Forceless/DeepPresenter-9B-GGUF:q4_K_M"
 LOCAL_BASE_URL = "http://127.0.0.1:8080/v1"
@@ -191,33 +192,6 @@ def ensure_node() -> bool:
         return False
 
 
-def ensure_libreoffice() -> bool:
-    """Ensure LibreOffice is installed on macOS."""
-    if (
-        shutil.which("soffice") is not None
-        or Path("/Applications/LibreOffice.app").exists()
-    ):
-        console.print("[green]✓[/green] LibreOffice already installed")
-        return True
-
-    console.print("[yellow]LibreOffice not found, installing via Homebrew...[/yellow]")
-
-    if not ensure_homebrew():
-        return False
-
-    try:
-        return run_streaming_command(
-            ["brew", "install", "--cask", "libreoffice"],
-            success_message="[green]✓[/green] LibreOffice installed",
-            failure_message="[bold red]✗[/bold red] Failed to install LibreOffice",
-        )
-    except FileNotFoundError:
-        console.print(
-            "[bold red]✗[/bold red] brew command not found after installation"
-        )
-        return False
-
-
 def is_local_model_server_running() -> bool:
     """Check whether local OpenAI-compatible server responds on /v1/models."""
     try:
@@ -251,9 +225,18 @@ def setup_inference() -> bool:
 
     if system == "darwin":
         console.print(
-            f"[cyan]Local model service is not running, starting llama-server -hf {LOCAL_MODEL}[/cyan]"
+            f"[cyan]Local model service is not running, starting llama-server -hf {LOCAL_MODEL} --reasoning-budget 0[/cyan]"
         )
-        cmd = ["llama-server", "-hf", LOCAL_MODEL, "-c", "64000", "--log-disable"]
+        cmd = [
+            "llama-server",
+            "-hf",
+            LOCAL_MODEL,
+            "-c",
+            "64000",
+            "--log-disable",
+            "--reasoning-budget",
+            "0",
+        ]
     elif system == "linux":
         script_path = PACKAGE_DIR / "deeppresenter" / "sglang.sh"
         if not script_path.exists():
@@ -310,6 +293,7 @@ def prompt_llm_config(
     optional: bool = False,
     existing: dict | None = None,
     previous_config: tuple[str, dict] | None = None,
+    reuse_previous_default: bool = True,
 ) -> dict | None:
     """Prompt user for LLM configuration
 
@@ -318,6 +302,8 @@ def prompt_llm_config(
         optional: Whether this configuration is optional
         existing: Existing configuration from previous onboarding
         previous_config: (name, config) tuple from the last configured model
+        reuse_previous_default: Default choice when asking whether to reuse
+            the last configured model in this session
     """
     if optional:
         if not Confirm.ask(f"Configure {name}?", default=False):
@@ -339,7 +325,9 @@ def prompt_llm_config(
         console.print(
             f"[dim]Last configured: {prev_name} - {prev_cfg.get('model', 'N/A')} @ {prev_cfg.get('base_url', 'N/A')}[/dim]"
         )
-        if Confirm.ask(f"Reuse {prev_name} configuration?", default=True):
+        if Confirm.ask(
+            f"Reuse {prev_name} configuration?", default=reuse_previous_default
+        ):
             return prev_cfg
 
     base_url = Prompt.ask("Base URL")
@@ -540,10 +528,6 @@ def onboard():
     # Check npm dependencies
     check_npm_dependencies()
 
-    if platform.system().lower() == "darwin":
-        console.print("\n[bold cyan]Checking LibreOffice...[/bold cyan]")
-        ensure_libreoffice()
-
     # Check if config files exist in current directory
     local_config = Path.cwd() / "deeppresenter" / "config.yaml"
     local_mcp = Path.cwd() / "deeppresenter" / "mcp.json"
@@ -681,6 +665,7 @@ def onboard():
                 if existing_config
                 else None,
                 previous_config=last_config,
+                reuse_previous_default=False,
             )
             config_data["vision_model"] = vision_model
             last_config = ("Vision Model", vision_model)
@@ -692,6 +677,7 @@ def onboard():
             optional=True,
             existing=existing_config.get("t2i_model") if existing_config else None,
             previous_config=last_config,
+            reuse_previous_default=False,
         )
         if t2i_config:
             config_data["t2i_model"] = t2i_config
@@ -920,6 +906,38 @@ def reset():
             console.print("[bold green]✓[/bold green] Configuration reset")
         else:
             console.print("[yellow]No configuration found[/yellow]")
+
+
+@app.command()
+def clean():
+    """Remove DeepPresenter user config and cache directories"""
+    targets = [CONFIG_DIR, CACHE_DIR]
+    console.print("[bold yellow]This will remove:[/bold yellow]")
+    for path in targets:
+        console.print(f"  • {path}")
+
+    if not Confirm.ask("Proceed with clean?", default=False):
+        return
+
+    removed: list[Path] = []
+    missing: list[Path] = []
+
+    for path in targets:
+        if path.exists():
+            shutil.rmtree(path)
+            removed.append(path)
+        else:
+            missing.append(path)
+
+    if removed:
+        console.print("[bold green]✓[/bold green] Removed:")
+        for path in removed:
+            console.print(f"  • {path}")
+
+    if missing:
+        console.print("[yellow]Not found:[/yellow]")
+        for path in missing:
+            console.print(f"  • {path}")
 
 
 def main():

@@ -16,7 +16,6 @@ from tqdm.asyncio import tqdm_asyncio
 from deeppresenter.main import InputRequest
 from deeppresenter.utils.webview import PlaywrightConverter, convert_html_to_pptx
 from pptagent.model_utils import get_image_embedding, get_image_model
-from pptagent.utils import ppt_to_images
 
 SIMILARITY_THRESHOLD = 0.8
 MAX_CONCURRENCY = 4
@@ -89,6 +88,8 @@ def _check_pptx_validity(pptx_path: Path) -> tuple[bool, str | None]:
 async def _process_slides(
     workspace: Path, semaphore: asyncio.Semaphore
 ) -> tuple[Path, str] | None:
+    from pptagent.utils import ppt_to_images
+
     intermediate_path = workspace / "intermediate_output.json"
     if not intermediate_path.exists():
         return None
