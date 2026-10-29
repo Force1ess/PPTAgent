@@ -1,3 +1,9 @@
+> [!NOTE]
+> 本仓库是 PPTAgent 项目的归档版本，定格于本人硕士毕业之际，既留作纪念，亦供他人实验参考
+> 
+> This is an archival snapshot of PPTAgent, frozen at the close of my master’s journey—a keepsake of the pursuit, and a starting point for those who wish to retrace it.
+>
+> Inside: a harness tailored for slide creation, a fine-tuned model, and an evaluation framework. Perhaps dated, but forever classic—or so I choose to believe.
 
 <div align="right">
   <details>
@@ -200,6 +206,24 @@ The service exposes the web UI on `http://localhost:7861`.
 
 ## Case Study 💡
 
+- #### Prompt: 请介绍小米 SU7 的外观和价格
+
+<div style="display: flex; flex-wrap: wrap; gap: 10px;">
+
+  <img src="resource/v2/presentation1/0001.jpg" alt="图片1" width="200"/>
+
+  <img src="resource/v2/presentation1/0002.jpg" alt="图片2" width="200"/>
+
+  <img src="resource/v2/presentation1/0003.jpg" alt="图片3" width="200"/>
+
+  <img src="resource/v2/presentation1/0004.jpg" alt="图片4" width="200"/>
+
+  <img src="resource/v2/presentation1/0005.jpg" alt="图片5" width="200"/>
+
+  <img src="resource/v2/presentation1/0006.jpg" alt="图片6" width="200"/>
+
+</div>
+
 - #### Prompt: Please present the given document to me.
 
 <div style="display: flex; flex-wrap: wrap; gap: 10px;">
@@ -223,24 +247,6 @@ The service exposes the web UI on `http://localhost:7861`.
   <img src="resource/v2/manuscript/0009.jpg" alt="图片9" width="200"/>
 
   <img src="resource/v2/manuscript/0010.jpg" alt="图片10" width="200"/>
-
-</div>
-
-- #### Prompt: 请介绍小米 SU7 的外观和价格
-
-<div style="display: flex; flex-wrap: wrap; gap: 10px;">
-
-  <img src="resource/v2/presentation1/0001.jpg" alt="图片1" width="200"/>
-
-  <img src="resource/v2/presentation1/0002.jpg" alt="图片2" width="200"/>
-
-  <img src="resource/v2/presentation1/0003.jpg" alt="图片3" width="200"/>
-
-  <img src="resource/v2/presentation1/0004.jpg" alt="图片4" width="200"/>
-
-  <img src="resource/v2/presentation1/0005.jpg" alt="图片5" width="200"/>
-
-  <img src="resource/v2/presentation1/0006.jpg" alt="图片6" width="200"/>
 
 </div>
 
@@ -435,7 +441,7 @@ The service exposes the web UI on `http://localhost:7861`.
 </tr>
 </table>
 
-[![Star History Chart](https://api.star-history.com/svg?repos=icip-cas/PPTAgent&type=Date)](https://star-history.com/#icip-cas/PPTAgent&Date)
+<img width="800" height="533" alt="image" src="https://github.com/user-attachments/assets/9f2e26c7-2b37-4337-a6d4-e64fe22341e9" />
 
 ## Citation 🙏
 
